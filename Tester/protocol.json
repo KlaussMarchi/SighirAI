@@ -1,0 +1,230 @@
+[
+    {
+        "label": "Teste de Sopro",
+        "value": "blow_test",
+        "any": [
+            {
+                "value": "TST_PRESS",
+                "response": [
+                    {"value": "pressworking", "timeout": 15.0, "delay": 3.0, "fail": "$ERROR!"}
+                ]
+            }
+        ]
+    },
+    {
+        "label": "Teste Alcóolico Padrão (sem álcool)",
+        "value": "standard_test",
+        "mix": [
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:press$1!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:testalc$0!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "$ETAT01!",
+                "response": [
+                    {"value": "$ETATACK!", "timeout": 5.0, "delay": 5.0},
+                    {"value": "$ETEV05!", "timeout": 70.0, "delay": 5.0},
+                    {"value": "$ETEV29!", "timeout": 35.0, "delay": 0.0, "fail": "$ETEV30"},
+                    {"value": "$ETEV01!", "timeout": 10.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:press$0!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 3.0}
+                ]
+            }
+        ],
+        "suntech": [
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:press$1!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:testalc$0!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "STT;0360000001;3FFFFF;36;1.0.14;1;20161117;08:37:39;0000004F;450;0;0014;20;+37.479323;_______1___;0;65.43;10;1;00000101;00001000;1;2;0492",
+                "response": [
+                    {"value": "$ETEV05!", "timeout": 70.0, "delay": 5.0},
+                    {"value": "$ETEV29!", "timeout": 35.0, "delay": 0.0, "fail": "$ETEV30"},
+                    {"value": "$ETEV01!", "timeout": 10.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:press$0!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "STT;0360000001;3FFFFF;36;1.0.14;1;20161117;08:37:39;0000004F;450;0;0014;20;+37.479323;_______0___;0;65.43;10;1;00000101;00001000;1;2;0492",
+                "response": [
+                    {"value": "SttReq", "timeout": 12.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 2.0}
+                ]
+            }
+        ]
+    },
+    {
+        "label": "Teste Alcóolico (automático com álcool)",
+        "value": "alcohol_test",
+        "mix": [
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:press$1!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:testalc$1!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "$ETAT01!",
+                "response": [
+                    {"value": "$ETATACK!", "timeout": 5.0, "delay": 5.0},
+                    {"value": "$ETEV05!", "timeout": 70.0, "delay": 5.0},
+                    {"value": "$ETEV30", "timeout": 35.0, "delay": 8.0, "fail": "$ETEV29!"}
+                ]
+            },
+            {
+                "value": "CF:press$0!",
+                "response": [
+                    {"value": "OK", "timeout": 15.0, "delay": 3.0}
+                ]
+            },
+            {
+                "value": "CF:testalc$0!",
+                "response": [
+                    {"value": "OK", "timeout": 15.0, "delay": 3.0}
+                ]
+            },
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 8.0, "delay": 5.0}
+                ]
+            }
+        ],
+        "suntech": [
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:press$1!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "CF:testalc$1!",
+                "response": [
+                    {"value": "OK", "timeout": 5.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "STT;0360000001;3FFFFF;36;1.0.14;1;20161117;08:37:39;0000004F;450;0;0014;20;+37.479323;_______1___;0;65.43;10;1;00000101;00001000;1;2;0492",
+                "response": [
+                    {"value": "$ETEV05!", "timeout": 70.0, "delay": 5.0},
+                    {"value": "$ETEV30", "timeout": 35.0, "delay": 8.0, "fail": "$ETEV29!"}
+                ]
+            },
+            {
+                "value": "CF:press$0!",
+                "response": [
+                    {"value": "OK", "timeout": 15.0, "delay": 3.0}
+                ]
+            },
+            {
+                "value": "CF:testalc$0!",
+                "response": [
+                    {"value": "OK", "timeout": 15.0, "delay": 3.0}
+                ]
+            },
+            {
+                "value": "STT;0360000001;3FFFFF;36;1.0.14;1;20161117;08:37:39;0000004F;450;0;0014;20;+37.479323;_______0___;0;65.43;10;1;00000101;00001000;1;2;0492",
+                "response": [
+                    {"value": "SttReq", "timeout": 12.0, "delay": 2.0}
+                ]
+            },
+            {
+                "value": "endTravel",
+                "response": [
+                    {"value": "OFF", "timeout": 5.0, "delay": 2.0}
+                ]
+            }
+        ]
+    },
+    {
+        "label": "Teste de Temperatura",
+        "value": "temperature_test",
+        "any": [
+            {
+                "value": "TST_TEMP",
+                "response": [
+                    {"value": "tempworking", "timeout": 15.0, "delay": 5.0, "fail": "ERROR"}
+                ]
+            }
+        ]
+    },
+    {
+        "label": "Teste do Sensor de Álcool",
+        "value": "sensor_test",
+        "any": [
+            {
+                "value": "TST_SENS",
+                "response": [
+                    {"value": "$ETEV20!", "timeout": 15.0, "delay": 5.0, "fail": "$ETEV24!"}
+                ]
+            }
+        ]
+    }
+]
