@@ -58,9 +58,5 @@ class NoiseFilter:
 
         return re.sub(r'\s+', ' ', text).strip()
 
-    def isNoise(self, text, keep=None):
-        """True quando a string só tem lixo de telemetria (nada aproveitável)."""
-        return bool(text) and not self.clean(text, keep)
-
 
 noise = NoiseFilter()

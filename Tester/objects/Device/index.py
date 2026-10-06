@@ -1,4 +1,4 @@
-import serial, ast
+import serial
 import serial.tools.list_ports
 from time import sleep, time
 from utils.functions import sendEvent
@@ -32,7 +32,7 @@ class Device:
         sendEvent('event', f'trying connection: {self.port}')
 
         if self.device and self.device.is_open:
-            return sendEvent('success', f'already connected')
+            return sendEvent('success', 'already connected')
         try:
             self.device = serial.Serial(self.port, self.rate, timeout=self.timeout)
         except Exception as error:
@@ -95,9 +95,18 @@ class Device:
                 target = port
 
         # fallback cross-platform: se nenhuma descrição casar com 'usb'
-        # (raro no Windows com COMx), usa a primeira porta disponível
+        # (raro no Windows com COMx), usa a primeira porta disponível que não seja
+        # Bluetooth — porta BT ("Serial Padrão por link Bluetooth", /dev/rfcomm*) nunca
+        # é o etilômetro e segura o status por ~1 min em timeout
         if target is None:
-            target = next(iter(ports.keys()))
+            wired = [port for port, description in ports.items()
+                     if 'bluetooth' not in description.lower() and 'rfcomm' not in port.lower()]
+
+            if not wired:
+                sendEvent('error', 'no port found (só portas Bluetooth: o etilômetro não está no USB)')
+                return None
+
+            target = wired[0]
 
         return target
     
@@ -157,19 +166,6 @@ class Device:
             sendEvent('error', error)
             return None
 
-
-    def getJson(self, timeout=5.0):
-        data = self.get(timeout)
-
-        if data is None:
-            return None
-        
-        try:
-            return ast.literal_eval(data)
-        except Exception as error:
-            sendEvent('error', error)
-        
-        return None
 
     def available(self):
         if not self.device:

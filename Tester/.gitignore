@@ -1,5 +1,9 @@
+.venv/
 venv/
+.sighir/
 scratch/
 __pycache__/
 .preflight_ok
 flash.log
+flash.err
+.claude/settings.local.json

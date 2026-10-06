@@ -3,10 +3,7 @@ import requests
 import functools
 from time import sleep
 from time import time as getTime
-import sys, os, unidecode, re, json
-
-def millis():
-    return int(getTime()*1000)
+import sys, os, re, json
 
 def sendEvent(eventType, message, color='blue', delay=0.0, end='\n', top='', repeat=False):
     status = eventType
@@ -65,14 +62,6 @@ def getPath(path):
 
     return os.path.join(basePath, path)
 
-
-
-def cleanText(sentence):
-    sentence = sentence.lower().strip().replace(' ', '')
-    sentence = unidecode.unidecode(sentence) 
-    sentence = re.sub(r'[^a-zA-Z0-9\s]', '', sentence) 
-    sentence = re.sub(r'\s+', ' ', sentence).strip() 
-    return sentence
 
 
 def showLogo(version):

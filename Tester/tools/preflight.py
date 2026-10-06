@@ -27,12 +27,7 @@ STAMP_TTL = 24 * 3600  # segundos
 DEPENDENCIES = [
     ('serial',         'pyserial',       True),
     ('requests',       'requests',       True),
-    ('unidecode',      'unidecode',      True),
     ('prompt_toolkit', 'prompt_toolkit', True),
-    # opcionais (UI/automação): podem falhar em headless, não bloqueiam
-    ('keyboard',       'keyboard',       False),
-    ('pyperclip',      'pyperclip',      False),
-    ('pyautogui',      'pyautogui',      False),
 ]
 
 

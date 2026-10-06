@@ -1,0 +1,4 @@
+# Sighir Scanner AI — dependências (instaladas no .venv pelo tools/boot.py)
+requests
+# leitura de PDFs da base ../docs quando não houver pdftotext
+pypdf

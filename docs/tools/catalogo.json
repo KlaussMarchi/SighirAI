@@ -1,0 +1,261 @@
+{
+ "comandos_config.md": {
+  "arquivo": "comandos_config.md",
+  "descricao": "Comandos seriais, parser, configurações (NVS) e padrões, Wi-Fi, rotas HTTP, OTA",
+  "quando": "configurar/consultar o aparelho",
+  "revisado": "2026-09-23",
+  "sha1": "0796428e17f6f681be87fff1667a5f96a8e20abb"
+ },
+ "diagnostico.md": {
+  "arquivo": "diagnostico.md",
+  "descricao": "Playbook por sintoma: hipóteses, testes, soluções, casos, categorias de anomalias",
+  "quando": "qualquer problema de campo",
+  "revisado": "2026-09-24",
+  "sha1": "222f8b8f6647dfbeaf2b276ba5b698db9e4282bb"
+ },
+ "eletrica_instalacao.md": {
+  "arquivo": "eletrica_instalacao.md",
+  "descricao": "Cabos, pinagens, relé, chicote Suntech, instalação, validação, bancada, lições de campo",
+  "quando": "elétrica e instalação",
+  "revisado": "2026-09-23",
+  "sha1": "de066bfe41f00eb61a0a957b054147968cd4f641"
+ },
+ "firmware_reference.md": {
+  "arquivo": "firmware_reference.md",
+  "descricao": "Eventos $ETEVnn! com linha do firmware, fluxos e o que cada telemetria repassa (medido no banco)",
+  "quando": "interpretar eventos e logs",
+  "revisado": "2026-09-23",
+  "sha1": "74872fad913bec6804a5633bec5703ec7d82b823"
+ },
+ "hardware/firmware_etilometro.md": {
+  "arquivo": "hardware/FIRMWARE_ETILOMETRO.md",
+  "descricao": "Documentação completa do firmware v6.4.8 módulo a módulo, tabelas e bugs latentes (§17)",
+  "quando": "comportamento exato do aparelho",
+  "revisado": "2026-09-23",
+  "sha1": "a11e7473d75b7c439166e92a9efd40d39109dd6b"
+ },
+ "hardware/prompt_assistente_suporte.md": {
+  "arquivo": "hardware/PROMPT_ASSISTENTE_SUPORTE.md",
+  "descricao": "Prompt original do assistente técnico (base do Helper): método, formato de resposta, perfis, limites, mapa sintoma→código",
+  "quando": "como conduzir um atendimento",
+  "revisado": "2026-09-23",
+  "sha1": "6154b2cb74f0e8b33c1c90ba41f8269c0d4457f7"
+ },
+ "notion/api-logs.pdf": {
+  "arquivo": "Notion/api-logs.pdf",
+  "descricao": "Guia da API de logs: token JWT, /api/v2/logs/ e filtros (start, end, vehicle, event, telemetry), paginação, dash-data, alert-events, tabela de eventos",
+  "quando": "consultar logs pela API",
+  "revisado": "2026-09-23",
+  "sha1": "5114691e338ab71a91cb22e48e17565aad5f93fc"
+ },
+ "notion/etiqueta_sinal_ignio_e_rele.pdf": {
+  "arquivo": "Notion/ETIQUETA_SINAL_IGNIO_E_RELE.pdf",
+  "descricao": "Etiqueta do corte de ignição: pós-chave nos pinos 30/87a do relé, VCC e GND",
+  "quando": "ligação do relé de bloqueio",
+  "revisado": "2026-09-23",
+  "sha1": "258c60fb9b0e18d8898c76991ba36b26da6a8923"
+ },
+ "notion/guia-integracao-camera.pdf": {
+  "arquivo": "Notion/guia-integracao-camera.pdf",
+  "descricao": "Integração com provedores de câmera: publicação de ocorrências, janela de vídeo, correlação, /logs/video/, homologação",
+  "quando": "câmeras/vídeo de eventos",
+  "revisado": "2026-09-23",
+  "sha1": "96578d60e92220ba8540486741424b32074574c0"
+ },
+ "notion/handover.pdf": {
+  "arquivo": "Notion/Handover.pdf",
+  "descricao": "Handover (Letícia Reis): integrações MiX/SystemSat/Suntech/Movieit/Entrack, contatos, uso dos portais parceiros, AOVX/SyncTrak. CONTÉM CREDENCIAIS — não copiar",
+  "quando": "operar portal da MiX/SystemSat/Movieit, contato das telemetrias",
+  "revisado": "2026-09-23",
+  "sha1": "ba0b0c4f2111341b57ef3b677d8c2cb80e701542"
+ },
+ "notion/main 1.pdf": {
+  "arquivo": "Notion/main 1.pdf",
+  "descricao": "MUAM 0001-01 — manual do app Sighir Monitor: perfis, Wi-Fi do aparelho, configurações, monitoramento, desbloqueio manual, testes de protocolo",
+  "quando": "dúvidas sobre o app",
+  "revisado": "2026-09-23",
+  "sha1": "2e91b6edd8d90c890fd909d549544d35af9547ff"
+ },
+ "notion/main 2.pdf": {
+  "arquivo": "Notion/main 2.pdf",
+  "descricao": "MUWP 0001-01 — manual do Portal Web: Controle, bloqueio remoto, Mapa, Software (OTA/parâmetros), Monitoramento, Relatórios de calibração",
+  "quando": "dúvidas sobre o portal",
+  "revisado": "2026-09-23",
+  "sha1": "c7377b5a4fffda09d30b301f9138d814aaed3aca"
+ },
+ "notion/main.pdf": {
+  "arquivo": "Notion/main.pdf",
+  "descricao": "PPTC 0001-01 — protocolo de comunicação DAD01 (atual): comandos, eventos $ETEVnn!, estágios do sensor, fluxos MIX 2.0",
+  "quando": "significado oficial de eventos/comandos",
+  "revisado": "2026-09-23",
+  "sha1": "a81e909d6f104c9b90b50a133c09a2fd173fc557"
+ },
+ "notion/manual_de_instalao_dad01_(3).pdf": {
+  "arquivo": "Notion/MANUAL_DE_INSTALAO_DAD01_(3).pdf",
+  "descricao": "Manual de instalação DAD01 v0.2 (dez/2024): componentes, cabo de força (cores), relé positivo/negativo, instalação autônoma/compartilhada, app, update, solução de problemas MiX/SystemSat/Movieit",
+  "quando": "cores do chicote, relé, passo a passo com o app",
+  "revisado": "2026-09-23",
+  "sha1": "4fd26b4ace5832f2b19fa4723c8778b0a84dec25"
+ },
+ "notion/manual_de_treinamento.pdf": {
+  "arquivo": "Notion/manual_de_treinamento.pdf",
+  "descricao": "Manual do motorista (DAD01): passo a passo do teste, adiamento, randômico, manobra, câmera, menu, troca de sensor, cuidados contra falso positivo",
+  "quando": "orientar motorista/cliente",
+  "revisado": "2026-09-23",
+  "sha1": "b0ff655cc4fbcce48a00890e61bef470b01e01b3"
+ },
+ "notion/manual_do_usuario_st4305-1.pdf": {
+  "arquivo": "Notion/Manual_do_usuario_ST4305-1.pdf",
+  "descricao": "Manual do fabricante do rastreador Suntech ST4305 (comandos, LEDs, entradas/saídas)",
+  "quando": "detalhe do módulo Suntech",
+  "revisado": "2026-09-23",
+  "sha1": "feba2a4cc9dda7f29757a5153fceaddfee9ec5ce"
+ },
+ "notion/passo_a_passo__cabo_suntech.pdf": {
+  "arquivo": "Notion/Passo_a_passo__cabo_suntech.pdf",
+  "descricao": "Montagem do chicote Suntech: derivações VCC/IGN/GND e relé 85/86/30/87a",
+  "quando": "montar ou conferir chicote Suntech",
+  "revisado": "2026-09-23",
+  "sha1": "9d0f6c58bae36f73490701fe6e24138637b4b3c7"
+ },
+ "notion/procedimento_de_calibrao___sighir.pdf": {
+  "arquivo": "Notion/Procedimento_de_Calibrao___Sighir.pdf",
+  "descricao": "PPTC 0001-01 — procedimento de calibração (visão geral): bancada de gás, aquisição, filtro de outliers, regressão, certificação, validade 1 ano",
+  "quando": "calibração de sensores",
+  "revisado": "2026-09-23",
+  "sha1": "0dc4461120e6990ed5352f9e9c00aeff3ddd8366"
+ },
+ "notion/procedimento_de_calibrao_tcnico.pdf": {
+  "arquivo": "Notion/Procedimento_de_Calibrao_Tcnico.pdf",
+  "descricao": "PPTC 0001-02 — manual técnico de calibração: modelo a·b^(cx+d), ajuste LM, R²/RMSE/MAE, incerteza GUM (D'Quim/Guth/ACMA), validade 365 dias",
+  "quando": "metrologia, incerteza, certificado",
+  "revisado": "2026-09-23",
+  "sha1": "0a975320169b858c72307e500bc6899589ab4469"
+ },
+ "notion/procedimento_de_instalao_entrack.pdf": {
+  "arquivo": "Notion/Procedimento_de_Instalao_Entrack.pdf",
+  "descricao": "Procedimento de instalação com Entrack: conexões, relé no fio de ignição, verificação de comunicação",
+  "quando": "instalar Entrack",
+  "revisado": "2026-09-23",
+  "sha1": "ceba0103c21af32ef5f288aab6f954f8bd51421d"
+ },
+ "notion/procedimento_de_instalao_mix 1.pdf": {
+  "arquivo": "Notion/Procedimento_de_Instalao_MIX 1.pdf",
+  "descricao": "Procedimento de instalação com MiX (versão mais nova, com configuração remota): S1, bateria, pen drive, script de ativação, validação",
+  "quando": "instalar MiX",
+  "revisado": "2026-09-23",
+  "sha1": "6f7f35afd06858c9732795d0620f213d1fa02d23"
+ },
+ "notion/procedimento_de_instalao_mix.pdf": {
+  "arquivo": "Notion/Procedimento_de_Instalao_MIX.pdf",
+  "descricao": "Procedimento de instalação com MiX (versão anterior; prefira a \"MIX 1\")",
+  "quando": "histórico",
+  "revisado": "2026-09-23",
+  "sha1": "66899025cb65ddba6fd2f20aecdfc65895fd2063"
+ },
+ "notion/procedimento_de_instalao_suntech 1.pdf": {
+  "arquivo": "Notion/Procedimento_de_Instalao_Suntech 1.pdf",
+  "descricao": "Procedimento de instalação com Suntech (versão mais nova): 4 vias/6 vias, relé acoplado no fio de ignição, verificação, configuração remota",
+  "quando": "instalar Suntech",
+  "revisado": "2026-09-23",
+  "sha1": "5180fd73854d1bb00b95551fe346aeb68598f034"
+ },
+ "notion/procedimento_de_instalao_suntech.pdf": {
+  "arquivo": "Notion/Procedimento_de_Instalao_Suntech.pdf",
+  "descricao": "Procedimento de instalação com Suntech (versão anterior; prefira a \"Suntech 1\")",
+  "quando": "histórico",
+  "revisado": "2026-09-23",
+  "sha1": "e58eb15f790972eee35661000340db8a326af2d4"
+ },
+ "notion/procedimento_padro_de_instalao__sighir.pdf": {
+  "arquivo": "Notion/Procedimento_Padro_de_Instalao__Sighir.pdf",
+  "descricao": "INST 0001-02 — procedimento padrão de instalação: ferramentas, acomodação, RS232/microfit/DB9, S1/S2 MiX, verificação, app, testes de comunicação e solução de problemas (MiX, bloqueio, sensor)",
+  "quando": "instalação e problemas de instalação",
+  "revisado": "2026-09-23",
+  "sha1": "4d4d02578d5b663d7938ca040cd44fc9c1065773"
+ },
+ "notion/procedimento_padro_testes_funcionais__sighir.pdf": {
+  "arquivo": "Notion/Procedimento_Padro_Testes_funcionais__Sighir.pdf",
+  "descricao": "Testes funcionais de bancada das placas: pinagem 8 e 6 vias, continuidade do espiral, ajuste dos 3 reguladores, API de testes",
+  "quando": "bancada, pinagem, reguladores",
+  "revisado": "2026-09-23",
+  "sha1": "bfbe8cfa28b448eeb18ff6dfe6ad5e9370c8229c"
+ },
+ "notion/protocol.pdf": {
+  "arquivo": "Notion/PROTOCOL.pdf",
+  "descricao": "Protocolo serial ANTIGO (ago/2025): comandos ID:/CF:, lista de variáveis, telemetrias 0–5 (inclui Infleet/Systemsat)",
+  "quando": "aparelhos antigos; significado histórico de chaves",
+  "revisado": "2026-09-23",
+  "sha1": "8139dbf5eecd87ef049f2708748b8fa9e56ce1da"
+ },
+ "notion/resolucao de problemas.csv": {
+  "arquivo": "Notion/Resolução de Problemas 25079b90eb7380048323ce9f5903d098.csv",
+  "descricao": "Tabela de chamados de campo (Notion) — resumida em casos_notion.md",
+  "quando": "chamados anteriores",
+  "revisado": "2026-09-23",
+  "sha1": "73711546b4c53033404451264f9b1f6ad2284b83"
+ },
+ "notion/resolucao de problemas_all.csv": {
+  "arquivo": "Notion/Resolução de Problemas 25079b90eb7380048323ce9f5903d098_all.csv",
+  "descricao": "Tabela de chamados de campo (Notion, todas as linhas) — resumida em casos_notion.md",
+  "quando": "chamados anteriores",
+  "revisado": "2026-09-24",
+  "sha1": "fa52e01c651f2efb73168bd42eeffe9b83c399d7"
+ },
+ "operacao_telas.md": {
+  "arquivo": "operacao_telas.md",
+  "descricao": "Telas (texto exato), cores, sons, fluxo do teste e menu ID/INFO/CONFIG",
+  "quando": "o que o motorista/técnico vê",
+  "revisado": "2026-09-23",
+  "sha1": "140536fe63a209efa5a4bcdc4c4fac0c04fc4609"
+ },
+ "portal_app.md": {
+  "arquivo": "portal_app.md",
+  "descricao": "Portal web, app Sighir Monitor, portais MiX/SystemSat/Movieit, API (rotas, filtros, armadilhas)",
+  "quando": "portal, app e servidor",
+  "revisado": "2026-09-23",
+  "sha1": "7c9d150fe3a2e593ba234735cbd93ecd2f18805d"
+ },
+ "sensor_calibracao.md": {
+  "arquivo": "sensor_calibracao.md",
+  "descricao": "Sensor, sopro, estabilização, purga, vida útil, calibração, troca de sensor, falso positivo",
+  "quando": "problemas de sensor/sopro/leitura",
+  "revisado": "2026-09-23",
+  "sha1": "42953623b880fa05b38c8ed90b53e83ce44d8162"
+ },
+ "server_reference.md": {
+  "arquivo": "server_reference.md",
+  "descricao": "Schema do servidor Django, sincronização, instalar/editar/deletar, rotas",
+  "quando": "operar no banco/servidor",
+  "revisado": "2026-09-24",
+  "sha1": "f3e4ae0cea52252ae4fe83410de9752b79fe4366"
+ },
+ "sincronizar.md": {
+  "arquivo": "sincronizar.md",
+  "descricao": "Procedimento \"sincronizar os documentos\": Notion inteiro (API ou conector) + resumo do servidor + índice, e o que revisar depois",
+  "quando": "atualizar a base docs/",
+  "revisado": "2026-09-24",
+  "sha1": "a23c2b3e802743b908214456e29fe1eb752a5055"
+ },
+ "sistema.md": {
+  "arquivo": "sistema.md",
+  "descricao": "Visão geral: peças, identidades, fluxo de dados, ciclo de uso, perfis, glossário",
+  "quando": "entender o sistema",
+  "revisado": "2026-09-23",
+  "sha1": "69cf56ace8f5ed74ef1c3f92ac62f248ce65c32b"
+ },
+ "telemetrias.md": {
+  "arquivo": "telemetrias.md",
+  "descricao": "MiX/MIX 2.0/Suntech/Entrack: ignição, bloqueio, handshake, portais, o que chega ao servidor",
+  "quando": "problemas de integração/telemetria",
+  "revisado": "2026-09-24",
+  "sha1": "9d5ec029f0cd1f43b7e75c1d7b0d43ced7c47698"
+ },
+ "troubleshooting.md": {
+  "arquivo": "troubleshooting.md",
+  "descricao": "Checklists de campo da equipe por problema (requisição de teste, atualização, bloqueio, app, reinícios, álcool, sopro, comunicação) — gerado do Notion (Suporte → Troubleshooting)",
+  "quando": "roteiro de campo; o porquê e as evidências ficam no diagnostico.md",
+  "revisado": "2026-09-24",
+  "sha1": "9dbb73d2518d52edd7047b69e84d6f809b33f6ef"
+ }
+}

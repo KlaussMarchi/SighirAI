@@ -1,7 +1,0 @@
-pyserial
-requests
-keyboard
-unidecode
-pyperclip
-pyautogui
-prompt_toolkit

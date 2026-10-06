@@ -1,6 +1,3 @@
-serverURL = 'https://www.sighir.com:8000/'
-espURL    = 'http://192.168.1.2/'
-
 telemetries = {
     'mix': 5,
     'suntech': 2,
@@ -17,5 +14,3 @@ settings = {
     'max_postpone': 0,
     'camera': 3,
 }
-
-ESP_ID = 'MIC9994442222344'

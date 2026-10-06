@@ -1,0 +1,10 @@
+{
+  "id": "helper",
+  "nome": "Sighir Helper AI",
+  "requirements": "requirements.txt",
+  "imports": ["requests", "pypdf"],
+  "extras": [],
+  "claude": {"model": "claude-sonnet-5", "effort": "high"},
+  "gemini": {"model": "auto-pro-high", "fallback": "gemini-3.1-pro-high"},
+  "prompt_inicial": "Olá! Inicie a sessão."
+}

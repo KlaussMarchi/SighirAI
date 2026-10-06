@@ -1,6 +1,5 @@
 from objects.Device.index import device
 from utils.functions import sendEvent
-from utils.classes import CustomForms
 from time import time as getTime
 
 

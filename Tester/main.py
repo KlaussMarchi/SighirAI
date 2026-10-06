@@ -1,3 +1,7 @@
+import os
+from tools import _venv
+_venv.ensure(os.path.dirname(os.path.abspath(__file__)))
+
 from utils.functions import sendEvent, showLogo
 from objects.Tester.index import tester
 from objects.Device.index import device

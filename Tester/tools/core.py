@@ -22,8 +22,8 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from objects.Device.index import device
-from objects.Server.index import server
-from objects.Updater.index import updater
+from objects.Server.index import server      # noqa: F401 — reexportado (sighir.py usa core.server)
+from objects.Updater.index import updater    # noqa: F401 — reexportado (sighir.py usa core.updater)
 from utils.api import post_req
 
 MIN_FIRMWARE = (6, 4, 0)
@@ -37,10 +37,28 @@ def log(tag, msg):
     print(f"{c}[sighir:{tag}]{colors['reset']} {msg}")
 
 
+_everConnected = False
+
+
 def robustConnect(retries=6, backoff=2.0):
+    global _everConnected
     for attempt in range(1, retries + 1):
+        # nunca conectou neste processo e não há porta candidata (nenhuma USB): o etilômetro não está
+        # plugado — duas olhadas e desiste (~2 s em vez de ~24 s). A insistência longa abaixo é para a
+        # porta que some e volta depois de reset/erase/flash, quando já houve conexão.
+        if not _everConnected and device.port is None:
+            port = device.scan()
+            if port is None:
+                if attempt >= 2:
+                    log('err', 'nenhuma porta USB do etilômetro: confira o cabo (de dados) e o driver')
+                    return False
+                sleep(1.0)
+                continue
+            device.port = port
+
         device.reconnect()
         if device.device and device.device.is_open:
+            _everConnected = True
             return True
         # a porta pode ter re-enumerado (ex: pós reset/erase com outro nome):
         # força re-scan na próxima tentativa
@@ -143,19 +161,15 @@ def extractValue(raw):
     return cleaned or None
 
 
-def _extractId(raw):
-    return extractValue(raw)
-
-
 def readEspId(retries=4):
     for attempt in range(1, retries + 1):
         device.clear()
         raw = device.request('ID:esp_id$', timeout=10)
         if raw and 'MIC' in raw:
-            return _extractId(raw)
+            return extractValue(raw)
         # pode vir 'admin_sighir' (config sobrescrita) — também é válido como leitura
         if raw and 'admin_sighir' in raw:
-            return _extractId(raw)
+            return extractValue(raw)
         log('warn', f'esp_id inválido ({raw!r}), tentativa {attempt}/{retries}')
         sleep(1.0)
     return None
@@ -166,7 +180,7 @@ def readSensorId(retries=4):
         device.clear()
         raw = device.request('sensor_id', timeout=10)
         if raw and 'ETL' in raw:
-            return _extractId(raw)
+            return extractValue(raw)
         log('warn', f'sensor_id inválido ({raw!r}), tentativa {attempt}/{retries}')
         sleep(1.0)
     return None
@@ -238,6 +252,9 @@ def setTelemetry(mode):
         return False
 
     value = TELEMETRIES[mode]
+    if mode == 'mix':
+        log('warn', 'mix = MIX ANTIGO (0). A maior parte da frota MiX é MIX 2.0 (mix2 = 5): confira no '
+                    'cadastro (telemetry_label "MIX TELEMATICS (NOVO)" → mix2) antes de seguir')
 
     if not writeSetting('telemetry', value):
         return False

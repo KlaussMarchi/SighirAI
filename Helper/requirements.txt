@@ -1,0 +1,3 @@
+# Sighir Helper AI — dependências (instaladas no .venv pelo tools/boot.py)
+requests
+pypdf

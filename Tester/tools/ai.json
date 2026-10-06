@@ -1,0 +1,10 @@
+{
+  "id": "tester",
+  "nome": "Sighir Tester AI",
+  "requirements": "requirements.txt",
+  "imports": ["serial", "requests", "prompt_toolkit", "pypdf"],
+  "extras": ["serial"],
+  "claude": {"model": "claude-sonnet-5", "effort": "high"},
+  "gemini": {"model": "auto-pro-high", "fallback": "gemini-3.1-pro-high"},
+  "prompt_inicial": "Olá! Inicie a sessão."
+}

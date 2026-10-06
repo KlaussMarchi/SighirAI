@@ -17,6 +17,7 @@ Subcomandos:
   erase [--force]        garante esp_id nativo (--force = reset de fábrica mesmo se já for nativo)
   recover                tira o device de estado travado (reset+resync)
   register [opts]        cadastra o device no servidor (não-interativo)
+  install <esp_id> ...   cria a instalação (aparelho ↔ placa ↔ telemetria) no servidor (exige --yes)
   server-device <id>     consulta o registro do device no servidor
   server-delete <id>     DELETA o device do servidor (hard delete, exige --yes)
   test [nome]            roda um teste do protocol.json (alcohol/blow/temp/sensor)
@@ -28,6 +29,7 @@ Exemplos:
   python tools/sighir.py settings --set vehicle_type=1 --restart
   python tools/sighir.py telemetry entrack
   python tools/sighir.py register --company logika --series auto --suntech 1700023879 --chip N/A
+  python tools/sighir.py install MIC123... --placa ABC1D23 --telemetria mix2 --instalador Fulano --yes
   python tools/sighir.py server-delete MIC123... --yes
   python tools/sighir.py flash
 """
@@ -40,6 +42,10 @@ from datetime import datetime
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+
+# roda no .venv preparado pelo tools/boot.py (mesmo se o agente foi aberto sem o launcher)
+from tools import _venv
+_venv.ensure(ROOT)
 
 from tools import core
 from tools.core import log
@@ -132,7 +138,10 @@ def resolveCompany(value):
     if res['status'] == 'error' or not res['data']:
         log('err', 'falha ao carregar empresas')
         return None, []
-    companies = res['data']
+    # a API ignora o ?type= e devolve também as telemetrias (MIX '0', SUNTECH '2', MIX novo '5',
+    # Entrack '6') — dono de aparelho é sempre transportadora, então filtro aqui
+    companies = sorted((c for c in res['data'] if c.get('type') == 'transportation'),
+                       key=lambda c: (c.get('label') or '').upper())
     match = next((c for c in companies if c.get('value') == value), None)
     return (match.get('id') if match else None), companies
 
@@ -236,7 +245,6 @@ def listTests(checklist):
 
 
 def cmdTest(args):
-    import json
     from objects.Tester.protocol import Protocol
 
     proto = Protocol()
@@ -391,6 +399,67 @@ def cmdServerDevice(args):
     return 0
 
 
+INSTALL_TELEMETRY = {'mix': '0', 'suntech': '2', 'mix2': '5', 'entrack': '6'}
+
+
+def cmdInstall(args):
+    """Cria a instalação no servidor (Etilometro = aparelho ↔ placa ↔ telemetria). Sem --yes só
+    valida e mostra o que seria gravado. Procedimento: procedimentos/cadastro.md §13."""
+    import requests
+    from utils.api import API, handle_access_token
+
+    esp = args.esp_id.strip()
+    plate = args.placa.strip().upper()
+    res = get_req(f'/devices/{esp}')
+    if res['status'] == 'error' or not res.get('data'):
+        log('err', f'device {esp} não existe no servidor — cadastre antes (register)')
+        return 1
+
+    companies = get_req('/companies').get('data') or []
+    code = INSTALL_TELEMETRY[args.telemetria]
+    tel = next((c for c in companies if c.get('type') == 'telemetry' and str(c.get('value')) == code), None)
+    if not tel:
+        log('err', f'telemetria {args.telemetria} (código {code}) não encontrada em /companies')
+        return 1
+    if args.telemetria == 'mix':
+        log('warn', 'mix = MIX ANTIGO (0). A maior parte da frota MiX é MIX 2.0 → confirme; se for, use mix2')
+
+    rows = get_req('/etilometers').get('data') or []
+    same = [e for e in rows if (e.get('vehicle') or '').strip().upper() == plate or e.get('esp_id') == esp]
+
+    payload = {'device': esp, 'vehicle_plate': plate, 'telemetry': tel['id'],
+               'vehicle_type': 1 if args.tipo == 'carro' else 0}
+    if args.instalador:
+        payload['installer'] = args.instalador
+    if args.apelido:
+        payload['nickname'] = args.apelido
+
+    log('info', f"instalação a criar (PRODUÇÃO): {payload}  [telemetria {tel.get('label')}]")
+    for e in same:
+        log('warn', f"já existe instalação {e.get('id')}: placa {e.get('vehicle')} ↔ {e.get('esp_id')} "
+                    f"({e.get('telemetry_label')}, desde {str(e.get('installation_date'))[:10]})")
+    if same and not args.duplicar:
+        log('err', 'placa ou aparelho já instalados: é troca/edição? Remova/edite a antiga (Helper patch '
+                   'ou server-delete) ou confirme com o usuário e rode com --duplicar')
+        return 2
+    if not args.yes:
+        log('warn', 'nada foi gravado. Confirme os dados com o usuário e rode de novo com --yes')
+        return 3
+
+    access, _ = handle_access_token()
+    r = requests.post(f'{API}/etilometers/', json=payload, timeout=30,
+                      headers={'Authorization': f'Bearer {access}'})
+    if not r.ok:
+        log('err', f'servidor recusou ({r.status_code}): {r.text[:400]}')
+        return 1
+
+    check = [e for e in (get_req('/etilometers').get('data') or [])
+             if (e.get('vehicle') or '').strip().upper() == plate and e.get('esp_id') == esp]
+    log('ok' if check else 'err', f"instalação {'criada e conferida' if check else 'NÃO encontrada após o POST'}: "
+                                  f"{plate} ↔ {esp} ({tel.get('label')})")
+    return 0 if check else 1
+
+
 def cmdServerDelete(args):
     """DELETE de verdade no servidor. `deleted=True` NÃO apaga nada (ver §13)."""
     from utils.api import delete_req
@@ -459,6 +528,18 @@ def build():
     sdel.add_argument('esp_id')
     sdel.add_argument('--yes', action='store_true', help='confirma o hard delete em produção')
     sdel.set_defaults(func=cmdServerDelete)
+
+    ins = sub.add_parser('install', help='cria a instalação (aparelho ↔ placa ↔ telemetria) no servidor')
+    ins.add_argument('esp_id', help='MIC... já cadastrado (register)')
+    ins.add_argument('--placa', required=True)
+    ins.add_argument('--telemetria', required=True, choices=list(INSTALL_TELEMETRY),
+                     help='mix2 = MIX 2.0 (maioria da frota MiX); mix = MIX antigo')
+    ins.add_argument('--tipo', choices=['caminhao', 'carro'], default='caminhao')
+    ins.add_argument('--instalador', help='nome de quem instalou')
+    ins.add_argument('--apelido', help='nickname opcional')
+    ins.add_argument('--duplicar', action='store_true', help='cria mesmo havendo instalação com a placa/aparelho')
+    ins.add_argument('--yes', action='store_true', help='grava de verdade (depois de confirmar com o usuário)')
+    ins.set_defaults(func=cmdInstall)
 
     reg = sub.add_parser('register')
     reg.add_argument('--company', help='value da empresa (ex: logika). Sem isto, lista as opções.')

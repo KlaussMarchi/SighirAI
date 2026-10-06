@@ -1,15 +1,8 @@
-# Sighir Tester AI — dependências
-# Instale com:  python -m pip install -r requirements.txt
-# Ou rode o preflight (detecta ambiente e instala o que falta):
-#   python tools/sighir.py preflight
+# Sighir Tester AI — dependências (instaladas no .venv pelo tools/boot.py; o preflight confere)
 #
 # --- CORE (obrigatório para operar device + servidor) ---
 pyserial
 requests
-unidecode
 prompt_toolkit
-#
-# --- OPCIONAL (UI/automação; podem falhar em Linux headless, não bloqueiam) ---
-# keyboard
-# pyperclip
-# pyautogui
+# leitura de PDFs da base ../docs quando não houver pdftotext
+pypdf

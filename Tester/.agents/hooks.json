@@ -1,0 +1,11 @@
+{
+  "sighir-boot": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python ../tools/boot.py hook gemini || python3 ../tools/boot.py hook gemini",
+        "timeout": 900
+      }
+    ]
+  }
+}

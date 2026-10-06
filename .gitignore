@@ -1,0 +1,13 @@
+# base compartilhada: grande e/ou sensível — fica fora do git
+docs/Notion/
+docs/ServerAnalysis/files/
+docs/.index/
+docs/.notion_token
+
+# estado e ambientes gerados pelas IAs (tools/boot.py)
+**/.venv/
+**/venv/
+**/.sighir/
+**/__pycache__/
+**/scratch/
+**/.claude/settings.local.json
