@@ -1,6 +1,6 @@
 # Troubleshooting de campo (checklists da equipe)
 
-> **Gerado automaticamente** por `tools/kb.py atualizar` em 24/09/2026 13:04 a partir do Notion (Sighir Enterprise → Suporte → Troubleshooting, `Notion/Sighir Enterprise 24579b90eb738059bdcfd009e0df1825.md`).
+> **Gerado automaticamente** por `tools/kb.py atualizar` em 07/10/2026 09:33 a partir do Notion (Sighir Enterprise → Suporte → Troubleshooting, `Notion/Sighir Enterprise 24579b90eb738059bdcfd009e0df1825.md`).
 > Não edite aqui: edite no Notion e sincronize ("sincronizar os documentos" → `sincronizar.md`).
 > A versão por sintoma — causas, evidências no servidor e no firmware — está em `diagnostico.md`; os menus citados estão em `operacao_telas.md` §7 ("Configurações, página 2, Teste Serial" = CONFIG 2 → **Teste de Telemetria**).
 

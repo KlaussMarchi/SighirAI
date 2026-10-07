@@ -38,9 +38,11 @@ Rode o passo 2 em background e leia a saída inteira. Depois:
    resolvido / recusado`; a lista `mudanças` placa por placa (o que nasceu e o que fechou, com a regra);
    a lista `não alcançado`. Não resuma "deu certo" — cite as placas.
 4. `recusado` = placa sem `Vehicle` no servidor (400): liste e diga que cadastrar o `Vehicle` resolve.
-   Não contorne.
-5. `resolver` > 0: explique por que cada uma fechou (log voltou, sensor calibrado, versão subiu…).
-6. Anote no `README.md` (seção "As regras") só se um número de alertas mudou de forma relevante ou uma
+   Não contorne. (Desde 24/09/2026 todo aparelho instalado tem `Vehicle`; recusa agora é anormal.)
+5. Vários `[SILÊNCIO]` da mesma telemetria com a **mesma data de início** = serviço de integração do servidor
+   parado (README, "24/09 a 07/10/2026: a MiX ficou muda"): diga isso ao usuário junto com as placas.
+6. `resolver` > 0: explique por que cada uma fechou (log voltou, sensor calibrado, versão subiu…).
+7. Anote no `README.md` (seção "As regras") só se um número de alertas mudou de forma relevante ou uma
    regra mudou; volume normal não precisa.
 
 O check **não** precisa de snapshot novo, `.pem`, SSH nem Django local.
@@ -95,14 +97,21 @@ Só `--write` toca a tabela; sem a flag o scanner é seco por construção.
   (`python ../docs/tools/sincronizar.py`: Notion inteiro + resumo do servidor + índice; sem token do
   Notion, o Claude faz a varredura pelo conector; `hardware/` é do usuário).
 - Sem `../docs`: o check funciona igual (só usa a API); você perde o contexto para explicar/propor regras.
+- **Servidor mudou?** Erro 404/400 novo, campo sumido ou rota nova → é migração do servidor: roteiro em
+  `../docs/migracao_servidor.md` (`python ../docs/tools/contrato.py diferenca` mostra o que mudou e quem usa);
+  testes de tudo: `../docs/testes.md` (`python ../docs/tools/testar.py --api`).
 
 ## 8. Snapshot do banco (opcional)
 
 `../docs/ServerAnalysis/files/db.sqlite3` (fora do git) só acerta a caixa da placa no `Vehicle` e é
 reserva se `sensors/` cair. Atualizar (chave `.pem` fora do repo, ver README §6 de "O que eu NÃO consigo
 ver"): `scp -i <pwdsighir.pem> ubuntu@52.91.100.216:/home/ubuntu/v2/api/db.sqlite3 ../docs/ServerAnalysis/files/db.sqlite3`.
-Sem CLI `sqlite3` no Windows: consulte com `python -c "import sqlite3; …"`. Tabelas: `Etilometros_*`
-(`etilometro`, `device`, `log`, `calibration`, `vehicle`…); `Device` = hardware, `Etilometro` = instalação.
+Sem CLI `sqlite3` no Windows: consulte com `python -c "import sqlite3; …"`. Tabelas: `Etilometros_*`.
+Desde a migração de 24/09/2026 (0030–0033): **`device` = hardware + instalação** (`plate_id` → `vehicle`,
+`telemetry_company_id` = CNPJ da telemetria, `telemetry_id` = módulo, `installer`, `is_operating`,
+`installation_data`); `telemetry` (ex-`suntech`: módulo, `chip`, flags); `log.device_id` (todo o
+histórico); `anomaly.vehicle_id` → `vehicle.id`. **`etilometro` é legado, congelado em 18/09/2026** — não
+use. Esquema completo: `../docs/server_reference.md` §2.
 
 ## 9. Ambiente
 

@@ -65,12 +65,12 @@ serializa a tabela inteira (derruba o servidor, SQLite num t2.large).
 
 | Rota | Conteúdo útil | Filtros que funcionam |
 |---|---|---|
-| `etilometers/` | instalação: `vehicle`, `esp_id`, `sensor_id`, `telemetry` (CNPJ) + `telemetry_label`, `company`, `vehicle_type`, `installation_date`, `installer`, `software_version`, `need_update`, `device_need_update`, `is_operating`, `camera_service`, `nickname`, `id` (UUID) | `vehicle_plate=` |
-| `devices/<MIC…>/` | hardware: `series_num`, `sensor_id`, `company`, `chip`, `suntech`, `need_update`, `software_version`, `default_settings` | detalhe por id |
+| `etilometers/` | instalação (desde 24/09/2026 é o próprio `Device` com placa; 148 em 07/10/2026): `vehicle`, `esp_id`, `sensor_id`, `telemetry` (CNPJ) + `telemetry_label`, `company`, `vehicle_type`, `installation_date`, `installer`, `installation_data`, `software_version`, `need_update`, `device_need_update`, `is_operating`, `camera_service`, `nickname`, `id` (= ESP ID; era UUID) | `vehicle_plate=` |
+| `devices/<MIC…>/` | hardware + instalação: `series_num`, `sensor_id`, `company`, `plate`, `vehicle_type`, `telemetry` (módulo) , `telemetry_company` + `telemetry_company_label`, `installer`, `installation_date`, `installation_data`, `is_operating`, `need_update`, `software_version`, `default_settings` (sem `chip`/`suntech` desde 24/09/2026) | detalhe por id |
 | `sensors/<ETL…>/` | `timestamp` (data da calibração corrente), `solution`, `analog`, `mgl`, `current_calibration` | `id=` |
 | `calibrations/` | pontos de calibração (`sensor_id`, `analog`, `mgl`, `num`, `solution`) | (filtro por sensor não funciona) |
-| `suntechs/` | módulo Suntech: `is_connected`, `is_ignition_on`, `is_relay_on`, `has_to_block`, `has_to_unblock`, `last_stt`, `ip`, `port`, `device`, `vehicle` — **as flags podem estar defasadas** (ex.: RJK1D03 com `is_connected=False` enviando logs em 23/09/2026): confirme pelos logs recentes | `device=` |
-| `logs/` | `event`, `vehicle`, `company_label`, `vehicle_type`, `timestamp` (chegada no servidor, UTC), `created_at` (relógio do aparelho/rastreador), `lat`/`lon` | `vehicle=` (várias por vírgula), `event=` (substring, vírgula), `start=`/`end=` (`YYYY-MM-DD HH:MM:SS`), `telemetry=` |
+| `telemetries/<id>/` (era `suntechs/`, 404 desde 24/09/2026) | módulo rastreador: `is_connected`, `is_ignition_on`, `is_relay_on`, `has_to_block`, `has_to_unblock`, `last_stt`, `ip`, `port`, `chip`, `lat`/`lon`, `model`, `vehicle` — **as flags podem estar defasadas** (ex.: RJK1D03 com `is_connected=False` enviando logs em 23/09/2026): confirme pelos logs recentes. O id do módulo está em `devices/<MIC>/.telemetry` (nulo na MiX) | detalhe por id, `id=` (`?vehicle=` é ignorado; `?device=` devolve vazio) |
+| `logs/` | `event`, `etilometer` (ESP ID), `vehicle`, `company_label`, `vehicle_type`, `timestamp` (chegada no servidor, UTC), `created_at` (relógio do aparelho/rastreador), `lat`/`lon` | `vehicle=` (várias por vírgula), `event=` (substring, vírgula), `start=`/`end=` (`YYYY-MM-DD HH:MM:SS`), `telemetry=` |
 | `logs/dash-data/`, `logs/alert-events/`, `logs/video/?event=&plate=&tmstp=` | agregados, alertas, link de vídeo (câmera integrada) | idem |
 | `anomalies/` | alertas do Scanner: `vehicle`, `company`, `category`, `desc`, `solved` | `vehicle=`, `solved=` |
 | `firmwares/` | catálogo de versões (`version`, `release_date`, `desc`) — pode estar atrás do binário do `/update` | |
@@ -81,7 +81,9 @@ Armadilhas do servidor (detalhe em `server_reference.md`):
   defasado. A versão real está na tela ID do aparelho (ou `Tester … firmware`).
 - `deleted=True` **não apaga nada** (nenhuma listagem filtra). Remover = `DELETE` de verdade.
 - Escritas pela ORM têm de usar `.save()` (signals de sincronização); nunca `QuerySet.update()`.
-- Logs de etilômetro inativo/órfão **não aparecem** na API (join com `is_active=True`).
+- Até 24/09/2026 logs de etilômetro inativo/órfão não apareciam (join com `is_active=True`); hoje a API devolve
+  todos, e log sem aparelho vinculado vem com `vehicle` vazio.
+- Logs MiX vêm do serviço `mix` do servidor (parado de 24/09 a 07/10/2026, sem logs MiX no intervalo): ver `server_reference.md`.
 - `logs/` não expõe `id`; `timestamp` é a hora de chegada, não a do evento. Na MiX os eventos chegam em lote.
 - `anomalies/` não filtra por empresa e não entra no sync dos clientes.
 
@@ -91,4 +93,4 @@ Parceiros de videomonitoramento recebem ocorrências publicadas pelo servidor (m
 desbloqueado, `ETEV02` bloqueado, `ETEV16` "etilômetro assoprado") com janela de vídeo ±1 min; o
 servidor recupera o link do vídeo por consulta (placa normalizada, rótulo, horário — **fuso horário** é a
 causa nº 1 de vídeo não encontrado). Cliente consome em `GET /api/v2/logs/video/`. `Etilometro.camera_service`
-indica o provedor (ex.: `movieit`). No aparelho, `camera` (s) é só a espera na tela "Aguardando Câmera".
+indica o provedor (ex.: `movieit`; hoje no `Device`). No aparelho, `camera` (s) é só a espera na tela "Aguardando Câmera".

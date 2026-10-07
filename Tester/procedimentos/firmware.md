@@ -51,6 +51,14 @@ Se `need_update` estiver `false`, **a própria CLI liga** (`PATCH`) antes de bai
 > e monitore — não rode em foreground (estoura timeouts de ferramenta de IA).
 > Acompanhe o progresso lendo `flash.log` (linhas de `%` e `completed in ... seg`).
 >
+> **📊 Progresso para o usuário a cada 20 s (obrigatório, Claude ou Gemini):** o `flash` grava a linha
+> `PROGRESSO DO FLASH: 37% (gravando, 1 min 40 s)` no log e o estado em `.sighir/flash.json` a cada 20 s.
+> Enquanto ele roda, repita `python tools/sighir.py progresso` (espera até 20 s por uma atualização e
+> imprime `flash gravando: 37% (1 min 40 s)`) e **mostre cada resultado ao usuário** até sair
+> `flash concluído` (ou `erro`). Código 2 = "SEM ATUALIZAÇÃO há mais de 1 min" → confira o `flash.log`, o
+> cabo e o `recover`. No Claude: rode o `flash` com `run_in_background` e chame o `progresso` em seguida,
+> uma vez por resposta curta, até concluir. Estados: preparando → sincronizando → gravando → verificando → concluído.
+>
 > - **Linux/macOS:**
 >   ```
 >   nohup python tools/sighir.py flash > flash.log 2>&1 & disown

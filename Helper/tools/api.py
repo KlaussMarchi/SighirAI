@@ -1,7 +1,7 @@
 """
 Cliente da API de produção (https://sighir.com:8000/api/v2) para o Sighir Helper AI.
 
-Leitura livre. Escrita só por PATCH em devices/ e etilometers/, campo a campo de uma lista
+Leitura livre. Escrita só por PATCH em devices/ e telemetries/, campo a campo de uma lista
 permitida, e só com confirmação (o helper.py mostra antes/depois e exige --sim).
 Sem DELETE: remover cadastro é tarefa do Tester (server-delete), com confirmação do usuário.
 Produção é um SQLite num t2.large: pagine de 2000 no máximo e NUNCA use limit=all.
@@ -24,10 +24,14 @@ PASS = os.environ.get('SIGHIR_API_PASS', 'sighir12345')
 # execuções (access dura 5 min, refresh 24 h) — fora do git, em .sighir/
 TOKENS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.sighir', 'token.json')
 
+# desde a migração do servidor (24/09/2026) a instalação é o próprio device (plate → Vehicle,
+# telemetry_company = CNPJ, telemetry = módulo); o chip mora no módulo (telemetries/). etilometers/
+# virou só leitura aqui: é uma visão dos devices instalados.
 WRITABLE = {
-    'devices': {'need_update', 'software_version', 'chip', 'series_num', 'company', 'sensor_id', 'location'},
-    'etilometers': {'vehicle_plate', 'telemetry', 'vehicle_type', 'is_operating', 'nickname', 'installer',
-                    'camera_service', 'need_update'},
+    'devices': {'need_update', 'software_version', 'series_num', 'company', 'sensor_id', 'location',
+                'plate', 'vehicle_type', 'telemetry', 'telemetry_company', 'installer', 'is_operating',
+                'nickname', 'camera_service'},
+    'telemetries': {'chip', 'model'},
 }
 
 

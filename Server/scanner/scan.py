@@ -246,9 +246,11 @@ class Scanner:
         if not self.sensors:
             cal = dict(db.execute('select product_num, max(timestamp) from Etilometros_calibration group by product_num'))
 
-            for plate, sensor in db.execute('''select e.vehicle_plate, d.sensor_id
-                                               from Etilometros_etilometro e
-                                               left join Etilometros_device d on d.id = e.device_id'''):
+            # DESDE A MIGRACAO DE 24/09/2026 A INSTALACAO E O PROPRIO Device (plate_id -> Vehicle);
+            # Etilometros_etilometro FICOU CONGELADA EM 18/09/2026
+            for plate, sensor in db.execute('''select v.plate, d.sensor_id
+                                               from Etilometros_device d
+                                               join Etilometros_vehicle v on v.id = d.plate_id'''):
                 self.sensors[plate] = (sensor, cal.get(sensor))
 
             idade = (self.now - dt.datetime.fromtimestamp(os.path.getmtime(SNAPSHOT))).days
@@ -782,8 +784,13 @@ class Scanner:
         self.update()
         self.getSensors()
         self.check()
-        self.gaps.append('logs sem etilômetro vinculado são invisíveis pela API '
-                         '(LogViewSet filtra etilometer__is_active=True) — no snapshot são ~7,7% da janela')
+
+        # DESDE 24/09/2026 A API DEVOLVE TODO LOG (O FILTRO etilometer__is_active SAIU), MAS LOG COM
+        # device NULO CHEGA SEM PLACA E NAO TEM VEICULO A QUEM ATRIBUIR
+        orfaos = sum(1 for r in self.logs if not r['v'])
+        if orfaos:
+            self.gaps.append(f'{orfaos} logs da janela ({orfaos / max(len(self.logs), 1):.1%}) chegam sem placa '
+                             f'(log sem aparelho vinculado) — não entram em nenhuma regra')
         self.send(dry)
 
         # O CACHE DE LOG NAO DEPENDE DE TER ESCRITO NA TABELA: GRAVA SEMPRE, PRA CONFERENCIA

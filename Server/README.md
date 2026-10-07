@@ -261,12 +261,14 @@ serializa a tabela inteira e derruba o servidor.
 Isso é limite real, não modéstia. Se você precisa dessas respostas, elas não vêm de mim
 sozinha.
 
-**1. Logs órfãos são invisíveis pela API.**
-`LogViewSet.get_queryset()` faz `.filter(etilometer__is_active=True)` — INNER JOIN. Log com
-`etilometro_id` nulo simplesmente não existe pra API. No snapshot são **7,7% dos logs da
-janela**; pela API, zero. E `previous_plate` está preenchido em **0 linhas** da base inteira,
-então esses logs não carregam placa nenhuma — nem dá pra recuperá-los pelo nome. Reporto o
-tamanho da lacuna em cada execução.
+**1. Logs sem aparelho não têm placa.**
+Até 24/09/2026 o `LogViewSet` fazia `.filter(etilometer__is_active=True)` e escondia ~7,7% dos
+logs. A migração 0030–0032 (24/09/2026) ligou o log ao `Device` (`device_id`, preenchido em todo
+o histórico) e o filtro saiu: em 07/10/2026 a contagem da API bate com a do banco, janela por
+janela. Sobram os logs com `device_id` nulo (111 mil no histórico, ~3,4 mil nos últimos 3 meses,
+todos anteriores à migração): chegam com `vehicle` vazio e não entram em regra nenhuma
+(`previous_plate` continua vazio na base inteira). O cache montado antes de 24/09 não os tem;
+reporto o tamanho da lacuna em cada execução.
 
 **2. Silêncio não me diz se é problema.**
 Não tenho status de contrato, de veículo em oficina, nem de rastreador desativado. Os 23
@@ -326,8 +328,11 @@ próprio servidor avisa: *"Model novo = receiver novo em `signals.py` + chave no
 vai ver anomalia nova. Também está fora do meu alcance de escrita.
 
 **10. Placa sem `Vehicle` não tem onde ser gravada.**
-`Anomaly.vehicle` é FK pra `Vehicle.plate`, e `Vehicle` não tem rota na API — leio do
-snapshot só pra acertar a caixa (`Mosaic`/`sighir_polo`/`Teste Entrack` existem em maiúsculas).
+`Anomaly.vehicle` é FK pro `Vehicle` (inteiro desde 24/09/2026; a API lê e escreve pela placa), e
+`Vehicle` não tem rota na API — leio do snapshot só pra acertar a caixa (`Mosaic`/`sighir_polo`/
+`Teste Entrack` existem em maiúsculas). Desde a migração de 24/09/2026 a instalação é o próprio
+`Device` (`plate_id` → `Vehicle`): no snapshot de 07/10/2026 os 148 aparelhos instalados têm
+`Vehicle`, então este caso deve sumir; o histórico abaixo é de antes disso.
 Desde 21/09/2026 à tarde, a seu pedido, eu **não pulo mais** placa que o snapshot não conhece:
 mando o `POST` com a placa do etilômetro e deixo o servidor decidir. Ele ainda recusa com 400
 (`"Object with plate=RJN8B5 does not exist."`) — na varredura da tarde foram 6 `POST` recusados
@@ -414,13 +419,21 @@ silêncio.
 saiu. Por isso releio a lista de etilômetros a cada varredura, nunca guardo uma cópia dela, e
 reconcilio a tabela nos dois sentidos.
 
-**Desativar um etilômetro apaga o passado dele.** `RKG1H48` tinha 1006 logs na janela; hoje
-`GET /logs/?vehicle=RKG1H48` devolve `count = 0`. É o mesmo INNER JOIN em
-`etilometer__is_active=True`: some o etilômetro, some todo o histórico junto. Consequência
-prática — **não dá para auditar um veículo depois que ele é desativado**, nem para saber se
-o alerta que eu tinha aberto sobre ele procedia. Se você desativar um etilômetro que estava
-sob alerta, o alerta é apagado por não ter mais como ser verificado, não por ter sido
-resolvido.
+**Desativar um etilômetro apagava o passado dele (até 24/09/2026).** `RKG1H48` tinha 1006 logs
+na janela; depois de desativado, `GET /logs/?vehicle=RKG1H48` devolvia `count = 0` (o INNER JOIN
+em `etilometer__is_active=True`). Esse filtro saiu na migração de 24/09/2026. Agora o log aponta
+para o `Device` e a placa (`vehicle`, só leitura) vem do cadastro do aparelho — **não verifiquei**
+o que acontece com o histórico quando o aparelho é desinstalado ou muda de placa. Até medir: alerta
+de veículo que saiu da frota é marcado resolvido por não ter mais como ser verificado, não por
+ter sido resolvido.
+
+**24/09 a 07/10/2026: a MiX ficou muda porque o serviço de integração parou.** Os 13 MiX (NOVO) da
+Predileto/Logika que mandavam log ficaram com **zero** logs a partir de 24/09 15h39 — o serviço `mix` do
+servidor (sessão `screen` `mix`) foi parado com Ctrl+C na migração e não foi religado. Religado em
+07/10/2026 13h21 UTC; os logs voltaram em minutos (`docs/migracao_servidor.md`, histórico). Os eventos do
+intervalo não voltam. Lição para mim: vários `[SILÊNCIO]` da **mesma telemetria** começando juntos = serviço
+de integração parado; diga isso ao usuário antes de gravar alertas por veículo. (A `RJV1A55`, Suntech, parou
+na mesma manhã por outro motivo — conferir no campo.)
 
 **Relógio do aparelho não é confiável.** 332 logs sem `created_at` e 77 marcando 2003.
 Por isso **toda regra é ancorada em `timestamp`** (hora de chegada no servidor, UTC), nunca

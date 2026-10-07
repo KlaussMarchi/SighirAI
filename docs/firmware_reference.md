@@ -194,6 +194,9 @@ ser abuso ou pode ser `max_postpone` alto.
 - Catálogo `GET /api/v2/firmwares/` (8 releases): v4.25.12, v4.27.0, v5.0.0, v5.3.0, v6.3.9
   (12/05/2026), v6.4.2 (07/07/2026), **v6.4.7 (01/09/2026)**. O repo está em v6.4.8 e um aparelho
   (RJT5E02) já reporta 6.4.8. O catálogo pode ficar atrás do binário servido em `/update`.
+  Em 07/10/2026 o catálogo seguia em v6.4.7, mas 8 aparelhos reportavam **6.4.8** (CP001, CP004, CR 34,
+  CR52, CS005, CS011, MN869, RJT5E02) e 1 reportava **6.5.0** (`Portaria Predileto`, MIC0254242008392039)
+  — versão que ainda não está em `hardware/Main/`.
 - `$ETEV10!` (Firmware Atualizado) na janela prova que houve OTA — e OTA implica Wi-Fi, logo o
   campo foi atualizado junto.
 - O que muda entre linhas, pelo `desc` do catálogo: 6.3.9 trouxe "telemetria entrack funcional";

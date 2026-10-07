@@ -5,7 +5,8 @@ sincronizar.py — "sincronizar os documentos": atualiza toda a base docs/ de um
     python docs/tools/sincronizar.py            servidor + Notion + índice
     python docs/tools/sincronizar.py --sem-snapshot   não baixa o banco de produção (148 MB)
 
-1. Servidor de produção (servidor.py): docs/servidor_resumo.md e, havendo a chave, o snapshot do banco.
+1. Servidor de produção (servidor.py): docs/servidor_resumo.md e, havendo a chave, o snapshot do banco;
+   contrato.py diferenca avisa se a API ou o banco mudaram (docs/migracao_servidor.md).
 2. Notion (notion_sync.py), a árvore inteira da página raiz, com arquivamento do que saiu do Notion:
    - com token → sincroniza pela API aqui mesmo;
    - sem token → prepara a varredura pelo conector do Claude (mcp-inicio) e mostra a fila. A IA busca cada
@@ -43,8 +44,11 @@ def main():
     args = p.parse_args()
     status = {}
 
+    contractChanged = False
     if not args.sem_servidor:
         status['servidor'] = run('servidor.py', 'resumo' if args.sem_snapshot else 'tudo')
+        # contrato da API/banco × referência salva: != 0 = o servidor mudou ou falta algo que as IAs usam
+        contractChanged = run('contrato.py', 'diferenca') != 0
 
     notionPending = False
     if not args.sem_notion:
@@ -64,6 +68,9 @@ def main():
     print('\n=== resumo ===')
     for step, code in status.items():
         print(f'{step}: {"ok" if code == 0 else f"falhou (código {code})"}')
+    if contractChanged:
+        print('servidor: O CONTRATO MUDOU (rotas, campos, tabelas ou migrações) → siga docs/migracao_servidor.md\n'
+              '          antes de usar Tester/Helper/Scanner em produção (diferença listada acima).')
     if notionPending:
         print('notion: SEM TOKEN → varredura pelo conector do Claude. Siga docs/sincronizar.md §3: para cada item de\n'
               '        `notion_sync.py mcp-proximos`, busque (notion-fetch / notion-query-data-sources), entregue\n'

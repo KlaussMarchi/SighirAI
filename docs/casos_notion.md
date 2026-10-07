@@ -1,6 +1,6 @@
 # Chamados de campo (Notion → Resolução de Problemas)
 
-> **Gerado automaticamente** por `tools/kb.py atualizar` em 23/09/2026 11:54 a partir do export do Notion. Não edite: atualize o Notion, reexporte para `docs/Notion/` e rode o `kb.py atualizar`. As lições consolidadas ficam em `diagnostico.md`.
+> **Gerado automaticamente** por `tools/kb.py atualizar` em 07/10/2026 09:33 a partir do export do Notion. Não edite: atualize o Notion, reexporte para `docs/Notion/` e rode o `kb.py atualizar`. As lições consolidadas ficam em `diagnostico.md`.
 
 Total: 17 chamados.
 
@@ -26,7 +26,7 @@ Total: 17 chamados.
 
 ## Carro Diogo não pede teste e comunica com servidor — SRQ8A62 (11/11/2026)
 
-- Status: Concluído · Data: 11/11/2026 14:00 (BRT) · Tipo de problema: RETIRADO · Empresa: Predileto · Placa do Veículo: SRQ8A62
+- Criado em: 14/11/2025 14:00 (BRT) · Empresa: Predileto · Placa do Veículo: SRQ8A62 · Status: Concluído · Tipo de problema: RETIRADO · Última edição: 06/10/2026 12:39 (BRT) · Data: 11/11/2026 14:00 (BRT)
 - **Informações (Tela “Info” do Etilometro):** Telemetria: Suntech
 - **Descrição da tarefa:** Enviou eventos até dia 11 depois parou de enviar, pedir teste e liga direto
 - Fonte: `Notion/Resolução de Problemas/Carro Diogo não pede teste e comunica com servidor 2ab79b90eb7380238ec2c2b3f022289f.md`
@@ -52,10 +52,10 @@ Total: 17 chamados.
 
 ## Etilômetro Sem Requisitar Teste — LUE9A29 (30/06/2026)
 
-- Status: Pendente · Data: 30/06/2026 10:57 (BRT) · Tipo de problema: Elétrico · Empresa: Predileto · Placa do Veículo: LUE9A29
+- Criado em: 29/08/2025 10:57 (BRT) · Empresa: Predileto · Placa do Veículo: LUE9A29 · Responsável: Paulo Ricardo Ricardo · Status: Pendente · Tipo de problema: Elétrico · Última edição: 06/10/2026 13:22 (BRT) · Data: 30/06/2026 10:57 (BRT)
 - **Informações (Tela “Info” do Etilometro):** Telemetria: MIX SSID do roteador:[**MIC9935714618981987**](https://sighir.com:8000/admin/Etilometros/etilometro/567557a9-2d96-4b3f-a1ec-e239b82bfc63/change/?_changelist_filters=q%3Dlue)
 - **Descrição da tarefa:** Etilômetro Sem Requisitar Teste
-- **Observações:** [ ]  O veículo ja tinha apresentado problema de reiniciamentos inesperados, por conta da bateria onde o caminhão era deixado ligado direto [ ]  O problema de reiniciamentos foi resolvido e o paulinho atualizou a exposta, e o problema começou a ocorrer
+- **Observações:** [ ] O veículo ja tinha apresentado problema de reiniciamentos inesperados, por conta da bateria onde o caminhão era deixado ligado direto [ ] O problema de reiniciamentos foi resolvido e o paulinho atualizou a exposta, e o problema começou a ocorrer
 - Fonte: `Notion/Resolução de Problemas/Etilômetro Sem Requisitar Teste 25e79b90eb7380f696c9eb42e5d9048b.md`
 
 ## Defeito não identificado — SRV9I49 (17/04/2026)

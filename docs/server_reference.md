@@ -6,18 +6,28 @@
 > Campos e filtros verificados na API de produção em 23/09/2026: `portal_app.md` §4.
 > Nos exemplos, "a CLI" é a do Tester (`Tester/tools/sighir.py`, `Tester/utils/api.py`).
 >
-> **Mudanças planejadas** (Notion → Tarefas → Servidor, "CHALLENGE — Consertar servidor", em andamento
-> desde 22/09/2026). Ainda **não** estão em produção; confira a API antes de mudar código.
-> - `etilometers` → `installed`: `vehicle_plate` passa a ligar ao `vehicles`; saem `telemetry` (vai para
->   `devices`), `need_update` e `is_active` (fica só `is_operating`); `vehicle_type` ganha o valor 2
->   (maleta).
-> - `devices`: `chip` vai para a tabela de telemetrias; `series_num` passa a ser automático.
-> - `suntechs` → `telemetries`, com o tipo MIX/Suntech/Entrack como seletor.
-> - Sai o campo `deleted` das tabelas.
-> - "Em hipótese alguma mudar rota do ESP32".
+> **Reestruturação em produção desde 24/09/2026** (Notion → Tarefas → Servidor, "CHALLENGE — Consertar
+> servidor"; migrações `0030`–`0033`, a última em 06/10/2026). Conferido no snapshot e na API em
+> 07/10/2026 — o §2 já descreve o modelo novo:
+> - A instalação passou para o **`Device`** (`plate_id` → `Vehicle`, `telemetry_company`, `installer`,
+>   `installation_date`, `installation_data`, `is_operating`, `camera_service`, `nickname`). A rota
+>   continua `etilometers/` (não virou `installed/`), agora com `id` = ESP ID. A tabela `Etilometro`
+>   ficou **legada e congelada em 18/09/2026** (143 linhas; ainda existe no banco).
+> - `suntechs` → **`telemetries`** (rota `telemetries/`; `suntechs/` dá 404); o `chip` foi para lá.
+> - `Log` ganhou `device_id` (preenchido em todo o histórico); `Anomaly.vehicle` virou FK inteira para
+>   `Vehicle.id` (a API continua lendo e escrevendo pela placa).
+> - Ainda **não** feito: `deleted` continua nas tabelas; `vehicle_type` 2 (maleta) não existe no
+>   `Vehicle` (a maleta aparece como `installation_data.suitcase = 1`); `series_num` automático e o
+>   seletor MIX/Suntech/Entrack em `telemetries.model` não verificados (`model` hoje é `''` ou `Dummy`).
+> - Serviços satélites (sessões `screen` no servidor): `api` (gunicorn), `mix` (integração MiX:
+>   `telemetries/mix`, consulta a MiX a cada minuto e grava em `/logs` achando o aparelho por
+>   `devices/?plate=`) e `suntech` (`telemetries/telemetry-panel`: Suntech/Entrack). **O `mix` ficou parado de
+>   24/09 15h39 a 07/10/2026** (sem logs MiX nesse intervalo); religado. Depois de qualquer migração, confira
+>   os três (`docs/migracao_servidor.md`).
 >
-> Quando entrar, ajuste `Server/scanner`, `Helper/tools/helper.py` (`WRITABLE`, rotas) e
-> `Tester/tools/sighir.py` (`register`/`install`).
+> **Planejado** (Notion → Tarefas → Servidor, não iniciado em 07/10/2026): `companies` ganha `email`
+> (nulo por padrão) e `alerts` (lista de eventos, ex. `["ETAT01", "ETEV30"]`): log com evento da lista →
+> e-mail de relatório para a empresa. "Em hipótese alguma mudar rota do ESP32".
 
 ---
 
@@ -42,7 +52,7 @@ import os, django, sys
 sys.path.insert(0, '/caminho/para/etilometro-server-v2/server')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'server.settings')
 django.setup()
-from apps.Etilometros.models import Device, Etilometro, Company, Suntech
+from apps.Etilometros.models import Device, Company, Telemetry, Vehicle   # Etilometro/Suntech: nomes antigos
 # ... operações ...
 ```
 ou `python manage.py shell -c "..."` de dentro de `server/`.
@@ -66,44 +76,45 @@ Todos herdam de **`BaseSyncModel`** → adicionam: `srv_created_at` (auto), `upd
 | `data` | JSON | dados específicos |
 | `locations` | JSON (list) | locais/filiais |
 
-### `Device`  (hardware físico — o ESP)
+### `Device`  (hardware físico — o ESP — **e a instalação**, desde 24/09/2026)
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | Char(30) **PK** | **ESP ID** (ex.: `MIC...`) |
 | `company` | FK→Company **(obrigatório)** | dono/transportadora (`company_id`) |
 | `sensor_id` | Char(30) | cartucho `ETL...` |
 | `series_num` | Char(30) | nº de série (etiqueta) |
-| `suntech` | FK→Suntech (nullable) | vínculo com módulo Suntech |
-| `need_update` | Bool (default **True**) | dispara OTA |
-| `chip` | Char | chip do rastreador |
-| `software_version` | Char (default `1.0.0`) | |
-| `location`, `update_settings`, `default_settings` | | |
-> `Device.save()` no CREATE com `suntech` preenchido vincula `suntech.device = self` automaticamente.
-
-### `Etilometro`  (instalação: device ↔ veículo) — **alvo de "instalar etilômetro"**
-| Campo | Tipo | Notas |
-|---|---|---|
-| `id` | UUID **PK** | auto |
-| `device` | FK→Device (nullable) | `device_id` = ESP ID |
-| `telemetry` | FK→Company (nullable) | `telemetry_id` = CNPJ de uma Company **type=`telemetry`** |
-| `vehicle_plate` | Char(20) | **sem unique** → deduplicar manualmente |
-| `vehicle_type` | Int | **0=Caminhão, 1=Carro** |
+| `plate` | FK→Vehicle (nullable) | `plate_id` (inteiro); preenchido = **instalado** (148 em 07/10/2026; placa única por aparelho) |
+| `telemetry_company` | FK→Company (nullable) | CNPJ de uma Company **type=`telemetry`** (2 instalados apontam para transportadora) |
+| `telemetry` | FK→Telemetry (nullable) | módulo rastreador; **nulo na MiX** (ver o aviso no topo) |
 | `installer` | Char | **string livre** (nome do instalador), não é FK |
-| `installation_date` | DateTime (default now) | |
+| `installation_date` | DateTime | |
+| `installation_data` | JSON | livre: `observation`, e na maleta `suitcase: 1` + parâmetros (`max_postpone`, `maneuver_time`…) |
 | `camera_service` | Char | `None` ou `movieit` |
-| `is_operating` / `is_active` | Bool (default True) | |
+| `is_operating` | Bool (default True) | |
 | `nickname` | Char | |
-| `need_update` | Bool (default True) | |
+| `need_update` | Bool (default **True**) | dispara OTA |
+| `software_version` | Char (default `1.0.0`) | ver §4.2 |
+| `location`, `update_settings`, `default_settings`, `timestamp` | | |
+> A coluna `chip` ainda existe no banco, mas a API de `devices/` não a expõe mais: o chip está em `telemetries/`.
 
-### `Suntech`  (módulo rastreador)
+### `Vehicle`  (placa)
+`id` (inteiro), `plate`, `type` (0 = caminhão, 1 = carro; 149 linhas, só 0 e 1), `company`. **Sem rota na API.**
+`Device.plate` e `Anomaly.vehicle` apontam para ele.
+
+### `Telemetry`  (módulo rastreador; ex-`Suntech`, rota `telemetries/`)
 | Campo | Tipo | Notas |
 |---|---|---|
-| `id` | Char(40) **PK** | ID Suntech |
-| `device` | FK→Device (nullable) | |
-| `model`, `ip`, `port`, `last_stt` | | |
+| `id` | Char(40) **PK** | ID do módulo (Suntech `1700…`, Entrack `69…`) |
+| `vehicle` (API) | | placa do aparelho vinculado (só leitura; o filtro `?vehicle=` é ignorado) |
+| `model`, `ip`, `port`, `last_stt`, `chip`, `lat`, `lon` | | |
 | flags | Bool | `has_to_block`, `has_to_unblock`, `is_connected`, `is_ignition_on`, `is_relay_on` |
 
-### Outros: `Sensor` (PK id, `current_calibration`), `Solution`, `Calibration` (analog/mgl/timestamp), `Log` (event/etilometer/timestamp), `Firmware` (version/release_date), `SensorReplaceLog`.
+### `Etilometro`  (legado — **congelado em 18/09/2026**, não use)
+Instalação antiga (UUID, `vehicle_plate`, `device`, `telemetry` = CNPJ, `is_active`…). Continua no banco
+(143 linhas) só como histórico; logs anteriores à migração têm `etilometro_id`, e o `device_id` foi
+preenchido a partir dele.
+
+### Outros: `Sensor` (PK id, `current_calibration`), `Solution`, `Calibration` (analog/mgl/timestamp), `Log` (event, `device_id`, `etilometro_id` legado, timestamp, `created_at` do aparelho, `lat`/`lon`), `Anomaly` (`vehicle_id`, `category`, `desc`, `solved`), `Firmware` (version/release_date), `SensorReplaceLog` (sem rota).
 
 ---
 
@@ -123,47 +134,56 @@ Todos herdam de **`BaseSyncModel`** → adicionam: `srv_created_at` (auto), `upd
 
 ---
 
-## 4. Procedimento: **Instalar um Etilômetro**
+## 4. Procedimentos: **cadastrar** e **instalar** um etilômetro (modelo de 24/09/2026)
 
-Significa **criar uma linha em `Etilometro`** ligando um `Device` (ESP ID) a uma placa de veículo.
+### 4.0 Cadastrar o aparelho (bancada)
+1. Módulo Suntech/Entrack (se houver): `GET telemetries/<id>/`; não existe → `POST telemetries/`
+   `{"id": "<ID do módulo>", "chip": "<chip>"}` (o chip mora aqui, não no device). ID começando com `MIC`/`ETL`
+   não é módulo. `Device.telemetry` é **único**: um módulo só pode estar em um aparelho.
+2. `POST devices/` `{"id": "MIC…", "company": "<CNPJ da transportadora>", "series_num": "00123",
+   "sensor_id": "ETL…", "need_update": true, "telemetry": "<ID do módulo>"}` (`id` e `company` obrigatórios;
+   `timestamp` é só leitura; `chip`/`suntech` não existem mais no device — a API ignora sem avisar).
+3. CLI: `Tester/tools/sighir.py register --company <value> --modulo <ID|none> --chip <N|N/A>`.
 
-**Parâmetros obrigatórios (perguntar ao usuário se faltarem):**
-1. `vehicle_plate` — placa do veículo.
-2. `device` — ESP ID (precisa existir em `Device`; se não existir, cadastrar antes via `tools/sighir.py register`).
-3. `telemetry` — empresa de telemetria (Company `type=telemetry`); busque o CNPJ pelo `label`.
-4. `vehicle_type` — 0 (Caminhão) ou 1 (Carro).
-Opcionais úteis: `installer` (nome), `camera_service`, `nickname`.
+### 4.1 Instalar (associar o aparelho a uma placa)
+**Instalar = `PATCH devices/<MIC>/`** com a placa. O campo `plate` é texto: o servidor cria o `Vehicle` se a
+placa não existe e associa (validação conferida em 07/10/2026 com payload inválido de propósito; os apps do
+servidor criaram `Vehicle` assim em 30/09 e 06/10/2026). `etilometers/` continua aceitando o `POST` antigo
+(`device` + `vehicle_plate`), mas é uma visão dos devices — use `devices/`.
 
-**Passo a passo (sempre validar antes de criar):**
-1. Confirme que o **Device existe**. Se não, pare e oriente cadastrar o device primeiro.
-2. Resolva a **telemetria** (`Company.objects.filter(type='telemetry', label__icontains=<nome>)`) → pegue o CNPJ.
-3. **Deduplicação**: verifique se já há `Etilometro` ativo (`deleted=False`) para esse `device` ou `vehicle_plate`. Se houver, **avise e pergunte** se é troca/edição em vez de criar duplicado.
-4. **Confirme os dados com o usuário** (operação grava em produção).
-5. Crie.
+**Pergunte o que faltar:** placa; ESP ID (precisa existir — senão cadastre antes); telemetria (Company
+`type=telemetry` → CNPJ pelo `value`: MIX 0, Suntech 2, MIX 2.0 5, Entrack 6); tipo (0 caminhão, 1 carro);
+em Suntech/Entrack, o ID do módulo e o chip. Opcionais: `installer`, `nickname`, `camera_service`,
+`installation_data` (`observation`; maleta = `suitcase: 1`).
 
-### Caminho A — API (recomendado, validado)
-`POST /api/v2/etilometers/` (JWT). Serializer exige no CREATE: **`device`** (PK = ESP ID) e **`vehicle_plate`**.
 ```json
-{ "device": "MIC...", "vehicle_plate": "ABC1D23", "telemetry": "<CNPJ>",
-  "vehicle_type": 0, "installer": "Fulano", "camera_service": "None" }
+PATCH devices/MIC…/
+{ "plate": "ABC1D23", "vehicle_type": 0, "telemetry_company": "<CNPJ da telemetria>",
+  "telemetry": "<ID do módulo, se Suntech/Entrack>", "is_operating": true,
+  "installation_date": "2026-10-07T12:00:00+00:00", "installer": "Fulano",
+  "installation_data": {"observation": "…"} }
 ```
 
-### Caminho B — ORM (na instância do servidor)
-```python
-dev = Device.objects.filter(id=esp_id).first()
-assert dev, 'Device inexistente — cadastre primeiro'
-tel = Company.objects.filter(type='telemetry', label__icontains=tel_name).first()
-if Etilometro.objects.filter(device=dev, deleted=False).exists():
-    ...  # avisar: ja existe instalacao p/ esse device
-etl = Etilometro.objects.create(
-    device=dev, telemetry=tel, vehicle_plate=plate,
-    vehicle_type=vtype, installer=installer)
-# save() do create() ja disparou post_save -> SyncState bump (propaga aos clientes)
-```
+**Antes de gravar:** a placa já está em outro aparelho (`etilometers/`, `vehicle`)? o aparelho já está em
+outra placa (`devices/<MIC>.plate`)? → é **troca**: confirme com o usuário. Reinstalar na mesma placa não
+muda a data de instalação. **Depois:** confira `devices/<MIC>/` (`plate`, `telemetry_company`, `telemetry`) e
+`etilometers/` (a placa aparece com o `esp_id`).
+
+**Editar / desinstalar / trocar de cliente** (aparelho que voltou): `PATCH devices/<MIC>/` só com o que muda
+(`company`, `telemetry`, `sensor_id`, `series_num`…). Tirar da placa = `plate`, `telemetry_company` e
+`installation_date` nulos (a API aceita `null` nesses campos — validação de 07/10/2026). CLI:
+`Tester/tools/sighir.py edit <MIC> [--company X] [--desinstalar] [--modulo ID|none] [--chip N] … [--yes]`.
+
+CLI: `Tester/tools/sighir.py install <MIC> --placa <P> --telemetria mix2|mix|suntech|entrack [--modulo ID
+--chip N] [--tipo carro] [--maleta] [--observacao "…"] [--instalador N] [--forcar] [--yes]` (sem `--yes`
+só mostra). Ajuste fino depois: `Helper/tools/helper.py patch devices <MIC> campo=valor [--sim]`.
+
+> Gravação verificada em produção em 07/10/2026 (install → edit --desinstalar → edit --modulo, devolvido ao
+> estado original). Suntech/Entrack: vincule o módulo (`telemetry`) — é por ele que o `telemetry-panel` acha o aparelho.
 
 ---
 
-### 4.1 `software_version` mente (e o catálogo `/firmwares` também)
+### 4.2 `software_version` mente (e o catálogo `/firmwares` também)
 - **`Device.software_version` NÃO é atualizado pelo flash.** O device só reporta a versão dele no
   `GET api/v2/devices/check-update/?firmware=...`, que acontece **por WiFi** — com `wifi=false` (default de
   fábrica) o campo **congela**. Verificado: aparelho em `v6.4.4`, servidor dizendo `6.4.3`.
@@ -181,7 +201,7 @@ etl = Etilometro.objects.create(
 - **Deletar**: **pergunte e confirme** ("Tem certeza que deseja deletar o veículo X?") e então **delete de
   verdade**: `DELETE /api/v2/<recurso>/<pk>/` (204 = removido; confira com um GET → deve dar 404) ou
   `obj.delete()` no ORM. **Não use `deleted=True` achando que apagou** — não apaga (§3.3).
-  FKs em cascata caem junto: apagar um `Device` leva embora o `Suntech` vinculado (visto na prática).
+  FKs em cascata caem junto: apagar um `Device` levava embora o `Suntech` vinculado (visto na prática, antes de 24/09/2026).
 - ⚠️ **`utils/api.py` do tester não tem `delete_req`** (só GET/POST/PATCH). Para deletar, monte o
   `requests.delete()` num script de `scratch/` reaproveitando `API` + `handle_access_token()` da `utils.api`.
 - Operações que gravam em **produção** exigem confirmação dos dados antes de executar.
@@ -190,7 +210,7 @@ etl = Etilometro.objects.create(
 
 ## 6. Referência rápida de rotas da API (`/api/v2/`)
 
-- **Router DRF** (CRUD): `devices`, `etilometers`, `suntechs`, `sensors`, `solutions`, `firmwares`, `calibrations`, `logs`.
+- **Router DRF** (CRUD; raiz da API em 07/10/2026): `devices`, `etilometers`, `telemetries` (ex-`suntechs`, que dá 404), `sensors`, `solutions`, `firmwares`, `calibrations`, `logs`, `anomalies`, `user-connections`.
 - **Views**: `companies/`, `users/`, `settings/<company>`, `sync-status/`, `token/` + `token/refresh/`, `login/`, `upload-images/`, `camera-services/`.
 - **Legacy (device)**: `/update/`, `/check/`, `/validateSensor/`, `/checkSettings/`.
 > Atenção ao plural da rota: **`etilometers`** (CRUD de instalações), **`devices`** (hardware), **`companies/`** (empresas/telemetrias).

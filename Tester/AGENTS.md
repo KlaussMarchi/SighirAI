@@ -36,10 +36,13 @@ pasta-como-módulo (`index.py`).
 | `test [alcohol\|alcohol-blow\|blow\|temp\|sensor] [--telemetry mix\|suntech]` | roda teste do `protocol.json` (sem nome, lista) |
 | `erase [--force]` | garante `esp_id` nativo `MIC…`; `--force` = reset de fábrica mesmo já nativo |
 | `recover` | tira de estado travado (reset + resync) |
-| `register --company X [--series auto] [--suntech ID] [--chip N]` | cadastra o aparelho no servidor (sem `--company` lista as transportadoras) |
-| `install <esp_id> --placa P --telemetria mix2\|mix\|suntech\|entrack [--tipo carro] [--instalador N] [--yes]` | cria a **instalação** (aparelho ↔ placa ↔ telemetria); sem `--yes` só valida e mostra |
+| `register --company X [--series auto] [--modulo ID] [--chip N]` | cadastra o aparelho (e o módulo Suntech/Entrack em `/telemetries`, com o chip); sem `--company` lista as transportadoras |
+| `install <esp_id> --placa P --telemetria mix2\|mix\|suntech\|entrack [--modulo ID --chip N] [--tipo carro] [--maleta] [--instalador N] [--yes]` | **instala** = associa o aparelho à placa (`PATCH /devices`: `plate`, telemetria, módulo); sem `--yes` só valida e mostra; `--forcar` em troca |
+| `edit <esp_id> [--company X] [--modulo ID\|none] [--chip N] [--sensor ETL…\|usb] [--series N] [--desinstalar] [--rearmar] [--yes]` | **edita** aparelho já cadastrado (ex.: voltou de um cliente e vai para outro): muda só o que foi pedido, mostra antes → depois, grava com `--yes` e confere |
 | `server-device <esp_id>` / `server-delete <esp_id> --yes` | consulta / **deleta de verdade** no servidor |
 | `flash` | re-arma `need_update` + baixa + flasha firmware pela serial (~4 min — **em background**) |
+| `progresso` | porcentagem do flash em andamento (espera até 20 s); **mostre ao usuário a cada 20 s** |
+| `onde <MIC\|ETL\|módulo\|placa\|série>` | onde esse identificador já está cadastrado (empresa, placa, série, módulo) |
 
 Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira comando novo na CLI.
 
@@ -49,11 +52,12 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
   cadastro/telemetria e ofereça atualização; `old` = `$firmware!` sem resposta válida → firmware muito
   antigo → atualização pelo Wi-Fi (§7.2). Confirme versão **no aparelho**, nunca pelo `software_version`
   do servidor (defasa). **`/update` é one-shot**: nunca faça "download de teste"; o `flash` re-arma sozinho.
-  Flash **sempre em background com log** (`flash.log`) e acompanhe pelo log.
+  Flash **sempre em background com log** (`flash.log`) e, **a cada 20 s, mostre ao usuário a porcentagem**
+  (`python tools/sighir.py progresso` até sair `concluído`; `procedimentos/firmware.md` §7.1).
 - **Cadastro** (`procedimentos/cadastro.md`): exige firmware `ok` e `esp_id` nativo `MIC…` (o `register`
   faz `erase` se vier `admin_sighir` — e o erase **volta a telemetria para Suntech**: reconfigure depois).
   **Empresa: sempre pergunte, listando as opções no chat** (nunca escolha nem reutilize a última).
-  **ID do módulo e chip: sempre pergunte** — em Suntech **e** Entrack (mesmo campo `--suntech`); MiX não
+  **ID do módulo e chip: sempre pergunte** — em Suntech **e** Entrack (mesmo campo `--modulo`); MiX não
   tem chip. Nada disso se lê pela USB. Depois do cadastro: lembrar de colar a etiqueta com o nº de série.
   `sensor_id` de debug (`ETL2608402025435219`/`ETL3550904305917103`) = build de debug: **não cadastre**.
 - **MiX**: "MiX" quase sempre é **MIX 2.0 → `mix2` (5)** — 82 instalações contra 12 no MIX antigo (09/2026).
@@ -65,7 +69,15 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
   `$ETEVxx!` **nunca é ruído**. Durante um teste o aparelho não lê comandos. O teste completo só dispara
   na **transição** da ignição com o veículo **bloqueado** e no modo de telemetria certo (§11.3).
   Não "conserte" latência com sleep fixo.
-- **Produção**: tudo que grava no servidor (`register`, `install`, `/suntechs`, `PATCH`, `flash` que re-arma,
+- **Já registrado em outro lugar?** `register`/`install` saem com código **4**/**2** quando o aparelho, o
+  sensor, o módulo Suntech/Entrack ou a placa já pertencem a outro cadastro, e imprimem onde está (empresa,
+  placa, série, módulo) e as **opções numeradas**. Repasse ao usuário com essas palavras ("esse etilômetro
+  já pertence à EXPRESSO PREDILETO, série 00032, placa RJT5E02… opção 1 editar, opção 2…") e **pergunte qual
+  ele quer** — nunca escolha sozinho. Dúvida antes de começar: `onde <ID>`.
+- **Aparelho já cadastrado = `edit`, nunca `register` de novo nem `server-delete` + cadastro** (preserva o
+  histórico). Trocou de cliente: `edit --company <novo> --desinstalar [--modulo/--chip]`, testa na bancada e
+  depois `install` na placa nova (`procedimentos/cadastro.md` §6.1).
+- **Produção**: tudo que grava no servidor (`register`, `install`, `edit`, `/telemetries`, `PATCH`, `flash` que re-arma,
   `server-delete`) → **confirme os dados com o usuário antes**. Deletar = DELETE de verdade
   (`deleted=True` não apaga). Nunca `limit=all`. Credenciais em `utils/api.py`: não modificar nem espalhar.
 - **Core** (`objects/`, `utils/`): mudanças só com aval explícito do usuário (bugs antigos já corrigidos).
@@ -88,6 +100,9 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
 - Dúvida simples → procedimento/doc; comportamento exato → leia o código em `../docs/hardware/Main/`
   antes de agir. Nunca suponha comando ou resposta que não está no material.
 - Sem `../docs` você perde a base de conhecimento, mas a bancada funciona: avise o usuário.
+- **Servidor mudou?** Erro 404/400 novo, campo sumido ou rota nova → é migração do servidor: roteiro em
+  `../docs/migracao_servidor.md` (`python ../docs/tools/contrato.py diferenca` mostra o que mudou e quem usa);
+  testes de tudo: `../docs/testes.md` (`python ../docs/tools/testar.py --api`).
 
 ## 6. Como trabalhar com o usuário
 

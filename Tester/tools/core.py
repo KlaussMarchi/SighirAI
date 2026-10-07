@@ -327,9 +327,11 @@ def recover():
     """Tira o device de estados travados (ex: modo update interrompido):
     reinicia e ressincroniza com retry."""
     log('info', 'recuperando device ($ETRS! + resync)')
+    if not (device.device and device.device.is_open):
+        robustConnect(retries=2)
     if device.device and device.device.is_open:
         device.clear()
-    device.send('$ETRS!')
+        device.send('$ETRS!')
     device.disconnect()
     sleep(6.0)
     return robustSync()

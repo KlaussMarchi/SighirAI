@@ -1,0 +1,1165 @@
+{
+ "api": {
+  "anomalies/": {
+   "escrita": {
+    "category": {
+     "max": 50,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "company": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "desc": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "integer"
+    },
+    "solved": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "vehicle": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "field"
+    }
+   },
+   "leitura": [
+    "category",
+    "company",
+    "deleted",
+    "desc",
+    "id",
+    "solved",
+    "srv_created_at",
+    "updated_at",
+    "vehicle"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 246
+  },
+  "calibrations/": {
+   "escrita": {
+    "analog": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "integer"
+    },
+    "mgl": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "num": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "integer"
+    },
+    "sensor": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "sensor_id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "solution": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "timestamp": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    }
+   },
+   "leitura": [
+    "analog",
+    "deleted",
+    "id",
+    "mgl",
+    "num",
+    "sensor_id",
+    "solution",
+    "srv_created_at",
+    "timestamp",
+    "updated_at"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 5886
+  },
+  "companies/": {
+   "escrita": {},
+   "leitura": [
+    "data",
+    "deleted",
+    "id",
+    "label",
+    "locations",
+    "srv_created_at",
+    "type",
+    "updated_at",
+    "value"
+   ],
+   "metodos": [],
+   "total": 32
+  },
+  "devices/": {
+   "escrita": {
+    "camera_service": {
+     "escolhas": [
+      "None",
+      "movieit"
+     ],
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "choice"
+    },
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "company": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "default_settings": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "id": {
+     "max": 30,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "installation_data": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "installation_date": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "installer": {
+     "max": 100,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "is_operating": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "location": {
+     "max": 120,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "need_update": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "nickname": {
+     "max": 50,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "plate": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "sensor_id": {
+     "max": 30,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "series_num": {
+     "max": 30,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "software_version": {
+     "max": 10,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "telemetry": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "telemetry_company": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "telemetry_company_label": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "timestamp": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "update_settings": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "vehicle_type": {
+     "escolhas": [
+      0,
+      1
+     ],
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "choice"
+    }
+   },
+   "leitura": [
+    "camera_service",
+    "company",
+    "default_settings",
+    "deleted",
+    "id",
+    "installation_data",
+    "installation_date",
+    "installer",
+    "is_operating",
+    "location",
+    "need_update",
+    "nickname",
+    "plate",
+    "sensor_id",
+    "series_num",
+    "software_version",
+    "srv_created_at",
+    "telemetry",
+    "telemetry_company",
+    "telemetry_company_label",
+    "timestamp",
+    "update_settings",
+    "updated_at",
+    "vehicle_type"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 281
+  },
+  "etilometers/": {
+   "escrita": {
+    "camera_service": {
+     "escolhas": [
+      "None",
+      "movieit"
+     ],
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "choice"
+    },
+    "company": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "device": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "device_need_update": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "boolean"
+    },
+    "esp_id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "installation_data": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "installation_date": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "installer": {
+     "max": 100,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "is_operating": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "need_update": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "boolean"
+    },
+    "nickname": {
+     "max": 50,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "sensor_id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "software_version": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "telemetry": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "telemetry_label": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "vehicle": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "vehicle_plate": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "vehicle_type": {
+     "escolhas": [
+      0,
+      1
+     ],
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "choice"
+    }
+   },
+   "leitura": [
+    "camera_service",
+    "company",
+    "device_need_update",
+    "esp_id",
+    "id",
+    "installation_data",
+    "installation_date",
+    "installer",
+    "is_operating",
+    "need_update",
+    "nickname",
+    "sensor_id",
+    "software_version",
+    "srv_created_at",
+    "telemetry",
+    "telemetry_label",
+    "updated_at",
+    "vehicle",
+    "vehicle_type"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 147
+  },
+  "firmwares/": {
+   "escrita": {
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "desc": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "integer"
+    },
+    "release_date": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "date"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "version": {
+     "max": 30,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    }
+   },
+   "leitura": [
+    "deleted",
+    "desc",
+    "id",
+    "release_date",
+    "srv_created_at",
+    "updated_at",
+    "version"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 8
+  },
+  "logs/": {
+   "escrita": {
+    "company_label": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "created_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "etilometer": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "event": {
+     "max": 30,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "lat": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "lon": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "timestamp": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "vehicle": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "vehicle_type": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    }
+   },
+   "leitura": [
+    "company_label",
+    "created_at",
+    "etilometer",
+    "event",
+    "lat",
+    "lon",
+    "srv_created_at",
+    "timestamp",
+    "updated_at",
+    "vehicle",
+    "vehicle_type"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 286940
+  },
+  "sensors/": {
+   "escrita": {
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "company": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
+    "current_calibration": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "field"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "id": {
+     "max": 30,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "vehicle": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    }
+   },
+   "leitura": [
+    "analog",
+    "current_calibration",
+    "deleted",
+    "id",
+    "mgl",
+    "solution",
+    "srv_created_at",
+    "timestamp",
+    "updated_at"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 525
+  },
+  "solutions/": {
+   "escrita": {
+    "batch_num": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "integer"
+    },
+    "cas_num": {
+     "max": 30,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "concentration": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "expiration_date": {
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "date"
+    },
+    "manufacturer": {
+     "max": 100,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "product_num": {
+     "max": 30,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    }
+   },
+   "leitura": [
+    "batch_num",
+    "cas_num",
+    "concentration",
+    "deleted",
+    "expiration_date",
+    "manufacturer",
+    "product_num",
+    "srv_created_at",
+    "updated_at"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 23
+  },
+  "telemetries/": {
+   "escrita": {
+    "chip": {
+     "max": 30,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "client_updated_at": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "datetime"
+    },
+    "deleted": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "has_to_block": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "has_to_unblock": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "id": {
+     "max": 40,
+     "obrigatorio": true,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "ip": {
+     "max": 15,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "is_connected": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "is_ignition_on": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "is_relay_on": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
+    "last_stt": {
+     "max": 255,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "lat": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "lon": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "float"
+    },
+    "model": {
+     "max": 30,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "port": {
+     "max": 5,
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "string"
+    },
+    "srv_created_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "updated_at": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "datetime"
+    },
+    "vehicle": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "field"
+    }
+   },
+   "leitura": [
+    "chip",
+    "deleted",
+    "has_to_block",
+    "has_to_unblock",
+    "id",
+    "ip",
+    "is_connected",
+    "is_ignition_on",
+    "is_relay_on",
+    "last_stt",
+    "lat",
+    "lon",
+    "model",
+    "port",
+    "srv_created_at",
+    "updated_at",
+    "vehicle"
+   ],
+   "metodos": [
+    "POST"
+   ],
+   "total": 84
+  },
+  "user-connections/": {
+   "escrita": {},
+   "leitura": [
+    "auth_type",
+    "category",
+    "company",
+    "company_label",
+    "description",
+    "email",
+    "id",
+    "ip",
+    "lat",
+    "lon",
+    "timestamp",
+    "user_agent",
+    "username"
+   ],
+   "metodos": [],
+   "total": 183
+  }
+ },
+ "banco": {
+  "migracoes": [
+   "authtoken.0001_initial",
+   "authtoken.0002_auto_20160226_1747",
+   "authtoken.0003_tokenproxy",
+   "authtoken.0004_alter_tokenproxy_options",
+   "Etilometros.0001_initial",
+   "Etilometros.0002_alter_device_timestamp_alter_log_timestamp_and_more",
+   "Users.0001_initial",
+   "Etilometros.0003_etilometro_data_alter_device_timestamp_and_more",
+   "Etilometros.0004_remove_etilometro_data_etilometro_camera_server_and_more",
+   "Etilometros.0005_remove_etilometro_camera_server_and_more",
+   "Etilometros.0006_alter_device_timestamp_and_more",
+   "Etilometros.0007_log_previous_etilometer_log_previous_plate_and_more",
+   "Etilometros.0008_alter_device_timestamp_alter_log_timestamp_and_more",
+   "Etilometros.0009_remove_etilometro_need_update_and_more",
+   "Etilometros.0010_remove_suntech_etilometer_suntech_device",
+   "Etilometros.0011_company_locations_etilometro_is_operating_and_more",
+   "Etilometros.0008_alter_device_timestamp_and_more",
+   "Etilometros.0009_alter_etilometro_default_settings_and_more",
+   "Etilometros.0010_rename_ip_addr_suntech_ip_remove_suntech_etilometer_and_more",
+   "Etilometros.0011_remove_etilometro_location_device_location_and_more",
+   "Etilometros.0012_remove_suntech_chip_device_chip_and_more",
+   "Etilometros.0013_remove_etilometro_default_settings_and_more",
+   "sync.0001_initial",
+   "Etilometros.0014_alter_calibration_sensor_alter_calibration_solution_and_more",
+   "Etilometros.0015_device_software_version",
+   "Etilometros.0016_auto_20260424_1504",
+   "Etilometros.0017_remove_etilometro_software_version",
+   "Etilometros.0018_log_idx_log_event_timestamp",
+   "Etilometros.0019_etilometro_is_active",
+   "Etilometros.0020_suntech_lat_suntech_lon",
+   "Etilometros.0021_alter_device_suntech",
+   "Etilometros.0022_alter_suntech_device_alter_suntech_ip_and_more",
+   "Etilometros.0023_alter_suntech_id",
+   "Etilometros.0024_log_lat_log_lon",
+   "Users.0002_userprofile_allowed_companies",
+   "Etilometros.0025_anomaly",
+   "Users.0003_userconnection",
+   "Etilometros.0026_vehicle",
+   "Etilometros.0027_remove_anomaly_timestamp_anomaly_solved_and_more",
+   "Etilometros.0028_etilometro_installation_data",
+   "Etilometros.0029_anomaly_category",
+   "Etilometros.0030_device_camera_service_device_installation_data_and_more",
+   "Etilometros.0031_rename_suntech_telemetry_and_more",
+   "Etilometros.0032_remove_telemetry_device_alter_device_telemetry",
+   "Etilometros.0033_alter_device_installation_data"
+  ],
+  "snapshot": "07/10/2026 10:20",
+  "tabelas": {
+   "Etilometros_anomaly": [
+    "id",
+    "srv_created_at",
+    "updated_at",
+    "deleted",
+    "vehicle_id",
+    "desc",
+    "solved",
+    "category"
+   ],
+   "Etilometros_calibration": [
+    "id",
+    "analog",
+    "mgl",
+    "num",
+    "solution_id",
+    "product_num",
+    "deleted",
+    "srv_created_at",
+    "updated_at",
+    "timestamp"
+   ],
+   "Etilometros_company": [
+    "id",
+    "label",
+    "type",
+    "value",
+    "data",
+    "locations",
+    "deleted",
+    "srv_created_at",
+    "updated_at"
+   ],
+   "Etilometros_device": [
+    "id",
+    "sensor_id",
+    "series_num",
+    "need_update",
+    "timestamp",
+    "company_id",
+    "location",
+    "chip",
+    "default_settings",
+    "deleted",
+    "srv_created_at",
+    "update_settings",
+    "updated_at",
+    "software_version",
+    "camera_service",
+    "installation_date",
+    "installer",
+    "is_operating",
+    "nickname",
+    "plate_id",
+    "telemetry_company_id",
+    "telemetry_id",
+    "installation_data"
+   ],
+   "Etilometros_etilometro": [
+    "id",
+    "vehicle_type",
+    "vehicle_plate",
+    "installation_date",
+    "need_update",
+    "installer",
+    "device_id",
+    "telemetry_id",
+    "camera_service",
+    "is_operating",
+    "nickname",
+    "deleted",
+    "srv_created_at",
+    "updated_at",
+    "is_active",
+    "installation_data"
+   ],
+   "Etilometros_firmware": [
+    "id",
+    "version",
+    "release_date",
+    "desc",
+    "deleted",
+    "srv_created_at",
+    "updated_at"
+   ],
+   "Etilometros_log": [
+    "id",
+    "event",
+    "created_at",
+    "etilometro_id",
+    "previous_etilometer",
+    "previous_plate",
+    "deleted",
+    "srv_created_at",
+    "updated_at",
+    "timestamp",
+    "lat",
+    "lon",
+    "device_id"
+   ],
+   "Etilometros_sensor": [
+    "id",
+    "current_calibration_id",
+    "deleted",
+    "srv_created_at",
+    "updated_at"
+   ],
+   "Etilometros_sensorreplacelog": [
+    "id",
+    "old_sensor",
+    "new_sensor",
+    "replaced_at",
+    "device_id",
+    "deleted",
+    "srv_created_at",
+    "updated_at"
+   ],
+   "Etilometros_solution": [
+    "product_num",
+    "cas_num",
+    "batch_num",
+    "concentration",
+    "manufacturer",
+    "expiration_date",
+    "deleted",
+    "srv_created_at",
+    "updated_at"
+   ],
+   "Etilometros_telemetry": [
+    "id",
+    "model",
+    "port",
+    "last_stt",
+    "has_to_block",
+    "has_to_unblock",
+    "is_connected",
+    "is_ignition_on",
+    "is_relay_on",
+    "ip",
+    "deleted",
+    "srv_created_at",
+    "updated_at",
+    "lat",
+    "lon",
+    "chip"
+   ],
+   "Etilometros_vehicle": [
+    "id",
+    "srv_created_at",
+    "updated_at",
+    "deleted",
+    "plate",
+    "type",
+    "company_id"
+   ],
+   "Users_userconnection": [
+    "id",
+    "auth_type",
+    "description",
+    "ip",
+    "lat",
+    "lon",
+    "user_agent",
+    "timestamp",
+    "user_id"
+   ],
+   "Users_userprofile": [
+    "id",
+    "category",
+    "data",
+    "company_id",
+    "user_id"
+   ],
+   "Users_userprofile_allowed_companies": [
+    "id",
+    "userprofile_id",
+    "company_id"
+   ],
+   "_bkp_anomaly_plate": [
+    "id",
+    "vehicle"
+   ],
+   "_bkp_device_chip": [
+    "device_id",
+    "chip",
+    "suntech_id"
+   ],
+   "_bkp_device_telemetry": [
+    "device_id",
+    "telemetry_id"
+   ],
+   "authtoken_token": [
+    "key",
+    "created",
+    "user_id"
+   ],
+   "sync_syncstate": [
+    "id",
+    "key",
+    "version",
+    "last_changed_at"
+   ]
+  }
+ },
+ "capturado": "07/10/2026 10:36 (BRT)",
+ "raiz_api": [
+  "anomalies",
+  "calibrations",
+  "devices",
+  "etilometers",
+  "firmwares",
+  "logs",
+  "sensors",
+  "solutions",
+  "telemetries",
+  "user-connections"
+ ]
+}

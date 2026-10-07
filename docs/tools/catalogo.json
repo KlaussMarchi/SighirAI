@@ -10,8 +10,8 @@
   "arquivo": "diagnostico.md",
   "descricao": "Playbook por sintoma: hipóteses, testes, soluções, casos, categorias de anomalias",
   "quando": "qualquer problema de campo",
-  "revisado": "2026-09-24",
-  "sha1": "222f8b8f6647dfbeaf2b276ba5b698db9e4282bb"
+  "revisado": "2026-10-07",
+  "sha1": "9e916b85ddb1218c9a9698d1e85eb4fd50a5d6ed"
  },
  "eletrica_instalacao.md": {
   "arquivo": "eletrica_instalacao.md",
@@ -24,8 +24,8 @@
   "arquivo": "firmware_reference.md",
   "descricao": "Eventos $ETEVnn! com linha do firmware, fluxos e o que cada telemetria repassa (medido no banco)",
   "quando": "interpretar eventos e logs",
-  "revisado": "2026-09-23",
-  "sha1": "74872fad913bec6804a5633bec5703ec7d82b823"
+  "revisado": "2026-10-07",
+  "sha1": "b73ab90329cc363fc28cf213be3f3ab2fb4e6ff9"
  },
  "hardware/firmware_etilometro.md": {
   "arquivo": "hardware/FIRMWARE_ETILOMETRO.md",
@@ -40,6 +40,13 @@
   "quando": "como conduzir um atendimento",
   "revisado": "2026-09-23",
   "sha1": "6154b2cb74f0e8b33c1c90ba41f8269c0d4457f7"
+ },
+ "migracao_servidor.md": {
+  "arquivo": "migracao_servidor.md",
+  "descricao": "Roteiro quando o servidor muda: contrato.py diferenca (rotas/campos/tabelas/migrações × referência, com quem usa), medir no snapshot, onde mexer em cada IA, testar, histórico das migrações",
+  "quando": "servidor/tabelas/API mudaram, erro 404/400 novo numa IA, aviso 'O CONTRATO MUDOU'",
+  "revisado": "2026-10-07",
+  "sha1": "90056b18a851625e399db39d5569c738ed904a72"
  },
  "notion/api-logs.pdf": {
   "arquivo": "Notion/api-logs.pdf",
@@ -199,8 +206,8 @@
   "arquivo": "Notion/Resolução de Problemas 25079b90eb7380048323ce9f5903d098_all.csv",
   "descricao": "Tabela de chamados de campo (Notion, todas as linhas) — resumida em casos_notion.md",
   "quando": "chamados anteriores",
-  "revisado": "2026-09-24",
-  "sha1": "fa52e01c651f2efb73168bd42eeffe9b83c399d7"
+  "revisado": "2026-10-07",
+  "sha1": "028e4ceee0af9daf084580d0f974d5a4b1233864"
  },
  "operacao_telas.md": {
   "arquivo": "operacao_telas.md",
@@ -213,8 +220,8 @@
   "arquivo": "portal_app.md",
   "descricao": "Portal web, app Sighir Monitor, portais MiX/SystemSat/Movieit, API (rotas, filtros, armadilhas)",
   "quando": "portal, app e servidor",
-  "revisado": "2026-09-23",
-  "sha1": "7c9d150fe3a2e593ba234735cbd93ecd2f18805d"
+  "revisado": "2026-10-07",
+  "sha1": "43e28106d198f10bebfb44f02ce1a82430a84a96"
  },
  "sensor_calibracao.md": {
   "arquivo": "sensor_calibracao.md",
@@ -227,8 +234,8 @@
   "arquivo": "server_reference.md",
   "descricao": "Schema do servidor Django, sincronização, instalar/editar/deletar, rotas",
   "quando": "operar no banco/servidor",
-  "revisado": "2026-09-24",
-  "sha1": "f3e4ae0cea52252ae4fe83410de9752b79fe4366"
+  "revisado": "2026-10-07",
+  "sha1": "8e8a5578fafa64491b622f68aa8d7a06276da3ad"
  },
  "sincronizar.md": {
   "arquivo": "sincronizar.md",
@@ -248,14 +255,21 @@
   "arquivo": "telemetrias.md",
   "descricao": "MiX/MIX 2.0/Suntech/Entrack: ignição, bloqueio, handshake, portais, o que chega ao servidor",
   "quando": "problemas de integração/telemetria",
-  "revisado": "2026-09-24",
-  "sha1": "9d5ec029f0cd1f43b7e75c1d7b0d43ced7c47698"
+  "revisado": "2026-10-07",
+  "sha1": "b9c42698fa039068b1299b670023abe336a62490"
+ },
+ "testes.md": {
+  "arquivo": "testes.md",
+  "descricao": "Bateria de testes das 3 IAs (testar.py: offline, --api só leitura, --completo, --bancada) e roteiro manual de bancada/gravação com o esperado de cada passo",
+  "quando": "depois de mudar código ou migrar o servidor; antes de entregar",
+  "revisado": "2026-10-07",
+  "sha1": "f1a08799060f9fe6bd62b25c023dc133e4bdd9a9"
  },
  "troubleshooting.md": {
   "arquivo": "troubleshooting.md",
   "descricao": "Checklists de campo da equipe por problema (requisição de teste, atualização, bloqueio, app, reinícios, álcool, sopro, comunicação) — gerado do Notion (Suporte → Troubleshooting)",
   "quando": "roteiro de campo; o porquê e as evidências ficam no diagnostico.md",
-  "revisado": "2026-09-24",
-  "sha1": "9dbb73d2518d52edd7047b69e84d6f809b33f6ef"
+  "revisado": "2026-10-07",
+  "sha1": "435e7d56878870546275ed4da81bfb318b27535e"
  }
 }

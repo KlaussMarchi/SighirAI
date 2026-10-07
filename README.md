@@ -48,6 +48,14 @@ Notion inteiro e índice. A pasta `docs/hardware/` continua manual.
 
 Testes (sem rede): `python docs/tools/test_notion_sync.py`.
 
+## Quando o servidor muda / testar tudo
+
+- Na raiz, diga **"o servidor mudou"** (ou rode `python docs/tools/contrato.py diferenca`): compara a API e
+  o banco de agora com a referência `docs/servidor_contrato.json`, aponta onde cada IA usa o que mudou e
+  segue `docs/migracao_servidor.md`. O `sincronizar.py` já avisa quando o contrato muda.
+- `python docs/tools/testar.py` testa as três IAs sem rede; `--api` acrescenta a produção em só leitura,
+  `--completo` o check seco do Scanner e `--bancada` o aparelho na USB. Roteiro com gravação: `docs/testes.md`.
+
 ## Manutenção
 
 - Lançadores: `tools/launcher/` de cada IA (`build.ps1` no Windows, `build.sh` no Linux). Os dois `.exe`

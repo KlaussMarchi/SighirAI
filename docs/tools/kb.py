@@ -583,6 +583,7 @@ def writeTroubleshooting():
         return
     body = []
     for line in lines[start + 1:]:
+        line = re.sub(r'^(\s*)> ?', r'\1', line)    # seção dentro de um callout (Notion out/2026) vem citada
         m = re.match(r'^(#{1,6})\s+(.*)$', line)
         if m and len(m.group(1)) <= level:
             break

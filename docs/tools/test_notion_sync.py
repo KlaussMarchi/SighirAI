@@ -88,6 +88,24 @@ def testFlavored():
     assert 'Tabela -> installed' in md
 
 
+def testFlavoredFileBlock():
+    """formato novo do conector (out/2026): anexos como notion-file-block://<bloco>/<uuid>?...&name=x"""
+    fb = 'notion-file-block://27e79b90-eb73-80c7/{u}?space_id=e2b4&name={n}'
+    content = '\n'.join([f'<pdf src="{fb.format(u="u1", n="main.pdf")}"></pdf>',
+                         f'<pdf src="{fb.format(u="u2", n="main.pdf")}"></pdf>',
+                         f'![]({fb.format(u="u3", n="foto.png")})',
+                         f'![]({fb.format(u="u4", n="sumiu.png")})'])
+    with sandbox() as tmp:
+        files = ns.Files(ns.State(), 1)
+        ctx = {'id': 'p', 'folder': ns.NOTION, 'base': ns.NOTION, 'attach': []}
+        for name in ('main.pdf', 'main 1.pdf', 'foto.png'):
+            open(os.path.join(ns.NOTION, name), 'w').close()
+        md = ns.flavored(content, ctx, files)
+    assert ns.fileName(fb.format(u='u1', n='main.pdf')) == ('main.pdf', 'u1')
+    assert '[PDF: main.pdf](main.pdf)' in md and '[PDF: main 1.pdf](main%201.pdf)' in md, md
+    assert '![foto.png](foto.png)' in md and '[imagem: sumiu.png]' in md and 'notion-file-block' not in md, md
+
+
 def testMcpProps():
     props = {'Problema': 'X', 'Status': 'Concluído', 'date:Data:start': '2025-08-28T21:03:00.000Z',
              'date:Data:is_datetime': 1, 'Empresa': '["Predileto"]',
@@ -96,6 +114,9 @@ def testMcpProps():
     out = ns.mcpProps(props, 'Problema', CFG['pessoas'])
     assert out == {'Status': 'Concluído', 'Empresa': 'Predileto', 'Responsável': 'Fulano',
                    'Data': '28/08/2025 18:03 (BRT)'}, out
+    # fetch de página: pessoas vêm como tag <mention-user>
+    tag = '<mention-user url="user://11111111-2222-3333-4444-555555555555"></mention-user>'
+    assert ns.mcpProps({'Responsável': [tag]}, 'Problema', CFG['pessoas']) == {'Responsável': 'Fulano'}
 
 
 class FakeApi:

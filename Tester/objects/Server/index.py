@@ -66,35 +66,34 @@ class Server:
                 'series_num': self.selectNumber(),
                 'id': self.getDeviceInfo('ID:esp_id$', 'MIC'),
                 'sensor_id': self.getDeviceInfo('sensor_id', 'ETL'),
-                'timestamp': self.getDeadline(datetime.now()),
-                'suntech': self.getSuntech(),
                 'need_update': True
             }
         else:
             data = {
                 'company': self.selectCompany(),
-                'series_num': input('Número de Série: '), 
-                'id': input('ID do Aparelho: '),            
-                'sensor_id': input('ID do Sensor: '),            
-                'timestamp': self.getDeadline(datetime.now()),
-                'suntech': self.getSuntech(),    
+                'series_num': input('Número de Série: '),
+                'id': input('ID do Aparelho: '),
+                'sensor_id': input('ID do Sensor: '),
                 'need_update': True
             }
 
-        # 00299
-        # MIC0014246467341799
-        # ETL3550904305917103
-        # 1700023877
+        # desde a migração do servidor (24/09/2026) o módulo Suntech/Entrack mora em /telemetries
+        # (era /suntechs) junto com o chip, e o device aponta para ele pelo campo `telemetry`
+        module = self.getSuntech()
 
-        has_telemetry = (data['suntech'] != 'N/A')
+        if module != 'N/A':
+            chip   = input('Número do Chip do módulo (vazio = sem chip): ').strip()
+            exists = get_req(f'/telemetries/{module}/')
 
-        if has_telemetry:
-            result = post_req('/suntechs', {'id': data['suntech']})
+            if exists['status'] == 'error' or not exists.get('data'):
+                result = post_req('/telemetries', {'id': module, **({'chip': chip} if chip else {})})
 
-            if result['status'] == 'error':
-                return sendEvent('error', f'não foi possível registrar o chip suntech: {result.get("data")}')
+                if result['status'] == 'error':
+                    return sendEvent('error', f'não foi possível registrar o módulo: {result.get("data")}')
+            elif chip:
+                post_req(f'/telemetries/{module}', {'chip': chip}, type='PATCH')
 
-        data['chip'] = 'N/A' if not has_telemetry else input('Número do Chip Suntech: ')
+            data['telemetry'] = module
         print()
 
         sendEvent('ATENÇÃO', f'insira e etiqueta: {data["series_num"]}', 'orange')
@@ -102,13 +101,13 @@ class Server:
 
         sendEvent('event', f'Tentando Registrar {data["id"]}')
         result = post_req('/devices', data)
-        
+
         if result['status'] == 'error':
             return sendEvent('error', f'erro ao registrar dispositivo: {result.get("data")}')
-        
+
         sendEvent('success', f'Device {data["id"]} registrado com sucesso!')
         print(json.dumps(result, ensure_ascii=False, indent=4))
-    
+
     def getDeadline(self, date):
         if isinstance(date, str):
             date = datetime.fromisoformat(date)
@@ -116,7 +115,7 @@ class Server:
         return date.strftime('%Y-%m-%d %H:%M:%S')
 
     def getSuntech(self):
-        value = input('digite o ID suntech: ').strip()
+        value = input('ID do módulo Suntech/Entrack (vazio = MiX, sem módulo): ').strip()
 
         if len(value) == 0:
             return 'N/A'

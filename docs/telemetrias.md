@@ -23,7 +23,7 @@ existem no firmware v6.4.8**. No Tester, `telemetry mix` grava **0** (MIX antigo
 
 No servidor, a telemetria de cada instalação é uma `Company` do tipo telemetria; o campo `value` guarda o
 código: `MIX TELEMATICS` = 0, `SUNTECH` = 2, `MIX TELEMATICS (NOVO)` = 5, `Entrack` = 6
-(`Etilometro.telemetry_label` na API). A lista `companies/` mistura transportadoras e telemetrias
+(`telemetry_label` em `etilometers/`). A lista `companies/` mistura transportadoras e telemetrias
 (o filtro `?type=` não é aplicado pela API — filtre pelo campo `type`).
 
 **Frota por telemetria** (números atualizados a cada sincronização em `servidor_resumo.md`; foto de
@@ -71,6 +71,9 @@ Consequências práticas:
   nenhum veículo MiX; `$ETEV01!`/`$ETEV02!` dependem do script de cada rastreador. Eventos chegam em
   **lote**, com atraso de minutos a horas e ordem não confiável. Em várias empresas (Mosaic, Atvos,
   Felka, Manchur) a MiX não repassa nada para o nosso servidor: ausência de log lá não é defeito.
+- Os logs MiX entram por um serviço do servidor (`telemetries/mix`, sessão `screen` `mix`) que consulta a
+  MiX a cada minuto. **Ele ficou parado de 24/09 15h39 a 07/10/2026 13h21 UTC** — silêncio MiX nesse intervalo é
+  do servidor, não do veículo. Todos os MiX calados ao mesmo tempo = serviço parado (`migracao_servidor.md`).
 - Portal MiX (us.mixtelematics.com): *Rastreamento ao vivo* → placa → ⋮ → *Comandos do dispositivo
   móvel* → **Relay 1 "Ligado"** desbloqueia em pane do etilômetro; **"Desligado e solto"** volta ao
   normal. Acompanhe em *Monitorar → Fluxos* ("Concluído", ~6 min). Eventos: *Monitorar → Histórico de
@@ -89,7 +92,7 @@ Consequências práticas:
 - No boot, se o `STT;` não vem em 20 s → **"Comunicação Não Encontrada"** (tela vermelha + bipe). O
   aparelho continua, mas não vai saber da ignição.
 - Tela ID pág. 2 mostra o **ID de Telemetria** lido; INFO pág. 3 "Telemetria Ativa".
-- No servidor, `suntechs/<id>` tem `is_connected`, `is_ignition_on`, `is_relay_on`, `has_to_block`,
+- No servidor, `telemetries/<id>` (era `suntechs/`; o id está em `devices/<MIC>/.telemetry`) tem `is_connected`, `is_ignition_on`, `is_relay_on`, `has_to_block`,
   `has_to_unblock`, `last_stt` — ótimo para saber se o módulo está vivo e o que o relé está fazendo.
 - Falhas reais: **chip do módulo invertido** (sem comunicação com o servidor, mas pedia teste e
   bloqueava — "Pedro (carro)"); **módulo morto** após ~1 mês parado (RJK1D03, 2025: trocar o kit);
@@ -129,7 +132,7 @@ entrega em lote) — o cadastro (`telemetry`) está errado (RJV1A55, 09/2026).
 
 | Sintoma | MiX | Suntech | Entrack |
 |---|---|---|---|
-| Não pede teste | pen drive/motorista identificado? script certo (MIX vs MIX2)? S1/S2? chicote | "Comunicação Não Encontrada" no boot? `suntechs/<id>.is_connected`? chip? fio azul (IGN) | `AT+QACC` respondendo? módulo configurado (AOVX)? |
+| Não pede teste | pen drive/motorista identificado? script certo (MIX vs MIX2)? S1/S2? chicote | "Comunicação Não Encontrada" no boot? `telemetries/<id>.is_connected`? chip? fio azul (IGN) | `AT+QACC` respondendo? módulo configurado (AOVX)? |
 | Pede teste, não libera | script (MIX antigo × 2.0); Relay 1 no portal MiX; outro acessório bloqueando | autodiagnóstico → teste de relé atraca?; ligação 30/87a; saída 1 negativa | `AT+GPIOVALUE`; relé do chicote |
 | Bloqueia sozinho | MIX 2.0 caminhão sem `$ETEV03!` (70 s); fim do tempo de manobra | pós-chave oscilando (bomba de combustível!); bateria | ignição média instável |
 | Eventos não chegam ao portal | normal em várias empresas; lote; script | chip invertido/sem sinal; módulo morto | chip/servidor no AOVX |

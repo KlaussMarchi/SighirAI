@@ -23,6 +23,16 @@ suporte técnico) + base comum `docs/`. Visão geral e uso: `README.md`. Mapa da
   `notion_sync.py` (árvore inteira da Sighir Enterprise, sem a seção Credenciais, arquiva o que saiu) +
   `kb.py`. Código 10 = sem token do Notion: faça a varredura pelo conector (§3) até a fila esvaziar e
   feche com `mcp-fim --arquivar`; depois revise as novidades (§6). `docs/hardware/` é manual (do usuário).
+- **"O servidor mudou"** (tabelas, rotas, migração, erro 404/400 novo numa IA, ou o aviso "O CONTRATO MUDOU"
+  do `sincronizar.py`) → siga `docs/migracao_servidor.md`, sem perguntar: `servidor.py snapshot` →
+  `contrato.py diferenca` (rotas/campos/tabelas/migrações × `docs/servidor_contrato.json`, com `arquivo:linha`
+  de quem usa cada coisa) → medir no snapshot → adaptar Tester/Server/Helper (tabela "onde mexer") e o `USO` do
+  `contrato.py` → `testar.py --completo` → docs → `contrato.py capturar`. Produção só se lê até o fim.
+- Modelo do servidor desde 24/09/2026: **instalação = `Device` com `plate` → `Vehicle`** (`PATCH /devices/<MIC>`),
+  módulo Suntech/Entrack + chip em `telemetries/` (era `suntechs/`), `etilometers/` = leitura. Detalhe:
+  `docs/server_reference.md` §2.
+- **Testar tudo** → `docs/testes.md`: `python docs/tools/testar.py [--api|--completo|--bancada]` (nada grava);
+  o que grava (aparelho/servidor) é o roteiro manual do §3, com o ok do usuário.
 
 ## Comandos úteis
 
@@ -32,6 +42,10 @@ python docs/tools/sincronizar.py [--sem-snapshot]                  # "sincroniza
 python docs/tools/notion_sync.py status | mcp-proximos | mcp-fim --arquivar
 python docs/tools/servidor.py resumo | snapshot                    # produção → docs (só leitura)
 python docs/tools/test_notion_sync.py          # testes do sincronizador (sem rede)
+python docs/tools/testar.py [--api|--completo|--bancada]   # bateria das 3 IAs (docs/testes.md)
+python docs/tools/contrato.py diferenca | verificar | uso | capturar   # o que mudou no servidor
+python Tester/tools/test_cli.py                 # register/install/edit/onde/progresso do Tester com API falsa
+python Tester/tools/sighir.py onde <MIC|ETL|módulo|placa|série>      # onde já está cadastrado
 python <IA>/tools/boot.py setup | status | start claude|gemini --dry-run
 cd Server/scanner && python test_scan.py        # testes do scanner (sem rede)
 python Helper/tools/test_helper.py              # testes do Helper (sem rede; inclui cobertura dos eventos do firmware)

@@ -1,6 +1,6 @@
 # Mapa do Notion (gerado)
 
-> Gerado por `tools/notion_sync.py` em 24/09/2026 13:04. Árvore da página **Sighir Enterprise** como foi sincronizada, com o arquivo local de cada item (caminhos relativos a `docs/`). Não edite: "sincronizar os documentos" refaz.
+> Gerado por `tools/notion_sync.py` em 07/10/2026 10:22. Árvore da página **Sighir Enterprise** como foi sincronizada, com o arquivo local de cada item (caminhos relativos a `docs/`). Não edite: "sincronizar os documentos" refaz.
 
 - **Sighir Enterprise** (página) → `Notion/Sighir Enterprise 24579b90eb738059bdcfd009e0df1825.md`
   - PDF `Notion/Procedimento_de_Instalao_Suntech.pdf`
@@ -21,11 +21,11 @@
   - PDF `Notion/Procedimento_de_Instalao_MIX 1.pdf`
   - PDF `Notion/Procedimento_de_Instalao_Suntech 1.pdf`
   - PDF `Notion/Procedimento_de_Instalao_Entrack.pdf`
-  - PDF `Notion/PROTOCOL.pdf`
   - PDF `Notion/Passo_a_passo__cabo_suntech.pdf`
   - PDF `Notion/ETIQUETA_SINAL_IGNIO_E_RELE.pdf`
+  - PDF `Notion/PROTOCOL.pdf`
   - **Controle de entradas e saídas - ANO 2025** (banco, 15 linhas) → `Notion/Controle de entradas e saídas - ANO 2025 39d79b90eb7380888238f3166aafb544_all.csv`
-  - **Controle de entradas e saídas - ESTOQUE 2026** (banco, 127 linhas) → `Notion/Controle de entradas e saídas - ESTOQUE 2026 39d79b90eb7380bdb3c1000bb9ee8548_all.csv`
+  - **Controle de entradas e saídas - ESTOQUE 2026** (banco, 134 linhas) → `Notion/Controle de entradas e saídas - ESTOQUE 2026 39d79b90eb7380bdb3c1000bb9ee8548_all.csv`
   - **Fonecedores Sighir** (banco, 34 linhas) → `Notion/Fonecedores Sighir 29379b90eb738141875fe2dd070c7c63_all.csv`
   - **Estoque Sighir - Duque de Caxias** (página) → `Notion/Estoque Sighir - Duque de Caxias 25679b90eb7380119eb6d0e315caff7c.md`
     - **Estoque - Itens com defeito** (banco, 10 linhas) → `Notion/Estoque Sighir - Duque de Caxias/Estoque - Itens com defeito 3c079b90eb738087aa60000bd66c81de_all.csv`
@@ -49,16 +49,21 @@
     - **não pede teste nem desbloqueia** (página) → `Notion/Resolução de Problemas/não pede teste nem desbloqueia 3b579b90eb7380be8758c084018286ac.md`
     - **Sem pedir teste com telemetria** (página) → `Notion/Resolução de Problemas/Sem pedir teste com telemetria 25079b90eb738040b5bcf0685b7cabfd.md`
     - **Tela do Etilometro apagada** (página) → `Notion/Resolução de Problemas/Tela do Etilometro apagada 3c779b90eb7380cab5fdc9170383c2bf.md`
-  - **Tarefas** (banco, 6 linhas) → `Notion/Tarefas 31f79b90eb73812dae37c0f3638cd99c_all.csv`
+  - **Tarefas** (banco, 10 linhas) → `Notion/Tarefas 31f79b90eb73812dae37c0f3638cd99c_all.csv`
     - **CHALLENGE - Consertar servidor e deixar ele organizado (ANEXO)** (página) → `Notion/Tarefas/CHALLENGE - Consertar servidor e deixar ele organi 3e379b90eb7380829a01d12042764c47.md`
     - **colocar na tabela anomalias o campo (categoria - string) que a ia vai preencher com o tipo de problema que é (ANEXO)** (página) → `Notion/Tarefas/colocar na tabela anomalias o campo (categoria - s 3df79b90eb7380ed92dccd2554de52c1.md`
+    - **Criar login Transmaquina** (página) → `Notion/Tarefas/Criar login Transmaquina 3f079b90eb73809cae77f4c21d150aaa.md`
     - **Estabelecer API para mostrar nossos logs no portal da Systemsat, ver com eles no grupo e implementar** (página) → `Notion/Tarefas/Estabelecer API para mostrar nossos logs no portal 37279b90eb738083bcd3e30296f6e4ef.md`
     - **estabelecer claude na api do celular no sighir e no zap** (página) → `Notion/Tarefas/estabelecer claude na api do celular no sighir e n 3db79b90eb7380b484c6fc0e217c35a0.md`
     - **melhorar bloqueio e desbloqueio da entrack para ser desbloqueio: ligar independentemente da ordem do etilometro. bloqueio: funcionar por ordem do etilometro** (página) → `Notion/Tarefas/melhorar bloqueio e desbloqueio da entrack para se 3c679b90eb7380fdb396ed1946bcc329.md`
     - **mostrar localização também pros dispositivos da mix no mapa, com base nos logs (ver se da pra extrair lat e lng)** (página) → `Notion/Tarefas/mostrar localização também pros dispositivos da mi 39c79b90eb7380af92a7e8eea125e2eb.md`
-  - **Tarefas** (banco, 2 linhas) → `Notion/Tarefas 2af79b90eb738010861cc785e4bcdae8_all.csv`
+    - **na tabela companies, campo email (email oficial da empresa por padrao é string nula) e “alerts”: \[\] que por padrão é uma lista vazia, mas se tiver algum evento nela exemplo “alerts”: \[”ETAT01”, “ETEV30”\] significa que sempre que chegar um log com esses eventos especificados aí vai enviar pro email que a empresa está cadastrada sempre que chegar esse evento ai é tipo um relatório simples tipo “veiculo tal deu evento alcool detectado e ….” se tiver mais. pede pro claude fazer** (página) → `Notion/Tarefas/na tabela companies, campo email (email oficial da 3eb79b90eb738014af77d087aab80f8d.md`
+    - **no aplicativo, configurações do etilometro o campo telemetria nao aparece mais as opções** (página) → `Notion/Tarefas/no aplicativo, configurações do etilometro o campo 3f079b90eb7380ef9c5de3d69896f837.md`
+    - **no aplicativo, não precisa o tempo todo ficar logando, logou uma vez lembra pra sempre do seu acesso** (página) → `Notion/Tarefas/no aplicativo, não precisa o tempo todo ficar loga 3f079b90eb73801c9d38dfa1936ec914.md`
+  - **Tarefas** (banco, 3 linhas) → `Notion/Tarefas 2af79b90eb738010861cc785e4bcdae8_all.csv`
     - **Preparar 5 equipamentos Geocargo - mesmo padrão predileto** (página) → `Notion/Tarefas 2af7-dae8/Preparar 5 equipamentos Geocargo - mesmo padrão pr 3cd79b90eb73806584ebd942b527d1b3.md`
     - **Preparar 5 equipamentos Transmaquina - mesmo padrão predileto** (página) → `Notion/Tarefas 2af7-dae8/Preparar 5 equipamentos Transmaquina - mesmo padrã 3cd79b90eb7380428a27f53af3b093cf.md`
+    - **Preparar 6 equipamentos Ziran Transportes** (página) → `Notion/Tarefas 2af7-dae8/Preparar 6 equipamentos Ziran Transportes 3f179b90eb7380b78d05efa5346f6780.md`
   - **Tarefas** (banco, 3 linhas) → `Notion/Tarefas fb479b90eb7383c398f781f4e7ba717c_all.csv`
     - **Sem título** (página) → `Notion/Tarefas fb47-717c/Sem título ba679b90eb7382a4ad5b81ec31864ef4.md`
     - **Preparar 4 etilometros ZIRIX** (página) → `Notion/Tarefas fb47-717c/Preparar 4 etilometros ZIRIX c8079b90eb73822390cc8134083dc13d.md`

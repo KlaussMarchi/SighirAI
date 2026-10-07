@@ -1,58 +1,82 @@
 {
-  "_doc": "Configuração da sincronização Notion → docs/Notion/ (tools/notion_sync.py). Versionado. 'raiz' é a página de onde a árvore é lida; seções cujo título contém um item de 'omitir_secoes' nunca são gravadas (senhas); bancos/páginas cujo título começa com um item de 'so_tabela' viram só CSV (sem baixar cada linha como página). 'pessoas': id → nome (o conector MCP entrega só user://id; a API entrega o nome). 'vista': view:// para consultar pelo conector em mode \"view\" (sem cota).",
-  "raiz": {
-    "id": "24579b90eb738059bdcfd009e0df1825",
-    "titulo": "Sighir Enterprise"
+ "_doc": "Configuração da sincronização Notion → docs/Notion/ (tools/notion_sync.py). Versionado. 'raiz' é a página de onde a árvore é lida; seções cujo título contém um item de 'omitir_secoes' nunca são gravadas (senhas); bancos/páginas cujo título começa com um item de 'so_tabela' viram só CSV (sem baixar cada linha como página). 'pessoas': id → nome (o conector MCP entrega só user://id; a API entrega o nome). 'vista': view:// para consultar pelo conector em mode \"view\" (sem cota).",
+ "raiz": {
+  "id": "24579b90eb738059bdcfd009e0df1825",
+  "titulo": "Sighir Enterprise"
+ },
+ "omitir_secoes": [
+  "Credenciais"
+ ],
+ "so_tabela": [
+  "Estoque",
+  "(backup) estoque",
+  "Controle de entradas",
+  "Fonecedores",
+  "Fornecedores"
+ ],
+ "bancos": {
+  "25079b90eb7380048323ce9f5903d098": {
+   "titulo": "Resolução de Problemas",
+   "fonte": "collection://25079b90-eb73-804e-87fd-000b08bf7c52",
+   "paginas": true,
+   "titulo_prop": "Problema",
+   "vista": "view://25079b90-eb73-8067-b11b-000cd5f28cd1"
   },
-  "omitir_secoes": [
-    "Credenciais"
-  ],
-  "so_tabela": [
-    "Estoque",
-    "(backup) estoque",
-    "Controle de entradas",
-    "Fonecedores",
-    "Fornecedores"
-  ],
-  "bancos": {
-    "25079b90eb7380048323ce9f5903d098": {
-      "titulo": "Resolução de Problemas",
-      "fonte": "collection://25079b90-eb73-804e-87fd-000b08bf7c52",
-      "paginas": true,
-      "titulo_prop": "Problema",
-      "vista": "view://25079b90-eb73-8067-b11b-000cd5f28cd1"
-    },
-    "31f79b90eb73812dae37c0f3638cd99c": {
-      "titulo": "Tarefas",
-      "grupo": "Servidor",
-      "fonte": "collection://31f79b90-eb73-81a2-9b1a-000b3930e9c1",
-      "paginas": true,
-      "titulo_prop": "Nome",
-      "vista": "view://31f79b90-eb73-819d-a176-000c611bba4d"
-    },
-    "2af79b90eb738010861cc785e4bcdae8": {
-      "titulo": "Tarefas",
-      "grupo": "Produção",
-      "fonte": "collection://2af79b90-eb73-80d2-a8b6-000bcabf2401",
-      "paginas": true,
-      "titulo_prop": "Nome",
-      "vista": "view://2af79b90-eb73-80f6-b723-000ce493f140"
-    },
-    "fb479b90eb7383c398f781f4e7ba717c": {
-      "titulo": "Tarefas",
-      "grupo": "Calibração",
-      "fonte": "collection://2cb79b90-eb73-83b3-b3b1-07774f6be674",
-      "paginas": true,
-      "titulo_prop": "Nome",
-      "vista": "view://48879b90-eb73-83ad-97db-0841178b33d7"
-    }
+  "31f79b90eb73812dae37c0f3638cd99c": {
+   "titulo": "Tarefas",
+   "grupo": "Servidor",
+   "fonte": "collection://31f79b90-eb73-81a2-9b1a-000b3930e9c1",
+   "paginas": true,
+   "titulo_prop": "Nome",
+   "vista": "view://31f79b90-eb73-819d-a176-000c611bba4d"
   },
-  "max_anexo_mb": 60,
-  "pessoas": {
-    "24dd872b-594c-8122-81dc-00026f9c2933": "Paulo Ricardo Ricardo",
-    "3f0be5d5-34bd-4a6f-949c-0e234665a6ef": "Matteus Araújo Ouverney",
-    "b20ee934-40d3-4656-ac23-839059e14fb0": "Pessoal",
-    "254d872b-594c-81dc-ae23-00028dbe2441": "vitor curty",
-    "233d872b-594c-815f-a93e-00025ae540ab": "Laíza Freitas"
+  "2af79b90eb738010861cc785e4bcdae8": {
+   "titulo": "Tarefas",
+   "grupo": "Produção",
+   "fonte": "collection://2af79b90-eb73-80d2-a8b6-000bcabf2401",
+   "paginas": true,
+   "titulo_prop": "Nome",
+   "vista": "view://2af79b90-eb73-80f6-b723-000ce493f140"
+  },
+  "fb479b90eb7383c398f781f4e7ba717c": {
+   "titulo": "Tarefas",
+   "grupo": "Calibração",
+   "fonte": "collection://2cb79b90-eb73-83b3-b3b1-07774f6be674",
+   "paginas": true,
+   "titulo_prop": "Nome",
+   "vista": "view://48879b90-eb73-83ad-97db-0841178b33d7"
+  },
+  "39d79b90eb7380888238f3166aafb544": {
+   "titulo": "Controle de entradas e saídas - ANO 2025",
+   "fonte": "collection://4ba79b90-eb73-823f-b509-87716418cd1f",
+   "vista": "view://48079b90-eb73-82ac-9b1b-88be878db133",
+   "pai": "24579b90eb738059bdcfd009e0df1825"
+  },
+  "39d79b90eb7380bdb3c1000bb9ee8548": {
+   "titulo": "Controle de entradas e saídas - ESTOQUE 2026",
+   "fonte": "collection://39d79b90-eb73-80bd-b3c1-000bb9ee8548",
+   "vista": "view://39d79b90-eb73-8049-8381-000c4d772061",
+   "pai": "24579b90eb738059bdcfd009e0df1825"
+  },
+  "3c279b90eb7380ebb792000b606ee85d": {
+   "titulo": "Estoque - Produção",
+   "fonte": "collection://3c279b90-eb73-80eb-b792-000b606ee85d",
+   "vista": "view://3c279b90-eb73-80f5-926d-000ca276b83c",
+   "pai": "25679b90eb7380119eb6d0e315caff7c"
+  },
+  "3c079b90eb738087aa60000bd66c81de": {
+   "titulo": "Estoque - Itens com defeito",
+   "fonte": "collection://3c079b90-eb73-8087-aa60-000bd66c81de",
+   "vista": "view://3c079b90-eb73-8093-8221-000ca6dfc446",
+   "pai": "25679b90eb7380119eb6d0e315caff7c"
   }
+ },
+ "max_anexo_mb": 60,
+ "pessoas": {
+  "24dd872b-594c-8122-81dc-00026f9c2933": "Paulo Ricardo Ricardo",
+  "3f0be5d5-34bd-4a6f-949c-0e234665a6ef": "Matteus Araújo Ouverney",
+  "b20ee934-40d3-4656-ac23-839059e14fb0": "Pessoal",
+  "254d872b-594c-81dc-ae23-00028dbe2441": "vitor curty",
+  "233d872b-594c-815f-a93e-00025ae540ab": "Laíza Freitas"
+ }
 }

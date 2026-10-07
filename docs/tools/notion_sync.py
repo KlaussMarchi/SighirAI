@@ -652,7 +652,13 @@ def readFetch(path):
 
 
 def fileName(src):
-    """<pdf src="file://%7B...attachment:uuid:nome.pdf...%7D"> → (nome.pdf, uuid)"""
+    """<pdf src="file://%7B...attachment:uuid:nome.pdf...%7D"> → (nome.pdf, uuid)
+    <pdf src="notion-file-block://<bloco>/<uuid>?space_id=...&name=nome.pdf"> → (nome.pdf, uuid)"""
+    if src.startswith('notion-file-block://'):
+        url = urllib.parse.urlparse(src)
+        name = (urllib.parse.parse_qs(url.query).get('name') or [''])[0]
+        key = url.path.strip('/') or url.netloc
+        return (name or key or None), key
     try:
         info = json.loads(urllib.parse.unquote(src[len('file://'):]))
         parts = info.get('source', '').split(':', 2)
@@ -736,6 +742,7 @@ def flavored(content, ctx, files):
             out.append(f'{pad}[Banco: {clean(m.group(2)) or "sem título"}]')
             continue
         s = re.sub(r'!\[([^\]]*)\]\((https?://[^)]+)\)', lambda im: image(im, ctx, files), s)
+        s = re.sub(r'!\[([^\]]*)\]\((notion-file-block://[^)]+)\)', lambda im: blockImage(im, ctx, files), s)
         for part in clean(s).split('\n'):
             if part.startswith('#'):
                 out += ['', part, '']
@@ -766,6 +773,18 @@ def image(m, ctx, files):
     return f'![{m.group(1) or os.path.basename(path)}]({link(path, ctx["base"])})'
 
 
+def blockImage(m, ctx, files):
+    """![](notion-file-block://...&name=x.png): o conector não baixa; aponta para a cópia local (export/API)."""
+    name, key = fileName(m.group(2))
+    local = files.target(ctx['folder'], name or 'imagem.png', key)
+    if not os.path.exists(local):
+        ctx.setdefault('missing', []).append(rel(local))
+        return f'[imagem: {os.path.basename(local)}]'
+    ctx['attach'].append(rel(local))
+    files.state.seen.add(rel(local))
+    return f'![{m.group(1) or os.path.basename(local)}]({link(local, ctx["base"])})'
+
+
 def mcpProps(props, titleKey, people=None, titles=None):
     """propriedades do fetch/rows do MCP → {nome: texto} no formato do export. Pessoas vêm como
     user://id: o nome sai de notion.json → "pessoas" (o conector não lista convidados). Relações com
@@ -774,6 +793,9 @@ def mcpProps(props, titleKey, people=None, titles=None):
 
     def person(v):
         v = str(v)
+        tag = re.match(r'^<mention-[a-z-]+ url="([^"]*)"', v)    # fetch da página: <mention-user url="user://…">
+        if tag:
+            v = tag.group(1)
         if v.startswith(('user://', 'bot://')):
             return people.get(v.split('://', 1)[1], '')
         if v.startswith('formulaResult://'):

@@ -380,7 +380,7 @@ def cmdVeiculo(args):
         esp, sid, veh = e.get('esp_id'), e.get('sensor_id'), e.get('vehicle')
         tasks[f'dev{i}'] = (lambda esp=esp: api().get(f'devices/{esp}/') if esp else None)
         tasks[f'sensor{i}'] = (lambda sid=sid: api().get(f'sensors/{sid}/') if sid else None)
-        tasks[f'sun{i}'] = (lambda esp=esp: api().rows('suntechs/', limit=5, device=esp) if esp else [])
+        tasks[f'sun{i}'] = (lambda esp=esp: moduleOf(esp))
         tasks[f'logs{i}'] = (lambda veh=veh: fetchLogs(veh, days=args.dias))
         tasks[f'last{i}'] = (lambda veh=veh: lastEver(veh))
         tasks[f'anom{i}'] = (lambda veh=veh: api().rows('anomalies/', limit=50, vehicle=veh, solved='false'))
@@ -409,7 +409,7 @@ def cmdVeiculo(args):
                 vnote = f' (catálogo: {fw[1]} de {fw[2]}; pode estar defasado)'
         say(f"aparelho {esp} | série {(dev or {}).get('series_num', '?')} | firmware {version}{vnote}"
             f" | need_update={(dev or {}).get('need_update', e.get('device_need_update'))}"
-            f" | chip {(dev or {}).get('chip') or '-'}")
+            f" | chip {(dev or {}).get('chip') or next((s.get('chip') for s in got.get(f'sun{i}') or [] if s.get('chip')), '-')}")
         sid = e.get('sensor_id') or (dev or {}).get('sensor_id')
         sensor = got.get(f'sensor{i}') if e.get('sensor_id') else (api().get(f'sensors/{sid}/') if sid else None)
         cal_days = None
@@ -423,7 +423,7 @@ def cmdVeiculo(args):
             else:
                 say(f'sensor {sid} | sem calibração registrada no servidor')
         for s in got.get(f'sun{i}') or []:
-            say(f"módulo Suntech {s.get('id')} | conectado={s.get('is_connected')} ignição={s.get('is_ignition_on')}"
+            say(f"módulo {s.get('id')} | conectado={s.get('is_connected')} ignição={s.get('is_ignition_on')}"
                 f" relé={s.get('is_relay_on')} | pendente bloquear={s.get('has_to_block')} "
                 f"desbloquear={s.get('has_to_unblock')} | {s.get('ip')}:{s.get('port')} "
                 '(flags podem estar defasadas: confira pelos logs)')
@@ -506,6 +506,17 @@ def cmdEvento(args):
     return 0
 
 
+def moduleOf(esp, dev=None):
+    """módulo rastreador do aparelho: devices/<MIC>/.telemetry → telemetries/<id>/ (era suntechs/?device=,
+    404 desde a migração de 24/09/2026). MiX não tem módulo vinculado."""
+    if not esp:
+        return []
+    dev = dev or api().get(f'devices/{esp}/') or {}
+    tid = dev.get('telemetry')
+    mod = api().get(f'telemetries/{tid}/') if tid else None
+    return [mod] if mod else []
+
+
 def cmdDevice(args):
     dev = api().get(f'devices/{args.esp_id}/')
     if not dev:
@@ -513,7 +524,7 @@ def cmdDevice(args):
         return 1
     say(f"device {dev['id']} | série {dev.get('series_num')} | empresa {companyName(dev.get('company'))}"
         f" | sensor {dev.get('sensor_id')} | firmware {dev.get('software_version')} | need_update={dev.get('need_update')}"
-        f" | chip {dev.get('chip') or '-'} | suntech {dev.get('suntech') or '-'} | cadastrado {brt(dev.get('timestamp'), '%d/%m/%Y')}")
+        f" | módulo {dev.get('telemetry') or '-'} | cadastrado {brt(dev.get('timestamp'), '%d/%m/%Y')}")
     if dev.get('default_settings'):
         say(f"default_settings: {json.dumps(dev['default_settings'], ensure_ascii=False)[:300]}")
     inst = [e for e in api().rows('etilometers/', limit=500) if e.get('esp_id') == args.esp_id]
@@ -521,8 +532,9 @@ def cmdDevice(args):
         say(f"instalado na placa {e.get('vehicle')} ({e.get('telemetry_label')}) desde {brt(e.get('installation_date'), '%d/%m/%Y')}")
     if not inst:
         say('sem instalação (etilometers/) — em estoque ou instalação não cadastrada')
-    for s in api().rows('suntechs/', limit=5, device=args.esp_id):
-        say(f"módulo Suntech {s.get('id')} conectado={s.get('is_connected')} ignição={s.get('is_ignition_on')} relé={s.get('is_relay_on')}")
+    for s in moduleOf(args.esp_id, dev):
+        say(f"módulo {s.get('id')} chip {s.get('chip') or '-'} conectado={s.get('is_connected')}"
+            f" ignição={s.get('is_ignition_on')} relé={s.get('is_relay_on')}")
     return 0
 
 
@@ -714,9 +726,9 @@ def build():
     c.add_argument('--evidencias', help='resumo do que o servidor mostrou')
     c.set_defaults(func=cmdChamado)
 
-    w = sub.add_parser('patch', help='altera campos em produção (devices/etilometers) — exige --sim')
-    w.add_argument('recurso', choices=['devices', 'etilometers'])
-    w.add_argument('id', help='MIC… (devices) ou UUID da instalação (etilometers)')
+    w = sub.add_parser('patch', help='altera campos em produção (devices/telemetries) — exige --sim')
+    w.add_argument('recurso', choices=['devices', 'telemetries'])
+    w.add_argument('id', help='MIC… (devices: aparelho e instalação) ou ID do módulo (telemetries)')
     w.add_argument('campos', nargs='+', help='campo=valor')
     w.add_argument('--sim', action='store_true', help='executa de verdade (depois de o usuário confirmar)')
     w.set_defaults(func=cmdPatch)

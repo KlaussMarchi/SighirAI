@@ -53,7 +53,7 @@ viagem**, e a ignição **vem do rastreador** (`telemetrias.md` §2).
 | # | Hipótese | Como descartar | Solução |
 |---|---|---|---|
 | 1 | Aparelho **já estava desbloqueado** (5 reinícios → "Alimentação Indevida"; adiamento/manobra em curso; desbloqueio remoto; modo manobrista) | INFO 1 "Desbloqueado"; servidor: `$ETEV01!` recente **sem** `$ETEV16!` antes, `$ETEV08!` repetidos, `$ETEV38!`/`$ETEV32!` | desligar e esperar o tempo de manobra/bloqueio; corrigir alimentação (S6); desativar manobrista |
-| 2 | **Rastreador não informa a ignição** | INFO 3 "Telemetria Desativada"; CONFIG 2 → **Teste de Telemetria** falha (`$ETEV06!`); boot mostrou "Comunicação Não Encontrada" (Suntech/Entrack) | MiX: pen drive/motorista identificado ("No Driver"?), script certo, entrada S1/S2, cabo MiX; Suntech: chip (invertido?), módulo vivo (`suntechs.is_connected`), fio azul (IGN) no derivador; Entrack: módulo configurado (AOVX). Depois: trocar cabo → módulo |
+| 2 | **Rastreador não informa a ignição** | INFO 3 "Telemetria Desativada"; CONFIG 2 → **Teste de Telemetria** falha (`$ETEV06!`); boot mostrou "Comunicação Não Encontrada" (Suntech/Entrack) | MiX: pen drive/motorista identificado ("No Driver"?), script certo, entrada S1/S2, cabo MiX; Suntech: chip (invertido?), módulo vivo (`telemetries/<id>.is_connected`), fio azul (IGN) no derivador; Entrack: módulo configurado (AOVX). Depois: trocar cabo → módulo |
 | 3 | **Telemetria configurada errada** no aparelho | INFO 1 mostra modo diferente do rastreador instalado (ex.: após `erase` virou Suntech) | ajustar `telemetry` (Tester `telemetry mix2/suntech/entrack` ou app) e reiniciar |
 | 4 | Aparelho **preso em outra tela** | tela vermelha de sensor (trava o boot), contrassenha pendente, menu aberto | S7 / concluir contrassenha / sair do menu |
 | 5 | Sem alimentação | display não acende ao tocar | S5 |
@@ -219,7 +219,7 @@ Não é defeito: é conduta (anomalia `burla_bloqueio`). Orientar o gestor; revi
    repassa resultado/`$ETEV35`/`$ETEV24`.
 2. Atraso de lote na MiX (minutos a horas) — espere/compare com o portal da MiX.
 3. Suntech: chip (invertido, sem crédito/sinal — caso "Pedro (carro)"), módulo desconectado
-   (`suntechs/<id>.is_connected`), IP/porta; SystemSat Debug mostra os pacotes.
+   (`telemetries/<id>.is_connected`, ex-`suntechs/`), IP/porta; SystemSat Debug mostra os pacotes.
    Checklist da equipe:
    - pedir o **padrão de piscar dos dois LEDs** do módulo energizado;
    - mau contato nos fios de comunicação, em especial o **fio azul do cabo Suntech no derivador**

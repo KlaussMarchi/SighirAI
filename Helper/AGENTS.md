@@ -88,20 +88,24 @@ Sem a pasta `../docs` você fica limitado: diga isso ao usuário e trabalhe com 
 | `veiculo PLACA [--dias 7] [--eventos 25]` | raio-x completo da placa + **pistas** (número do servidor → seção do `diagnostico.md`) |
 | `logs PLACA [--dias 3] [--limite 80] [--evento ETEV02]` | linha do tempo decodificada (horário BRT) |
 | `evento '$ETEV35!'` | significado de um evento |
-| `device MIC…` | hardware, onde está instalado, módulo Suntech |
+| `device MIC…` | hardware, onde está instalado, módulo Suntech/Entrack (`telemetries/`) |
 | `anomalias [PLACA]` | alertas abertos do Scanner (tabela `anomalies`) |
 | `lista [--empresa X] [--telemetria suntech]` | instalações da frota |
 | `chamado --placa … --problema "…" [--tipo …] [--obs …] [--solucao …]` | texto pronto para o Notion (salvo em `chamados/`) |
-| `patch devices|etilometers ID campo=valor [--sim]` | **escrita em produção** |
+| `patch devices|telemetries ID campo=valor [--sim]` | **escrita em produção** |
 
-- Leitura é livre. **Escrita**: só `patch`, só campos permitidos (ex.: `need_update`, `software_version`,
-  `chip`, `vehicle_plate`, `telemetry`, `vehicle_type`, `is_operating`). Rode sem `--sim` (mostra antes →
+- Leitura é livre. **Escrita**: só `patch`, só campos permitidos (lista em `tools/api.py::WRITABLE`). Desde
+  24/09/2026 a instalação é o próprio device: placa/telemetria/módulo se editam em `devices <MIC>` (`plate`,
+  `vehicle_type`, `telemetry_company` = CNPJ, `telemetry` = módulo, `is_operating`…); o `chip` é do módulo
+  (`telemetries <ID>`). `etilometers/` é só leitura. Rode sem `--sim` (mostra antes →
   depois), **confirme com o usuário**, então `--sim`. O comando confere o valor gravado.
 - Sem DELETE aqui (remover cadastro é do Tester, com confirmação). Nunca `limit=all`. Bloqueio/desbloqueio
   remoto: oriente pelo portal (sighir.com → Controle) ou portal da telemetria — não pela API.
 - Credenciais da API ficam em `tools/api.py` (sobrescreva com `SIGHIR_API_USER/PASS`); logins de portais
   parceiros ficam só na `Handover.pdf` — não copie para outros arquivos nem para chamados.
 - Scripts ad hoc: `scratch/` (fora do git), usando `from api import api` com `sys.path` em `tools/`.
+- **Servidor mudou?** Erro 404/400 novo ou campo sumido → migração do servidor: `../docs/migracao_servidor.md`
+  (`python ../docs/tools/contrato.py diferenca`); testes: `python ../docs/tools/testar.py --api`.
 
 ## 8. Limites
 

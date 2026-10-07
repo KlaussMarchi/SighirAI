@@ -62,7 +62,7 @@ Tester/
 └── utils/                   # api.py, variables.py, classes.py, functions.py, noise.py (filtro de ruído — §8.1)
 ```
 
-- **API**: base `https://sighir.com:8000/api/v2`, JWT. Endpoints: `/devices`, `/companies`, `/suntechs`, `/update`, `/token/`.
+- **API**: base `https://sighir.com:8000/api/v2`, JWT. Endpoints: `/devices` (aparelho **e** instalação: `plate`), `/telemetries` (módulo + chip; era `/suntechs`), `/companies`, `/etilometers` (leitura das instalações), `/update`, `/token/`.
 - **Instância global**: `device = Device(rate=115200)`.
 
 ---

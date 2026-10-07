@@ -17,8 +17,11 @@ Subcomandos:
   erase [--force]        garante esp_id nativo (--force = reset de fábrica mesmo se já for nativo)
   recover                tira o device de estado travado (reset+resync)
   register [opts]        cadastra o device no servidor (não-interativo)
-  install <esp_id> ...   cria a instalação (aparelho ↔ placa ↔ telemetria) no servidor (exige --yes)
+  install <esp_id> ...   instala o aparelho na placa (PATCH /devices: placa, telemetria, módulo; exige --yes)
   server-device <id>     consulta o registro do device no servidor
+  onde <valor>           onde um MIC / sensor ETL / módulo / placa / nº de série já está cadastrado
+  progresso              estado do flash em andamento (espera até 20 s e mostra a porcentagem)
+  edit <esp_id> ...      edita um aparelho já cadastrado (empresa, módulo/chip, sensor, série, desinstalar; exige --yes)
   server-delete <id>     DELETA o device do servidor (hard delete, exige --yes)
   test [nome]            roda um teste do protocol.json (alcohol/blow/temp/sensor)
   flash                  re-arma + baixa + flasha firmware via serial (longo)
@@ -28,16 +31,21 @@ Exemplos:
   python tools/sighir.py settings telemetry vehicle_type
   python tools/sighir.py settings --set vehicle_type=1 --restart
   python tools/sighir.py telemetry entrack
-  python tools/sighir.py register --company logika --series auto --suntech 1700023879 --chip N/A
+  python tools/sighir.py register --company logika --series auto --modulo 1700023879 --chip N/A
   python tools/sighir.py install MIC123... --placa ABC1D23 --telemetria mix2 --instalador Fulano --yes
+  python tools/sighir.py edit MIC123... --company logika --desinstalar --modulo 1700023880 --chip 8955... --yes
   python tools/sighir.py server-delete MIC123... --yes
   python tools/sighir.py flash
 """
 
 import os
+import re
 import sys
+import json
+import time
 import argparse
-from datetime import datetime
+import threading
+from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
@@ -153,6 +161,161 @@ def nextSeries():
     return str((max(nums) if nums else 0) + 1).zfill(5)
 
 
+PLATE = re.compile(r'^[A-Z]{3}\d[A-Z0-9]\d{2}$')
+NO_VALUE = ('', 'NONE', 'N/A', 'NA')
+
+
+def normPlate(value):
+    """placa (antiga ou Mercosul) em maiúsculas; nome livre ('Portaria Predileto', 'MALETA_SIGHIR') fica como veio."""
+    v = value.strip()
+    return v.upper() if PLATE.match(v.upper()) else v
+
+
+def optional(value):
+    """'none'/'N/A'/vazio = sem valor (MiX não tem módulo nem chip)."""
+    v = (value or '').strip()
+    return None if v.upper() in NO_VALUE else v
+
+
+def ensureModule(mod, chip=None, plate=None):
+    """garante o módulo rastreador (Suntech/Entrack) em /telemetries — era /suntechs, 404 desde a migração
+    de 24/09/2026. Cria se não existe e grava o chip (o chip saiu do device e mora no módulo). Recusa módulo
+    já ligado ao aparelho de outra placa (Device.telemetry é único). Devolve o registro ou None."""
+    if mod.upper().startswith(('MIC', 'ETL')):
+        log('err', f'{mod!r} é ID de aparelho/sensor, não de módulo (Suntech 1700…, Entrack 69…): confira com o usuário')
+        return None
+    res = get_req(f'/telemetries/{mod}/')
+    cur = res.get('data') if res['status'] != 'error' else None
+    if not cur:
+        payload = {'id': mod, **({'chip': chip} if chip else {})}
+        log('info', f'POST /telemetries: {payload}')
+        res = post_req('/telemetries', payload)
+        if res['status'] == 'error':
+            log('err', f"falha ao cadastrar o módulo: {res.get('data')}")
+            return None
+        log('ok', f'módulo {mod} cadastrado')
+        return res.get('data') or payload
+    if cur.get('vehicle') and cur['vehicle'] != plate:
+        log('err', f"módulo {mod} já está no aparelho da placa {cur['vehicle']} (o servidor aceita 1 aparelho por "
+                   'módulo): desvincule lá antes ou confira o ID com o usuário')
+        return None
+    if chip and cur.get('chip') != chip:
+        log('info', f"PATCH /telemetries/{mod}: chip {cur.get('chip')!r} → {chip!r}")
+        res = post_req(f'/telemetries/{mod}', {'chip': chip}, type='PATCH')
+        if res['status'] == 'error':
+            log('err', f"falha ao gravar o chip: {res.get('data')}")
+            return None
+    log('ok', f"módulo {mod} já cadastrado (chip {chip or cur.get('chip') or '-'})")
+    return cur
+
+
+def moduleKind(mod):
+    m = str(mod or '')
+    return 'Suntech' if m.startswith('17') else 'Entrack' if m.startswith('69') else 'módulo'
+
+
+def deviceSummary(dev, companies):
+    plate = dev.get('plate')
+    where = f"placa {plate} ({dev.get('telemetry_company_label') or 'sem telemetria'}, instalado " \
+            f"{str(dev.get('installation_date') or '-')[:10]})" if plate else 'sem placa (estoque)'
+    mod = dev.get('telemetry')
+    kind = moduleKind(mod)
+    return (f"{dev.get('id')} — empresa {companyLabel(dev.get('company'), companies)}, série {dev.get('series_num')}, "
+            f"sensor {dev.get('sensor_id')}, {where}, módulo {(mod + ('' if kind == 'módulo' else f' ({kind})')) if mod else '-'}")
+
+
+def findRegistered(esp=None, sensor=None, module=None, plate=None, series=None, devices=None):
+    """onde cada identificador já está no servidor → lista de (tipo, valor, device)."""
+    devices = devices if devices is not None else (get_req('/devices').get('data') or [])
+    hits = []
+    for d in devices:
+        if esp and d.get('id') == esp:
+            hits.append(('aparelho', esp, d))
+        if sensor and d.get('sensor_id') == sensor and d.get('id') != esp:
+            hits.append(('sensor', sensor, d))
+        if module and d.get('telemetry') == module and d.get('id') != esp:
+            hits.append(('módulo', module, d))
+        if plate and (d.get('plate') or '').upper() == plate.upper() and d.get('id') != esp:
+            hits.append(('placa', plate, d))
+        if series and d.get('series_num') == series and d.get('id') != esp:
+            hits.append(('série', series, d))
+    return hits
+
+
+def optionsFor(kind, value, dev, args, esp=None):
+    """texto das opções para o usuário escolher (o agente apresenta e pergunta)."""
+    other = dev.get('id')
+    company = f" --company {args.company}" if getattr(args, 'company', None) else ''
+    module = optional(getattr(args, 'modulo', None))
+    chip = optional(getattr(args, 'chip', None))
+    modArgs = (f' --modulo {module}' if module else '') + (f' --chip {chip}' if chip else '')
+    if kind == 'aparelho':
+        return [f"editar o cadastro existente (muda só o necessário, mantém histórico): "
+                f"tools/sighir.py edit {other}{company}{' --desinstalar' if dev.get('plate') else ''}{modArgs}"
+                f"{' --sensor usb' if getattr(args, 'sensor_lido', None) and args.sensor_lido != dev.get('sensor_id') else ''}",
+                'deixar como está (o cadastro já está certo) — nada a fazer',
+                f'apagar e cadastrar de novo (perde o histórico; só se o cadastro estiver errado): '
+                f'tools/sighir.py server-delete {other} --yes e depois o register']
+    if kind == 'módulo':
+        return [f"mover o {moduleKind(value)} {value} para este aparelho: tools/sighir.py edit {other} --modulo none "
+                f"--yes (tira do aparelho antigo) e depois repetir este comando",
+                f'usar outro módulo (confira o ID na etiqueta do {moduleKind(value)})',
+                'cadastrar agora sem módulo (--modulo none) e vincular depois com edit --modulo']
+    if kind == 'sensor':
+        return [f'o sensor foi trocado de aparelho: corrija o antigo (tools/sighir.py edit {other} --sensor <ETL do antigo>) '
+                'e repita',
+                'conferir o sensor lido (ETL2608402025435219/ETL3550904305917103 são de build de debug: não cadastrar)',
+                'seguir mesmo assim (--forcar)']
+    if kind == 'placa':
+        return [f"trocar o aparelho dessa placa: tools/sighir.py edit {other} --desinstalar --yes e depois este install",
+                'conferir a placa digitada',
+                'gravar mesmo assim nos dois aparelhos (--forcar) — não recomendado']
+    if kind == 'série':
+        return ['usar o próximo número livre (--series auto)', f'corrigir a série do aparelho {other} com edit --series']
+    return []
+
+
+def reportConflicts(hits, companies, args, esp=None):
+    """mostra ao usuário onde cada coisa já está e as opções; devolve True se houver conflito."""
+    if not hits:
+        return False
+    labels = {'aparelho': 'Este etilômetro', 'sensor': 'O sensor', 'módulo': 'O módulo', 'placa': 'A placa',
+              'série': 'O número de série'}
+    for kind, value, dev in hits:
+        what = f"{labels[kind]} {value}" if kind != 'módulo' else f"O {moduleKind(value)} {value}"
+        where = 'JÁ ESTÁ CADASTRADO' if kind == 'aparelho' else f"já pertence ao aparelho {dev.get('id')}"
+        log('warn', f"{what} {where}: {deviceSummary(dev, companies)}")
+        for i, opt in enumerate(optionsFor(kind, value, dev, args, esp), 1):
+            log('info', f'   opção {i}: {opt}')
+    log('err', 'nada foi gravado — pergunte ao usuário qual opção ele quer')
+    return True
+
+
+def cmdOnde(args):
+    """onde um identificador já está cadastrado (MIC, sensor ETL, módulo, placa ou nº de série)."""
+    value = args.valor.strip()
+    companies = get_req('/companies').get('data') or []
+    devices = get_req('/devices').get('data') or []
+    up = value.upper()
+    hits = findRegistered(esp=value, sensor=value, module=value, plate=value,
+                          series=value.zfill(5) if value.isdigit() else None, devices=devices)
+    seen = set()
+    for kind, _, dev in hits:
+        if (kind, dev.get('id')) in seen:
+            continue
+        seen.add((kind, dev.get('id')))
+        log('ok', f"{kind}: {deviceSummary(dev, companies)}")
+    mod = get_req(f'/telemetries/{value}/') if not up.startswith(('MIC', 'ETL')) else {'status': 'error'}
+    row = mod.get('data') if mod.get('status') != 'error' else None
+    if row and not any(k == 'módulo' for k, _, _ in hits):
+        log('ok', f"módulo {value}: cadastrado em /telemetries, chip {row.get('chip') or '-'}, "
+                  f"sem aparelho vinculado (livre)")
+    if not hits and not row:
+        log('info', f'{value!r} não está cadastrado em lugar nenhum (aparelho, sensor, módulo, placa, série)')
+        return 1
+    return 0
+
+
 def cmdRegister(args):
     if not args.company:
         _, companies = resolveCompany('')
@@ -189,29 +352,40 @@ def cmdRegister(args):
 
     series = nextSeries() if (not args.series or args.series == 'auto') else args.series.zfill(5)
 
-    suntech = args.suntech if (args.suntech and args.suntech.lower() != 'none') else None
-    chip = args.chip if args.chip else 'N/A'
+    module = optional(args.modulo)
+    chip = optional(args.chip)
 
     core.device.disconnect()
 
-    if suntech and suntech != 'N/A':
-        log('info', f'registrando chip suntech {suntech}')
-        sres = post_req('/suntechs', {'id': suntech})
-        if sres['status'] == 'error':
-            log('err', f"falha ao registrar suntech: {sres.get('data')}")
-            return 1
-        log('ok', 'suntech registrado')
+    # já existe? (aparelho, sensor em outro aparelho, módulo em outro aparelho, série) → opções, não grava
+    args.sensor_lido = sensorId
+    companies = get_req('/companies').get('data') or []
+    hits = findRegistered(esp=espId, sensor=sensorId, module=module,
+                          series=None if (not args.series or args.series == 'auto') else series)
+    if args.forcar:
+        hits = [h for h in hits if h[0] not in ('sensor',)]
+    if reportConflicts(hits, companies, args, espId):
+        return 4
+    if module:
+        res = get_req(f'/telemetries/{module}/')
+        if res['status'] != 'error' and res.get('data'):
+            log('info', f'{moduleKind(module)} {module} já existe em /telemetries, livre: será vinculado a este aparelho')
+
+    # módulo primeiro: o device aponta para ele (Device.telemetry -> /telemetries)
+    if module and not ensureModule(module, chip):
+        return 1
+    if chip and not module:
+        log('warn', f'chip {chip} ignorado: sem módulo não há onde gravar (o chip mora em /telemetries)')
 
     payload = {
         'company': companyId,
         'series_num': series,
         'id': espId,
         'sensor_id': sensorId,
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'suntech': suntech,
-        'chip': chip,
         'need_update': True,
     }
+    if module:
+        payload['telemetry'] = module
 
     log('info', f'POST /devices: {payload}')
     res = post_req('/devices', payload)
@@ -219,7 +393,8 @@ def cmdRegister(args):
         log('err', f"erro ao registrar: {res.get('data')}")
         return 1
 
-    log('ok', f"DEVICE {espId} REGISTRADO (série {series}, empresa {args.company}).")
+    log('ok', f"DEVICE {espId} REGISTRADO (série {series}, empresa {args.company}"
+              f"{', módulo ' + module if module else ''}).")
     log('warn', f'lembrete: cole a etiqueta {series} no aparelho.')
     return 0
 
@@ -282,14 +457,79 @@ def cmdTest(args):
     return 0 if ok else 1
 
 
+FLASH_STATE = os.path.join(ROOT, '.sighir', 'flash.json')
+PROGRESS_EVERY = 20
+
+
+def flashState(state, percent=None, started=None, **extra):
+    data = {'estado': state, 'porcentagem': None if percent is None else round(percent, 1),
+            'inicio': started, 'atualizado': time.time(), **extra}
+    try:
+        os.makedirs(os.path.dirname(FLASH_STATE), exist_ok=True)
+        with open(FLASH_STATE, 'w', encoding='utf-8') as f:
+            json.dump(data, f)
+    except OSError:
+        pass
+    return data
+
+
+def elapsed(seconds):
+    seconds = int(seconds)
+    return f'{seconds // 60} min {seconds % 60:02d} s' if seconds >= 60 else f'{seconds} s'
+
+
+def progressLoop(stop, started):
+    """a cada 20 s: linha PROGRESSO no log (flash.log) + estado em .sighir/flash.json para o agente mostrar."""
+    while not stop.wait(PROGRESS_EVERY):
+        pct = max(core.updater.percentage, 0)
+        state = 'gravando' if core.updater.percentage >= 0 else 'sincronizando'
+        flashState(state, pct, started)
+        log('info', f'PROGRESSO DO FLASH: {pct:.0f}% ({state}, {elapsed(time.time() - started)})')
+        sys.stdout.flush()
+
+
+def cmdProgresso(args):
+    """estado do flash em andamento: espera até --espera s por uma atualização nova e mostra a porcentagem."""
+    def read():
+        try:
+            return json.load(open(FLASH_STATE, encoding='utf-8'))
+        except (OSError, ValueError):
+            return None
+    first = read()
+    if not first:
+        log('info', 'nenhum flash registrado neste computador')
+        return 1
+    if first['estado'] not in ('concluído', 'erro'):
+        deadline = time.time() + args.espera
+        while time.time() < deadline:
+            time.sleep(1)
+            now = read()
+            if now and now.get('atualizado') != first.get('atualizado'):
+                first = now
+                break
+    st = first
+    took = elapsed((st.get('atualizado') or time.time()) - (st.get('inicio') or time.time()))
+    pct = st.get('porcentagem')
+    stale = time.time() - (st.get('atualizado') or 0) > 3 * PROGRESS_EVERY and st['estado'] not in ('concluído', 'erro')
+    log('err' if st['estado'] == 'erro' or stale else 'ok' if st['estado'] == 'concluído' else 'info',
+        f"flash {st['estado']}: {'' if pct is None else f'{pct:.0f}% '}({took})"
+        + (f" — {st.get('detalhe')}" if st.get('detalhe') else '')
+        + (' — SEM ATUALIZAÇÃO há mais de 1 min: confira o flash.log e o cabo' if stale else ''))
+    return 0 if not stale and st['estado'] != 'erro' else 2
+
+
 def cmdFlash(args):
+    started = time.time()
+    flashState('preparando', None, started)
     if not core.robustSync():
+        flashState('erro', None, started, detalhe='sem conexão com o aparelho')
         return 1
 
     espId = core.readEspId()
     if not espId:
         log('err', 'não foi possível ler esp_id')
         core.device.disconnect()
+        flashState('erro', None, started, detalhe='esp_id não lido')
         return 1
 
     # /update é one-shot — re-arma para garantir que o servidor sirva o firmware
@@ -301,16 +541,31 @@ def cmdFlash(args):
     if not core.server.firmware.download():
         log('err', 'download falhou')
         core.device.disconnect()
+        flashState('erro', None, started, detalhe='download do firmware falhou')
         return 1
 
-    log('info', 'iniciando flash serial (pode levar ~4 min)...')
-    core.updater.setup()
-    core.updater.start()
+    log('info', f'iniciando flash serial (pode levar ~4 min; progresso a cada {PROGRESS_EVERY} s)...')
+    core.updater.percentage = -1
+    stop = threading.Event()
+    flashState('sincronizando', 0, started)
+    reporter = threading.Thread(target=progressLoop, args=(stop, started), daemon=True)
+    reporter.start()
+    try:
+        core.updater.setup()
+        core.updater.start()
+    except Exception as err:
+        stop.set()
+        flashState('erro', max(core.updater.percentage, 0), started, detalhe=str(err)[:200])
+        raise
+    stop.set()
+    flashState('verificando', 100, started)
+    log('info', f'PROGRESSO DO FLASH: 100% (gravado em {elapsed(time.time() - started)})')
     log('ok', 'flash concluído — verificando...')
 
     core.recover()
     fw = core.readFirmware()
     log('info', f"pós-flash: firmware {core.versionStr(fw['version'])} [{fw['status']}]")
+    flashState('concluído', 100, started, detalhe=f"firmware {core.versionStr(fw['version'])} [{fw['status']}]")
     core.device.disconnect()
     return 0
 
@@ -400,18 +655,19 @@ def cmdServerDevice(args):
 
 
 INSTALL_TELEMETRY = {'mix': '0', 'suntech': '2', 'mix2': '5', 'entrack': '6'}
+MODULE_TELEMETRY = ('suntech', 'entrack')     # MiX não tem módulo/chip
 
 
 def cmdInstall(args):
-    """Cria a instalação no servidor (Etilometro = aparelho ↔ placa ↔ telemetria). Sem --yes só
-    valida e mostra o que seria gravado. Procedimento: procedimentos/cadastro.md §13."""
-    import requests
-    from utils.api import API, handle_access_token
-
+    """Instala o aparelho numa placa. Desde a migração do servidor de 24/09/2026 a instalação é o próprio
+    Device: PATCH /devices/<esp> com `plate` (o servidor cria/associa o Vehicle), `vehicle_type`,
+    `telemetry_company` (CNPJ da telemetria) e, em Suntech/Entrack, `telemetry` (ID do módulo).
+    Sem --yes só valida e mostra o que seria gravado. Procedimento: procedimentos/cadastro.md §13."""
     esp = args.esp_id.strip()
-    plate = args.placa.strip().upper()
-    res = get_req(f'/devices/{esp}')
-    if res['status'] == 'error' or not res.get('data'):
+    plate = normPlate(args.placa)
+    res = get_req(f'/devices/{esp}/')
+    dev = res.get('data') if res['status'] != 'error' else None
+    if not dev:
         log('err', f'device {esp} não existe no servidor — cadastre antes (register)')
         return 1
 
@@ -424,40 +680,207 @@ def cmdInstall(args):
     if args.telemetria == 'mix':
         log('warn', 'mix = MIX ANTIGO (0). A maior parte da frota MiX é MIX 2.0 → confirme; se for, use mix2')
 
-    rows = get_req('/etilometers').get('data') or []
-    same = [e for e in rows if (e.get('vehicle') or '').strip().upper() == plate or e.get('esp_id') == esp]
+    module = optional(args.modulo)
+    chip = optional(args.chip)
+    if module and not args.forcar:
+        inUse = [h for h in findRegistered(module=module) if h[2].get('id') != esp]
+        if reportConflicts(inUse, companies, args, esp):
+            return 2
+    if module and args.telemetria not in MODULE_TELEMETRY:
+        log('err', f'--modulo só vale para Suntech/Entrack; {args.telemetria} não tem módulo')
+        return 1
+    if args.telemetria in MODULE_TELEMETRY and not (module or dev.get('telemetry')):
+        log('warn', f'{args.telemetria} sem módulo vinculado: pergunte o ID do módulo (--modulo) — sem ele o '
+                    'servidor não associa os logs do rastreador a este aparelho')
 
-    payload = {'device': esp, 'vehicle_plate': plate, 'telemetry': tel['id'],
-               'vehicle_type': 1 if args.tipo == 'carro' else 0}
+    # placa já em outro aparelho? (Vehicle.plate é único; 1 aparelho por placa)
+    rows = get_req('/etilometers').get('data') or []
+    others = [e for e in rows if (e.get('vehicle') or '').strip().upper() == plate.upper() and e.get('esp_id') != esp]
+    current = (dev.get('plate') or '').strip()
+
+    data = dict(dev['installation_data']) if isinstance(dev.get('installation_data'), dict) else {}
+    if args.observacao:
+        data['observation'] = args.observacao
+    if args.maleta:
+        data['suitcase'] = 1
+    payload = {'plate': plate, 'vehicle_type': 1 if args.tipo == 'carro' else 0,
+               'telemetry_company': tel['id'], 'is_operating': True}
+    if current.upper() != plate.upper():        # reinstalar na mesma placa mantém a data original
+        payload['installation_date'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
+    if module:
+        payload['telemetry'] = module
     if args.instalador:
         payload['installer'] = args.instalador
     if args.apelido:
         payload['nickname'] = args.apelido
+    if data:
+        payload['installation_data'] = data
 
-    log('info', f"instalação a criar (PRODUÇÃO): {payload}  [telemetria {tel.get('label')}]")
-    for e in same:
-        log('warn', f"já existe instalação {e.get('id')}: placa {e.get('vehicle')} ↔ {e.get('esp_id')} "
-                    f"({e.get('telemetry_label')}, desde {str(e.get('installation_date'))[:10]})")
-    if same and not args.duplicar:
-        log('err', 'placa ou aparelho já instalados: é troca/edição? Remova/edite a antiga (Helper patch '
-                   'ou server-delete) ou confirme com o usuário e rode com --duplicar')
+    log('info', f"instalação (PRODUÇÃO) PATCH /devices/{esp}: {payload}  [telemetria {tel.get('label')}"
+                f"{', chip ' + chip if chip else ''}]")
+    blocked = False
+    for e in others:
+        other = (get_req(f"/devices/{e.get('esp_id')}/").get('data') or {'id': e.get('esp_id'), 'plate': plate})
+        reportConflicts([('placa', plate, other)], companies, args, esp)
+        blocked = True
+    if current and current.upper() != plate.upper():
+        log('warn', f'Este aparelho já está instalado: {deviceSummary(dev, companies)}')
+        log('info', f'   opção 1: mudou de veículo no mesmo cliente → repetir com --forcar (move para {plate})')
+        log('info', f'   opção 2: mudou de cliente → tools/sighir.py edit {esp} --company <nova> --desinstalar --yes '
+                    'e depois este install')
+        log('info', '   opção 3: conferir o MIC digitado')
+        blocked = True
+    elif current:
+        log('info', f'o aparelho já está na placa {current}: os campos acima serão atualizados')
+    if blocked and not args.forcar:
+        log('err', 'nada foi gravado — pergunte ao usuário qual opção ele quer')
         return 2
     if not args.yes:
         log('warn', 'nada foi gravado. Confirme os dados com o usuário e rode de novo com --yes')
         return 3
 
-    access, _ = handle_access_token()
-    r = requests.post(f'{API}/etilometers/', json=payload, timeout=30,
-                      headers={'Authorization': f'Bearer {access}'})
-    if not r.ok:
-        log('err', f'servidor recusou ({r.status_code}): {r.text[:400]}')
+    if module and not ensureModule(module, chip, plate):
+        return 1
+    res = post_req(f'/devices/{esp}', payload, type='PATCH')
+    if res['status'] == 'error':
+        log('err', f"servidor recusou: {res.get('data')}")
         return 1
 
-    check = [e for e in (get_req('/etilometers').get('data') or [])
-             if (e.get('vehicle') or '').strip().upper() == plate and e.get('esp_id') == esp]
-    log('ok' if check else 'err', f"instalação {'criada e conferida' if check else 'NÃO encontrada após o POST'}: "
-                                  f"{plate} ↔ {esp} ({tel.get('label')})")
-    return 0 if check else 1
+    after = get_req(f'/devices/{esp}/').get('data') or {}
+    checks = {'placa': (after.get('plate') or '').upper() == plate.upper(),
+              'telemetria': after.get('telemetry_company') == tel['id']}
+    if module:
+        checks['módulo'] = after.get('telemetry') == module
+    inst = [e for e in (get_req('/etilometers').get('data') or [])
+            if e.get('esp_id') == esp and (e.get('vehicle') or '').upper() == plate.upper()]
+    checks['etilometers/'] = bool(inst)
+    bad = [k for k, ok in checks.items() if not ok]
+    log('ok' if not bad else 'err', f"instalação {plate} ↔ {esp} ({tel.get('label')}): "
+        + ('gravada e conferida' if not bad else f"NÃO conferiu {', '.join(bad)} — devolveu {after}"))
+    return 0 if not bad else 1
+
+
+UNINSTALL = {'plate': None, 'telemetry_company': None, 'installation_date': None, 'installer': '',
+             'nickname': '', 'installation_data': {}}
+
+
+def companyLabel(cid, companies):
+    return next((c.get('label') for c in companies if c.get('id') == cid), cid) if cid else None
+
+
+def cmdEdit(args):
+    """Edita um aparelho JÁ cadastrado, mudando só o que foi pedido (ex.: voltou da Predileto, vai para a
+    Logika com outro módulo). Mostra antes → depois; só grava com --yes e confere. Para pôr numa placa nova
+    depois, use `install`."""
+    esp = args.esp_id.strip()
+    res = get_req(f'/devices/{esp}/')
+    dev = res.get('data') if res['status'] != 'error' else None
+    if not dev:
+        log('err', f'device {esp} não existe no servidor — para aparelho novo use register')
+        return 1
+    companies = get_req('/companies').get('data') or []
+    mod = dev.get('telemetry')
+    modRow = (get_req(f'/telemetries/{mod}/').get('data') or {}) if mod else {}
+    log('info', f"----- {esp} hoje -----")
+    log('info', f"empresa {companyLabel(dev.get('company'), companies)} | série {dev.get('series_num')} | "
+                f"sensor {dev.get('sensor_id')} | módulo {mod or '-'} (chip {modRow.get('chip') or '-'})")
+    log('info', f"placa {dev.get('plate') or '-'} | telemetria {dev.get('telemetry_company_label') or '-'} | "
+                f"instalado {str(dev.get('installation_date') or '-')[:10]} por {dev.get('installer') or '-'}")
+
+    change = {}
+    if args.company:
+        cid, options = resolveCompany(args.company)
+        if not cid:
+            log('err', f'empresa {args.company!r} não encontrada. Valores: ' +
+                ', '.join(repr(c.get('value')) for c in options))
+            return 1
+        if cid != dev.get('company'):
+            change['company'] = cid
+    if args.series:
+        series = args.series.zfill(5)
+        if series != dev.get('series_num'):
+            dup = [d['id'] for d in (get_req('/devices').get('data') or [])
+                   if d.get('series_num') == series and d.get('id') != esp]
+            if dup:
+                log('err', f'a série {series} já é do aparelho {dup[0]}')
+                return 1
+            change['series_num'] = series
+    if args.sensor:
+        sensor = args.sensor.strip()
+        if sensor.lower() == 'usb':
+            if not core.robustSync():
+                return 1
+            live, sensor = core.readEspId(), core.readSensorId()
+            core.device.disconnect()
+            if live != esp:
+                log('err', f'o aparelho na USB é {live}, não {esp}: conecte o aparelho certo')
+                return 1
+        if not sensor or not sensor.upper().startswith('ETL'):
+            log('err', f'sensor inválido: {sensor!r} (esperado ETL…)')
+            return 1
+        if sensor != dev.get('sensor_id'):
+            change['sensor_id'] = sensor
+    newModule, chip = None, optional(args.chip)
+    if args.modulo is not None:
+        newModule = optional(args.modulo)
+        if newModule != mod:
+            change['telemetry'] = newModule          # None = desvincula o módulo
+    if args.desinstalar:
+        if not dev.get('plate'):
+            log('warn', 'o aparelho não está em placa nenhuma: --desinstalar não muda nada')
+        else:
+            change.update({k: v for k, v in UNINSTALL.items() if dev.get(k) != v})
+    if args.rearmar and not dev.get('need_update'):
+        change['need_update'] = True
+    chipModule = change.get('telemetry', mod)
+    chipChange = bool(chip and chipModule and (chipModule != mod or chip != modRow.get('chip')))
+    if chip and not chipModule:
+        log('err', 'chip sem módulo: informe --modulo (o chip mora no módulo, em /telemetries)')
+        return 1
+
+    if 'company' in change and dev.get('plate') and not args.desinstalar:
+        log('err', f"o aparelho ainda está na placa {dev['plate']} da empresa antiga: use --desinstalar "
+                   '(ou --forcar se a placa também mudou de dono)')
+        if not args.forcar:
+            return 2
+
+    if not change and not chipChange:
+        log('ok', 'nada a mudar: o cadastro já está assim')
+        return 0
+    log('info', f'----- alterações (PRODUÇÃO, PATCH /devices/{esp}) -----')
+    for k, v in change.items():
+        before = dev.get(k)
+        if k == 'company':
+            before, v = companyLabel(before, companies), companyLabel(v, companies)
+        log('info', f'{k:18} {before!r} → {v!r}')
+    if chipChange:
+        log('info', f"{'chip do módulo':18} {modRow.get('chip') if chipModule == mod else None!r} → {chip!r}  "
+                    f'(/telemetries/{chipModule})')
+    if args.desinstalar and dev.get('plate'):
+        log('warn', f"sai da placa {dev['plate']}: abra o Helper (anomalias {dev['plate']}) se houver alerta aberto dela")
+    if not args.yes:
+        log('warn', 'nada foi gravado. Confirme com o usuário e rode de novo com --yes')
+        return 3
+
+    if chipModule and (chipModule != mod or chipChange):
+        if not ensureModule(chipModule, chip, None if args.desinstalar else dev.get('plate')):
+            return 1
+    if change:
+        res = post_req(f'/devices/{esp}', change, type='PATCH')
+        if res['status'] == 'error':
+            log('err', f"servidor recusou: {res.get('data')}")
+            return 1
+    after = get_req(f'/devices/{esp}/').get('data') or {}
+    bad = [k for k, v in change.items() if (after.get(k) or None) != (v or None)]
+    if chipChange:
+        got = (get_req(f'/telemetries/{chipModule}/').get('data') or {}).get('chip')
+        if got != chip:
+            bad.append('chip')
+    log('ok' if not bad else 'err', f'{esp}: ' + ('alterado e conferido' if not bad else
+                                                   f"NÃO conferiu {', '.join(bad)} — devolveu {after}"))
+    if not bad and args.desinstalar:
+        log('info', 'para instalar na placa nova: tools/sighir.py install <esp> --placa ... --telemetria ...')
+    return 0 if not bad else 1
 
 
 def cmdServerDelete(args):
@@ -471,9 +894,10 @@ def cmdServerDelete(args):
         return 1
 
     data = res['data']
-    log('warn', 'REGISTRO A DELETAR (produção, hard delete, cascata p/ o Suntech vinculado):')
+    log('warn', 'REGISTRO A DELETAR (produção, hard delete). O módulo (/telemetries) e a placa (Vehicle) ficam; '
+                'os logs apontam para o aparelho (log.device) e podem ir junto — confirme com o usuário:')
 
-    for key in ('id', 'series_num', 'company', 'sensor_id', 'suntech', 'chip'):
+    for key in ('id', 'series_num', 'company', 'sensor_id', 'plate', 'telemetry', 'telemetry_company_label'):
         log('info', f'{key:12} = {data.get(key)!r}')
 
     if not args.yes:
@@ -524,28 +948,56 @@ def build():
     sdev.add_argument('esp_id')
     sdev.set_defaults(func=cmdServerDevice)
 
+    edt = sub.add_parser('edit', help='edita aparelho já cadastrado (só o que mudar) — exige --yes')
+    edt.add_argument('esp_id', help='MIC... já cadastrado')
+    edt.add_argument('--company', help='value da nova empresa (ex: logika)')
+    edt.add_argument('--modulo', '--suntech', dest='modulo', help='novo ID do módulo Suntech/Entrack, ou "none" para desvincular')
+    edt.add_argument('--chip', help='chip do módulo (grava em /telemetries)')
+    edt.add_argument('--sensor', help='novo sensor ETL… ou "usb" (lê do aparelho conectado)')
+    edt.add_argument('--series', help='novo número de série')
+    edt.add_argument('--desinstalar', action='store_true', help='tira da placa (volta para o estoque)')
+    edt.add_argument('--rearmar', action='store_true', help='need_update=true (próxima atualização)')
+    edt.add_argument('--forcar', action='store_true', help='troca a empresa mantendo a placa')
+    edt.add_argument('--yes', action='store_true', help='grava de verdade (depois de confirmar com o usuário)')
+    edt.set_defaults(func=cmdEdit)
+
+    ond = sub.add_parser('onde', help='onde um MIC/ETL/módulo/placa/série já está cadastrado')
+    ond.add_argument('valor')
+    ond.set_defaults(func=cmdOnde)
+
+    prg = sub.add_parser('progresso', help='porcentagem do flash em andamento (espera até 20 s)')
+    prg.add_argument('--espera', type=int, default=PROGRESS_EVERY)
+    prg.set_defaults(func=cmdProgresso)
+
     sdel = sub.add_parser('server-delete')
     sdel.add_argument('esp_id')
     sdel.add_argument('--yes', action='store_true', help='confirma o hard delete em produção')
     sdel.set_defaults(func=cmdServerDelete)
 
-    ins = sub.add_parser('install', help='cria a instalação (aparelho ↔ placa ↔ telemetria) no servidor')
+    ins = sub.add_parser('install', help='instala o aparelho numa placa (PATCH /devices) — exige --yes')
     ins.add_argument('esp_id', help='MIC... já cadastrado (register)')
-    ins.add_argument('--placa', required=True)
+    ins.add_argument('--placa', required=True, help='placa do veículo (o servidor cria/associa o Vehicle)')
     ins.add_argument('--telemetria', required=True, choices=list(INSTALL_TELEMETRY),
                      help='mix2 = MIX 2.0 (maioria da frota MiX); mix = MIX antigo')
+    ins.add_argument('--modulo', help='ID do módulo Suntech/Entrack (se ainda não vinculado no register)')
+    ins.add_argument('--chip', help='chip do módulo (grava em /telemetries)')
     ins.add_argument('--tipo', choices=['caminhao', 'carro'], default='caminhao')
+    ins.add_argument('--maleta', action='store_true', help='maleta de demonstração (installation_data.suitcase=1)')
+    ins.add_argument('--observacao', help='observação da instalação (installation_data.observation)')
     ins.add_argument('--instalador', help='nome de quem instalou')
     ins.add_argument('--apelido', help='nickname opcional')
-    ins.add_argument('--duplicar', action='store_true', help='cria mesmo havendo instalação com a placa/aparelho')
+    ins.add_argument('--forcar', '--duplicar', dest='forcar', action='store_true',
+                     help='grava mesmo com a placa em outro aparelho ou o aparelho em outra placa (troca)')
     ins.add_argument('--yes', action='store_true', help='grava de verdade (depois de confirmar com o usuário)')
     ins.set_defaults(func=cmdInstall)
 
     reg = sub.add_parser('register')
     reg.add_argument('--company', help='value da empresa (ex: logika). Sem isto, lista as opções.')
     reg.add_argument('--series', default='auto', help='número de série ou "auto"')
-    reg.add_argument('--suntech', default='none', help='ID suntech ou "none"')
-    reg.add_argument('--chip', default='N/A', help='número do chip suntech ou "N/A"')
+    reg.add_argument('--modulo', '--suntech', dest='modulo', default='none',
+                     help='ID do módulo Suntech/Entrack (/telemetries) ou "none" (MiX)')
+    reg.add_argument('--chip', default='N/A', help='chip do módulo (grava em /telemetries) ou "N/A"')
+    reg.add_argument('--forcar', action='store_true', help='cadastra mesmo com o sensor já em outro aparelho')
     reg.set_defaults(func=cmdRegister)
 
     tst = sub.add_parser('test')
