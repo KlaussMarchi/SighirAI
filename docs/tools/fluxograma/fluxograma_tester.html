@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Sighir — Fluxo de bancada e produção do etilômetro</title>
+<style>
+@page{size:297mm 210mm;margin:0}
+:root{
+  --ink:#0f172a; --ink2:#334155; --muted:#64748b; --line:#cbd5e1; --soft:#f1f5f9; --paper:#f8fafc;
+  --brand:#68b430; --brand-d:#3f7a17;
+  --dev:#2563eb; --srvw:#ea580c; --srvr:#0d9488; --ask:#7c3aed; --man:#475569;
+  --dec:#d97706; --decbg:#fef3c7; --ok:#16a34a; --fail:#dc2626;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:"Segoe UI",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.mono,code{font-family:Consolas,"Courier New",monospace;font-variant-ligatures:none}
+b{font-weight:700}
+a{color:inherit;text-decoration:none}
+
+/* ---------- página ---------- */
+.page{position:relative;width:1122px;height:793px;overflow:hidden;page-break-after:always;break-after:page;background:#fff}
+.page:last-child{page-break-after:auto;break-after:auto}
+.ph{position:absolute;left:38px;right:38px;top:18px;height:30px;display:flex;align-items:center;gap:12px;
+  border-bottom:1.5px solid #e2e8f0;padding-bottom:8px}
+.ph img{height:17px}
+.ph .doc{font-size:10.5px;color:var(--muted);flex:1;padding-left:12px;border-left:1.5px solid #e2e8f0}
+.ph .doc b{color:var(--ink2)}
+.ph .chip{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--ink);
+  border-radius:999px;padding:3px 11px}
+.ph .chip.ref{background:var(--brand-d)}
+.pt{position:absolute;left:38px;right:38px;top:62px;height:58px;display:flex;align-items:center;gap:14px}
+.pt .pn{width:50px;height:50px;border-radius:12px;background:var(--ink);color:var(--brand);font-size:30px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:none}
+.pt h2{margin:0;font-size:23px;font-weight:800;line-height:1.1}
+.pt p{margin:4px 0 0;font-size:12.5px;color:var(--ink2);line-height:1.35}
+.pt .who{margin-left:auto;display:flex;gap:8px;flex:none}
+.pt .who span{font-size:10px;border:1.5px solid var(--line);border-radius:8px;padding:4px 9px;color:var(--ink2);line-height:1.3;background:#fff}
+.pt .who span b{display:block;font-size:8.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.body{position:absolute;left:38px;right:38px;top:132px;height:600px;display:flex;gap:16px}
+.pf{position:absolute;left:38px;right:38px;bottom:16px;height:20px;display:flex;justify-content:space-between;align-items:center;
+  font-size:9.5px;color:var(--muted);border-top:1.5px solid #e2e8f0;padding-top:6px}
+.pf .pg{font-weight:700;color:var(--ink2)}
+
+/* ---------- canvas do fluxo ---------- */
+.canvas{position:relative;flex:none;height:600px}
+.canvas svg.edges{position:absolute;left:0;top:0;z-index:2;overflow:visible}
+.node{position:absolute;z-index:3;background:#fff;border:1.2px solid var(--line);border-left:5px solid var(--c);
+  border-radius:9px;padding:7px 10px 8px 10px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 3px 9px rgba(15,23,42,.06)}
+.head{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.num{background:var(--c);color:#fff;font-weight:800;font-size:10px;border-radius:5px;padding:1px 6px;line-height:1.35}
+.chipk{color:var(--c);font-weight:800;font-size:8.5px;letter-spacing:.07em;text-transform:uppercase}
+.title{font-size:13px;font-weight:700;line-height:1.22}
+.cmd{display:block;margin:5px 0 1px;background:var(--ink);color:#e2e8f0;border-radius:6px;padding:4px 8px;
+  font-size:11px;line-height:1.4;white-space:pre-wrap}
+.cmd i{font-style:normal;color:#fbbf24}
+.desc{font-size:10.6px;line-height:1.4;color:var(--ink2);margin-top:4px}
+.desc .mono,.dq .mono,.tbl .mono,.card .mono,.rc .mono,.note .mono,.side .mono{background:var(--soft);border-radius:3px;padding:0 3px;font-size:.93em;color:var(--ink)}
+.desc ol,.desc ul{margin:2px 0 0;padding-left:15px}
+.desc li{margin:1px 0}
+.desc ul.c2{columns:2;column-gap:14px}
+.small{font-size:9.5px;color:var(--muted);margin-top:3px}
+.exp{margin-top:5px;font-size:10px;color:var(--muted);border-top:1px dashed #e2e8f0;padding-top:4px}
+.ev{font-family:Consolas,monospace;font-size:10.5px;color:var(--ok);font-weight:700;font-variant-ligatures:none}
+.ftag{position:absolute;top:-8px;right:8px;background:#fff;border:1.5px solid var(--fail);color:var(--fail);font-size:8.5px;
+  font-weight:800;border-radius:999px;padding:0 6px;line-height:1.5;letter-spacing:.03em}
+.k-dev{--c:var(--dev)} .k-srvw{--c:var(--srvw)} .k-srvr{--c:var(--srvr)} .k-ask{--c:var(--ask)} .k-man{--c:var(--man)}
+.k-ask{background:#faf5ff}
+
+.node.dec{background:transparent;border:none;box-shadow:none;padding:9px 24px;text-align:center;display:flex;
+  flex-direction:column;justify-content:center;min-height:66px}
+.node.dec svg.hex{position:absolute;left:0;top:0;z-index:-1;overflow:visible;filter:drop-shadow(0 2px 5px rgba(146,64,14,.13))}
+.dq{font-size:11.6px;font-weight:700;line-height:1.28;color:#78350f}
+.dsub{font-size:9.5px;color:#92400e;margin-top:3px;line-height:1.35}
+
+.node.term{border:none;border-radius:999px;text-align:center;color:#fff;padding:9px 14px;background:var(--c)}
+.node.term .tt{font-size:13.5px;font-weight:800;letter-spacing:.04em}
+.node.term .ts{font-size:10px;line-height:1.3;opacity:.95;margin-top:1px}
+.k-start{--c:var(--ink)} .k-ok{--c:var(--ok)} .k-fail{--c:var(--fail)}
+.node.k-fail{border-radius:14px}
+a.node.term{display:block}
+
+.node.note{background:var(--soft);border:1.2px dashed #94a3b8;box-shadow:none;border-radius:9px;font-size:10.5px;
+  line-height:1.42;color:var(--ink2);padding:8px 11px}
+.nt{font-weight:800;color:#b45309;font-size:9px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px}
+.note ul{margin:0;padding-left:14px} .note li{margin:2px 0}
+
+.node.group{z-index:1;background:rgba(241,245,249,.75);border:1.2px solid #cbd5e1;border-left:1.2px solid #cbd5e1;box-shadow:none;border-radius:12px;padding:6px 12px}
+.node.group .gt{font-size:11.5px;font-weight:800;color:var(--ink)}
+.node.group .gt .num{background:var(--ink);margin-right:6px}
+.node.group .gs{font-size:9.5px;color:var(--muted);margin-left:4px;font-weight:600}
+.node.group.red{background:#fef2f2;border-color:#fecaca}
+.node.lane{z-index:1;background:var(--lbg);border:1.2px solid var(--lb);border-left:1.2px solid var(--lb);box-shadow:none;border-radius:12px;padding:6px 10px}
+.lane .lsub{font-size:9px;color:var(--lc);font-weight:700;margin-top:5px;max-width:84px;line-height:1.3}
+.lane .lt{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--lc);border-radius:999px;padding:2px 10px}
+
+.node.mini{border-left-width:1.2px;border-top:4px solid var(--c);padding:6px 8px 7px;text-align:center}
+.mini .mn{display:inline-flex;width:17px;height:17px;border-radius:50%;background:var(--c);color:#fff;font-size:10px;font-weight:800;
+  align-items:center;justify-content:center;margin-right:4px;vertical-align:-3px}
+.mini .mt{font-size:11.5px;font-weight:700;line-height:1.25}
+.mini .mr{font-size:10px;color:var(--ink2);margin-top:3px;line-height:1.3}
+.k-alc{--c:#be185d} .k-blow{--c:#0369a1}
+
+.node.conn{border:none;box-shadow:none;background:var(--fail);border-radius:50%;color:#fff;font-weight:800;font-size:18px;
+  display:flex;align-items:center;justify-content:center;padding:0}
+
+.elabel{position:absolute;z-index:4;transform:translate(-50%,-50%);background:#fff;border:1.5px solid var(--c);color:var(--c);
+  font-weight:800;font-size:8.8px;letter-spacing:.04em;border-radius:999px;padding:0 7px;line-height:1.55;white-space:nowrap}
+
+/* ---------- painel lateral e cartões ---------- */
+.side{flex:1;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card{border:1.2px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff;font-size:10.4px;line-height:1.42;color:var(--ink2)}
+.card h3{margin:0 0 5px;font-size:11.5px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:6px}
+.card h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--brand);flex:none}
+.card.warn{background:#fffbeb;border-color:#fde68a} .card.warn h3 .dot{background:#d97706}
+.card ul,.card ol{margin:0;padding-left:15px} .card li{margin:2px 0}
+.tbl{width:100%;border-collapse:collapse;font-size:10px}
+.tbl th{text-align:left;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1.5px solid #e2e8f0;padding:2px 5px 3px}
+.tbl td{padding:3.5px 5px;border-bottom:1px solid #eef2f7;vertical-align:top;line-height:1.35;color:var(--ink2)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td.c code{background:var(--ink);color:#e2e8f0;border-radius:4px;padding:1px 5px;font-size:10px;white-space:nowrap}
+.src{display:inline-block;font-size:8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:1px 5px;color:#fff;white-space:nowrap}
+.src.usb{background:var(--dev)} .src.srv{background:var(--srvr)} .src.ask{background:var(--ask)}
+
+/* ---------- capa ---------- */
+.cover-k{position:absolute;left:38px;top:70px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-d)}
+.cover-h{position:absolute;left:38px;right:38px;top:88px}
+.cover-h h1{margin:0;font-size:34px;font-weight:800;line-height:1.1;letter-spacing:-.01em}
+.cover-h p{margin:7px 0 0;font-size:14px;color:var(--ink2);max-width:880px;line-height:1.4}
+.map{position:absolute;left:38px;right:38px;top:200px;height:200px}
+.map .lbl{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.phases{display:flex;align-items:stretch;gap:0}
+.phase{flex:1;display:block;border:1.5px solid var(--line);border-radius:12px;padding:10px 10px 9px;background:#fff;position:relative;
+  box-shadow:0 2px 8px rgba(15,23,42,.06)}
+.phase .n{width:28px;height:28px;border-radius:8px;background:var(--ink);color:var(--brand);font-weight:800;font-size:16px;display:flex;align-items:center;justify-content:center}
+.phase .t{font-size:12.5px;font-weight:800;margin-top:7px;line-height:1.2}
+.phase .d{font-size:10px;color:var(--ink2);margin-top:4px;line-height:1.35}
+.phase .p{position:absolute;right:9px;top:10px;font-size:9px;font-weight:800;color:var(--brand-d);border:1.5px solid #bbf7d0;border-radius:999px;padding:0 6px;background:#f0fdf4}
+.arrow{width:18px;flex:none;display:flex;align-items:center;justify-content:center;color:#334155;font-size:15px;font-weight:800}
+.bypass{margin-top:9px;font-size:10.5px;color:var(--ink2);display:flex;gap:16px}
+.bypass span{display:inline-flex;align-items:center;gap:6px}
+.bypass b.tag{font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--ink);border-radius:999px;padding:1px 8px}
+.cols3{position:absolute;left:38px;right:38px;top:418px;height:262px;display:grid;grid-template-columns:1.05fr 1fr 1.25fr;gap:14px}
+.lgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;margin-top:4px}
+.lg{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--ink2)}
+.sw{width:24px;height:15px;border-radius:4px;background:#fff;border:1.2px solid var(--line);border-left:5px solid var(--c);flex:none}
+.sw.hex{border:none;width:26px;height:16px;background:var(--decbg);clip-path:polygon(22% 0,78% 0,100% 50%,78% 100%,22% 100%,0 50%);box-shadow:inset 0 0 0 2px var(--dec)}
+.sw.pill{border:none;border-radius:999px;background:var(--c);width:26px}
+.sw.note{border:1.2px dashed #94a3b8;background:var(--soft)}
+.sw.conn{width:16px;height:16px;border-radius:50%;background:var(--fail);border:none;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.ln{width:30px;height:0;border-top:2.4px solid #334155;position:relative;flex:none}
+.ln.loop{border-top:2.4px dashed #64748b} .ln.fail{border-top-color:var(--fail)}
+.ln::after{content:"";position:absolute;right:-2px;top:-6px;border:5px solid transparent;border-left:8px solid #334155}
+.ln.loop::after{border-left-color:#64748b} .ln.fail::after{border-left-color:var(--fail)}
+.sign{position:absolute;left:38px;right:38px;top:694px;height:44px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.sign div{border-top:1.5px solid #94a3b8;padding-top:4px;font-size:9px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+
+/* ---------- páginas de referência ---------- */
+.grid{position:absolute;left:38px;right:38px;top:132px;height:600px;display:grid;gap:12px}
+.rc{border:1.2px solid var(--line);border-radius:11px;padding:10px 12px;background:#fff;font-size:10.4px;line-height:1.42;color:var(--ink2);overflow:hidden}
+.rc h3{margin:0 0 6px;font-size:12px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:7px}
+.rc h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--brand);flex:none}
+.rc ol,.rc ul{margin:0;padding-left:16px} .rc li{margin:3px 0}
+.sym{display:grid;grid-template-columns:auto 1fr;gap:5px 9px;font-size:10.2px;line-height:1.38}
+.sym .s{font-family:Consolas,monospace;font-size:9.6px;background:#fef2f2;color:#991b1b;border-radius:4px;padding:1px 5px;align-self:start;white-space:nowrap}
+.cmdl{display:grid;grid-template-columns:auto 1fr;gap:3px 9px;font-size:10px;line-height:1.35}
+.cmdl code{background:var(--ink);color:#e2e8f0;border-radius:4px;padding:1px 5px;font-size:9.6px;white-space:nowrap;align-self:start}
+#p-ref .rc{font-size:10px;line-height:1.36;padding:9px 11px}
+#p-ref .rc li{margin:2px 0}
+#p-ref .tbl td{padding:2.6px 5px}
+#p-ref .sym{gap:4px 8px;font-size:9.9px}
+#p-ref .cmdl{gap:1px 8px;font-size:9.8px}
+.fig{border:1.2px solid var(--line);border-radius:11px;padding:8px;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.fig .im{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:var(--paper);border-radius:7px;overflow:hidden}
+.fig img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.fig .cap{font-size:10.3px;color:var(--ink2);margin-top:6px;line-height:1.38}
+.fig .cap b{color:var(--ink);font-size:11px}
+
+/* ---------- ficha ---------- */
+.fx{position:absolute;left:38px;right:38px;top:130px;height:604px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fld{display:grid;grid-template-columns:repeat(4,1fr);gap:8px 10px;margin-top:2px}
+.fld div{font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;border-bottom:1.3px solid #94a3b8;height:30px;padding-top:2px}
+.fld div.w2{grid-column:span 2}
+.cb{display:inline-block;width:10px;height:10px;border:1.3px solid #475569;border-radius:2px;vertical-align:-1px;margin-right:4px;background:#fff}
+.chk{list-style:none;margin:0;padding:0;font-size:10.2px;line-height:1.35}
+.chk li{display:flex;gap:6px;padding:3px 0;border-bottom:1px dotted #cbd5e1}
+.chk li .cb{flex:none;margin-top:2px}
+.chk li .r{margin-left:auto;color:var(--muted);font-size:9px;white-space:nowrap;padding-left:6px}
+.ph2{font-size:10.5px;font-weight:800;color:var(--ink);margin:7px 0 2px;display:flex;align-items:center;gap:6px}
+.ph2 span{background:var(--ink);color:var(--brand);border-radius:5px;padding:0 6px;font-size:10px}
+.chk.c2g{display:grid;grid-template-columns:1fr 1fr;column-gap:16px}
+.lines div{height:24px;border-bottom:1px solid #cbd5e1}
+.sig{border-top:1.3px solid #94a3b8;padding-top:3px;font-size:8.5px;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<!-- ======================= 1. CAPA ======================= -->
+<section class="page" id="p-capa">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro · Rev. 1 — 07/10/2026</div><span class="chip">Visão geral</span></div>
+  <div class="cover-k">Procedimento padrão · Produção</div>
+  <div class="cover-h">
+    <h1>Fluxo de bancada e produção do etilômetro</h1>
+    <p>Do aparelho recém-montado (ou que voltou de cliente) até o conjunto pronto para envio: bancada física, firmware, testes pela USB,
+      cadastro no servidor, telemetria do cliente (MIX, Suntech ou Entrack) e validação final de álcool e sopro, com o <b>Sighir Tester</b>.</p>
+  </div>
+  <div class="map">
+    <div class="lbl">Mapa do processo — clique numa fase para ir à página</div>
+    <div class="phases">
+      <a class="phase" href="#p-f1"><span class="p">pág. 2</span><div class="n">1</div><div class="t">Bancada física</div><div class="d">Espiral, reguladores e teste de cada componente (PPTC).</div></a>
+      <div class="arrow">›</div>
+      <a class="phase" href="#p-f2"><span class="p">pág. 3</span><div class="n">2</div><div class="t">Conexão e firmware</div><div class="d">Tester na USB; firmware 6.4.0 ou mais novo.</div></a>
+      <div class="arrow">›</div>
+      <a class="phase" href="#p-f3"><span class="p">pág. 4</span><div class="n">3</div><div class="t">Testes pela USB</div><div class="d">Sensor, temperatura, pressão, ciclo de álcool, relé e sopro.</div></a>
+      <div class="arrow">›</div>
+      <a class="phase" href="#p-f4"><span class="p">pág. 5</span><div class="n">4</div><div class="t">Cadastro no servidor</div><div class="d">Novo: cadastrar. Já existe: editar.</div></a>
+      <div class="arrow">›</div>
+      <a class="phase" href="#p-f5"><span class="p">pág. 6</span><div class="n">5</div><div class="t">Telemetria</div><div class="d">Configurar, montar e testar o conjunto do cliente.</div></a>
+      <div class="arrow">›</div>
+      <a class="phase" href="#p-f6"><span class="p">pág. 7</span><div class="n">6</div><div class="t">Validação final</div><div class="d">Álcool e sopro reais com o conjunto montado.</div></a>
+      <div class="arrow">›</div>
+      <a class="phase" href="#p-f7"><span class="p">pág. 8</span><div class="n">7</div><div class="t">Preparar e enviar</div><div class="d">Data de calibração, etiqueta, conjunto e instalação.</div></a>
+    </div>
+    <div class="bypass">
+      <span><b class="tag">Aparelho novo</b> começa na Fase 1.</span>
+      <span><b class="tag">Voltou de cliente</b> começa na Fase 2 e, na Fase 4, segue o caminho de edição.</span>
+      <span>Referência: <a href="#p-ref"><b>&nbsp;consulta rápida (pág. 9)</b></a> · <a href="#p-a1"><b>anexos (pág. 10–12)</b></a> · <a href="#p-ficha"><b>ficha de produção (pág. 13)</b></a></span>
+    </div>
+  </div>
+  <div class="cols3">
+    <div class="card">
+      <h3><span class="dot"></span>Como usar este procedimento</h3>
+      <ol>
+        <li>Siga as fases na ordem. Cada passo tem número (“parei no 4.3”) e, quando é no Tester, o comando exato.</li>
+        <li>Comandos do Tester: na pasta <span class="mono">Tester/</span>, <span class="mono">python tools/sighir.py &lt;comando&gt;</span>, ou peça ao <b>Sighir Tester AI</b> (<span class="mono">Tester_Claude.exe</span>), que roda e explica o resultado.</li>
+        <li>Losango laranja é decisão: siga a seta com a resposta.</li>
+        <li>Preencha a <a href="#p-ficha"><b>ficha de produção</b></a> durante o processo, um aparelho por ficha.</li>
+        <li>Tudo que grava em produção (laranja) só com o ok do responsável: prévia → confirmar → <span class="mono">--yes</span>.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Material de bancada</h3>
+      <ul>
+        <li>Multímetro e fonte de tensão regulável</li>
+        <li>Chave de fenda CR-V 1.5 (reguladores)</li>
+        <li>Cabo USB-C <b>de dados</b> e cabo conversor RS232-USB</li>
+        <li>Cabo espiral de 8 vias com conectores microfit</li>
+        <li>Plataforma de testes (giga) com chave de ignição e lâmpada no relé</li>
+        <li>Módulo e cabos da telemetria do cliente (pág. 10)</li>
+        <li>Soluções de álcool de concentração baixa e alta</li>
+        <li>Computador com o Sighir Tester, SyncTrack (Suntech) e EntrackApp (Entrack)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3><span class="dot"></span>Legenda</h3>
+      <div class="lgrid">
+        <span class="lg"><span class="sw" style="--c:var(--dev)"></span>Tester / aparelho pela USB</span>
+        <span class="lg"><span class="sw" style="--c:var(--man)"></span>Ação manual na bancada</span>
+        <span class="lg"><span class="sw" style="--c:var(--srvr)"></span>Servidor: só consulta</span>
+        <span class="lg"><span class="sw" style="--c:var(--srvw)"></span><span>Servidor: <b>grava em produção</b></span></span>
+        <span class="lg"><span class="sw" style="--c:var(--ask);background:#faf5ff"></span>Perguntar ao responsável</span>
+        <span class="lg"><span class="sw hex"></span>Decisão</span>
+        <span class="lg"><span class="sw pill" style="--c:var(--ink)"></span>Início</span>
+        <span class="lg"><span class="sw pill" style="--c:var(--ok)"></span>Fase concluída</span>
+        <span class="lg"><span class="sw pill" style="--c:var(--fail)"></span>Parar (reprovado)</span>
+        <span class="lg"><span class="sw note"></span>Atenção / informação</span>
+        <span class="lg"><span class="ln"></span>Caminho</span>
+        <span class="lg"><span class="ln fail"></span>Problema</span>
+        <span class="lg"><span class="ln loop"></span>Tentar de novo</span>
+        <span class="lg"><span class="sw conn">F</span>Se falhar: ir ao bloco F</span>
+      </div>
+    </div>
+  </div>
+  <div class="sign"><div>Elaborado por</div><div>Revisado por</div><div>Aprovado por</div><div>Vigência a partir de</div></div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção do etilômetro · Fontes: Notion (Envio de Etilômetros, Testes de Qualidade), PPTC 0001-01, Tester/procedimentos</span><span class="pg">1 / 13</span></div>
+</section>
+
+<!-- ======================= 2. FASE 1 ======================= -->
+<section class="page" id="p-f1">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 1 de 7</span></div>
+  <div class="pt"><div class="pn">1</div><div><h2>Bancada física</h2><p>Só para placas recém-montadas: ligar o espiral, ajustar as tensões e testar cada componente antes de usar o Tester.</p></div>
+    <div class="who"><span><b>Quem</b>técnico de bancada</span><span><b>Base</b>PPTC 0001-01</span></div></div>
+  <div class="body">
+    <div class="canvas" data-c="f1" style="width:790px"></div>
+    <div class="side">
+      <div class="card">
+        <h3><span class="dot"></span>1.3 · Ajuste dos reguladores</h3>
+        <table class="tbl">
+          <tr><th>Fonte</th><th>Medir (8 vias)</th><th>Ajustar</th></tr>
+          <tr><td>5,0–5,5 V em VCC/GND (6 vias)</td><td>VCC</td><td><b>3,0–3,5 V</b><br>regulador 1</td></tr>
+          <tr><td>subir para 6,5–7,0 V</td><td>VCC</td><td><b>5,7–5,8 V</b><br>regulador 1</td></tr>
+          <tr><td>5,0–5,5 V na entrada ALT</td><td>ALT</td><td><b>3,2–3,4 V</b><br>regulador 2</td></tr>
+          <tr><td>5,0–5,5 V na entrada KEY</td><td>KEY</td><td><b>3,2–3,4 V</b><br>regulador 3</td></tr>
+        </table>
+        <div class="small">Medições <b>sem</b> o espiral ligado na exposta. Ponta negativa sempre no GND; girar o parafuso com suavidade. KEY em 0 V: girar a chave simulada da maleta.</div>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Pinagem e fotos</h3>
+        Conector de 8 vias (exposta ↔ embutida) e de 6 vias (alimentação): <a href="#p-a2"><b>Anexo B, pág. 11</b></a>.
+      </div>
+      <div class="card warn">
+        <h3><span class="dot"></span>Atenção</h3>
+        <ul>
+          <li>Bancada limpa, sem objetos condutores soltos; EPI quando necessário.</li>
+          <li>Um aparelho por vez conectado ao computador.</li>
+          <li>Anote os valores medidos na ficha de produção.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 1 — Bancada física</span><span class="pg">2 / 13</span></div>
+</section>
+
+<!-- ======================= 3. FASE 2 ======================= -->
+<section class="page" id="p-f2">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 2 de 7</span></div>
+  <div class="pt"><div class="pn">2</div><div><h2>Conexão e firmware</h2><p>Conectar o aparelho ao Sighir Tester e garantir firmware 6.4.0 ou mais novo, conferido no próprio aparelho.</p></div>
+    <div class="who"><span><b>Quem</b>técnico de bancada</span><span><b>Ferramenta</b>Sighir Tester (USB)</span></div></div>
+  <div class="body">
+    <div class="canvas" data-c="f2" style="width:790px"></div>
+    <div class="side">
+      <div class="card">
+        <h3><span class="dot"></span>Como o <span class="mono">init</span> classifica</h3>
+        <table class="tbl">
+          <tr><td><b style="color:var(--ok)">ok</b></td><td>6.4.0 ou mais novo: pronto para tudo.</td></tr>
+          <tr><td><b style="color:#b45309">below_min</b></td><td>abaixo de 6.4.0: cadastro e telemetria bloqueados até atualizar.</td></tr>
+          <tr><td><b style="color:var(--fail)">old</b></td><td>não respondeu a versão: firmware antigo demais, só atualiza pelo Wi-Fi.</td></tr>
+        </table>
+      </div>
+      <div class="card warn">
+        <h3><span class="dot"></span>Atenção na atualização</h3>
+        <ul>
+          <li>A atualização no servidor é de <b>uso único</b>: nunca “baixar para testar”. O <span class="mono">flash</span> já prepara sozinho.</li>
+          <li>Caiu a USB no meio do flash? <b>Não estraga o aparelho</b>: <span class="mono">recover</span> e <span class="mono">flash</span> de novo.</li>
+          <li>Versão vale a lida no aparelho; a do servidor fica defasada.</li>
+          <li>Aparelho <b>ok</b>, mas há versão mais nova? Use o mesmo <span class="mono">flash</span>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Antes de começar</h3>
+        <ul>
+          <li>O Tester avisou problema de ambiente (“Atenção”)? Rode <span class="mono">python tools/boot.py setup</span>.</li>
+          <li>Linux: não existe driver; o problema costuma ser permissão (grupo <span class="mono">dialout</span>).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 2 — Conexão e firmware</span><span class="pg">3 / 13</span></div>
+</section>
+
+<!-- ======================= 4. FASE 3 ======================= -->
+<section class="page" id="p-f3">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 3 de 7</span></div>
+  <div class="pt"><div class="pn">3</div><div><h2>Testes pela USB</h2><p>Com o aparelho só na USB, o Tester valida cada sensor, o ciclo completo de álcool e o relé. Faça na ordem; cada um tem a resposta esperada.</p></div>
+    <div class="who"><span><b>Quem</b>técnico de bancada</span><span><b>Ferramenta</b>Sighir Tester (USB)</span></div></div>
+  <div class="body"><div class="canvas" data-c="f3" style="width:1046px"></div></div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 3 — Testes pela USB</span><span class="pg">4 / 13</span></div>
+</section>
+
+<!-- ======================= 5. FASE 4 ======================= -->
+<section class="page" id="p-f4">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 4 de 7</span></div>
+  <div class="pt"><div class="pn">4</div><div><h2>Cadastro no servidor</h2><p>Aparelho novo: cadastrar. Aparelho que já existe (voltou de cliente, troca de empresa): editar, nunca apagar e cadastrar de novo.</p></div>
+    <div class="who"><span><b>Quem</b>técnico + responsável</span><span><b>Grava em</b>produção</span></div></div>
+  <div class="body"><div class="canvas" data-c="f4" style="width:1046px"></div></div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 4 — Cadastro no servidor</span><span class="pg">5 / 13</span></div>
+</section>
+
+<!-- ======================= 6. FASE 5 ======================= -->
+<section class="page" id="p-f5">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 5 de 7</span></div>
+  <div class="pt"><div class="pn">5</div><div><h2>Telemetria do cliente</h2><p>Configurar o aparelho e o módulo, montar o conjunto na plataforma de testes e provar a comunicação de ponta a ponta. Siga só a faixa da telemetria do cliente.</p></div>
+    <div class="who"><span><b>Quem</b>técnico de bancada</span><span><b>Base</b>Notion · Envio de Etilômetros</span></div></div>
+  <div class="body"><div class="canvas" data-c="f5" style="width:1046px"></div></div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 5 — Telemetria do cliente</span><span class="pg">6 / 13</span></div>
+</section>
+
+<!-- ======================= 7. FASE 6 ======================= -->
+<section class="page" id="p-f6">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 6 de 7</span></div>
+  <div class="pt"><div class="pn">6</div><div><h2>Validação final: álcool e sopro reais</h2><p>Com o conjunto montado na plataforma e o firmware mais recente, provar o resultado com álcool de verdade e a detecção de sopro.</p></div>
+    <div class="who"><span><b>Quem</b>técnico de bancada</span><span><b>Base</b>Notion · Validação Final</span></div></div>
+  <div class="body"><div class="canvas" data-c="f6" style="width:1046px"></div></div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 6 — Validação final</span><span class="pg">7 / 13</span></div>
+</section>
+
+<!-- ======================= 8. FASE 7 ======================= -->
+<section class="page" id="p-f7">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip">Fase 7 de 7</span></div>
+  <div class="pt"><div class="pn">7</div><div><h2>Preparar e enviar</h2><p>Deixar o aparelho documentado e o conjunto completo; registrar a instalação na placa quando ela já for conhecida.</p></div>
+    <div class="who"><span><b>Quem</b>técnico + responsável</span><span><b>Saída</b>conjunto pronto</span></div></div>
+  <div class="body"><div class="canvas" data-c="f7" style="width:1046px"></div></div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Fase 7 — Preparar e enviar</span><span class="pg">8 / 13</span></div>
+</section>
+
+<!-- ======================= 9. CONSULTA RÁPIDA ======================= -->
+<section class="page" id="p-ref">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip ref">Consulta rápida</span></div>
+  <div class="pt"><div class="pn">?</div><div><h2>Consulta rápida</h2><p>Dados do cadastro, regras que valem em qualquer fase, mensagens do Tester e o que fazer quando algo falha na bancada.</p></div></div>
+  <div class="grid" style="grid-template-columns:1.12fr 1fr 1fr;grid-template-rows:1fr 1fr">
+    <div class="rc">
+      <h3><span class="dot"></span>Dados do cadastro: de onde vem cada um</h3>
+      <table class="tbl">
+        <tr><th>Dado</th><th>Origem</th><th>Cuidado</th></tr>
+        <tr><td><b>ESP ID</b> <span class="mono">MIC…</span></td><td><span class="src usb">USB</span></td><td>nunca com <span class="mono">admin_sighir</span></td></tr>
+        <tr><td><b>Sensor ID</b> <span class="mono">ETL…</span></td><td><span class="src usb">USB</span></td><td>lido do cartucho</td></tr>
+        <tr><td><b>Firmware</b></td><td><span class="src usb">USB</span></td><td>mínimo 6.4.0, lido no aparelho</td></tr>
+        <tr><td><b>Nº de série</b></td><td><span class="src srv">Servidor</span></td><td><span class="mono">auto</span> = próximo livre → etiqueta</td></tr>
+        <tr><td><b>Empresa</b></td><td><span class="src ask">Perguntar</span></td><td>listar todas; nunca repetir a última</td></tr>
+        <tr><td><b>Telemetria</b></td><td><span class="src ask">Perguntar</span></td><td>tabela ao lado</td></tr>
+        <tr><td><b>ID do módulo</b></td><td><span class="src ask">Perguntar</span></td><td>Suntech/Entrack; nunca começa com MIC/ETL</td></tr>
+        <tr><td><b>Chip</b></td><td><span class="src ask">Perguntar</span></td><td>Suntech/Entrack; <span class="mono">N/A</span> se não tiver</td></tr>
+        <tr><td><b>Placa, tipo, instalador</b></td><td><span class="src ask">Perguntar</span></td><td>só ao registrar a instalação (7.5)</td></tr>
+      </table>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Regras de ouro</h3>
+      <ol>
+        <li><b>Vai gravar em produção?</b> Prévia → confirmar com o responsável → só então <span class="mono">--yes</span>.</li>
+        <li><b>Empresa, módulo e chip: sempre perguntar.</b> A USB não informa nada disso.</li>
+        <li><b>Já cadastrado = <span class="mono">edit</span>.</b> Apagar e cadastrar de novo perde o histórico.</li>
+        <li><b>Versão do firmware</b>: só vale a lida no aparelho.</li>
+        <li><b>Atualização só pelo <span class="mono">flash</span></b>, sem desconectar o cabo.</li>
+        <li><b>Nunca digitar texto livre na serial</b>: palavras como <span class="mono">erase</span> ou <span class="mono">updt</span> disparam reset ou atualização.</li>
+        <li><b>Falha de comunicação?</b> <span class="mono">recover</span> e repetir antes de declarar defeito.</li>
+        <li><b>Telemetria por último no aparelho</b>: o cadastro pode fazer <span class="mono">erase</span>, que volta para Suntech.</li>
+      </ol>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Qual telemetria usar?</h3>
+      <table class="tbl">
+        <tr><th>Cliente</th><th>Comando</th><th>Módulo e chip</th></tr>
+        <tr><td><b>MIX 2.0</b><br>“MIX TELEMATICS (NOVO)”</td><td class="c"><code>mix2</code></td><td>não tem · “MiX” quase sempre é esta</td></tr>
+        <tr><td><b>MIX antigo</b><br>“MIX TELEMATICS”</td><td class="c"><code>mix</code></td><td>não tem · confirmar antes: é a minoria</td></tr>
+        <tr><td><b>Suntech</b></td><td class="c"><code>suntech</code></td><td><b>perguntar</b> ID e chip · padrão de fábrica</td></tr>
+        <tr><td><b>Entrack</b></td><td class="c"><code>entrack</code></td><td><b>perguntar</b> ID e chip · mesmo campo <span class="mono">--modulo</span></td></tr>
+      </table>
+      <div class="small" style="margin-top:8px">No teste completo pela USB (<span class="mono">test … --telemetry</span>) os nomes são <span class="mono">suntech</span> ou <span class="mono">mix</span> (vale para os dois MIX).</div>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Se o Tester mostrar…</h3>
+      <div class="sym">
+        <span class="s">below_min · old</span><span>Firmware abaixo de 6.4.0: Fase 2 antes de qualquer cadastro.</span>
+        <span class="s">cadastro BLOQUEADO</span><span>O <span class="mono">register</span> recusou pelo firmware: Fase 2.</span>
+        <span class="s">register → código 4</span><span>Aparelho, sensor, módulo ou série em outro cadastro: passo 4.4.</span>
+        <span class="s">install → código 2</span><span>Placa, módulo ou aparelho em outra instalação: o responsável escolhe; <span class="mono">--forcar</span> só em troca confirmada.</span>
+        <span class="s">SEM ATUALIZAÇÃO há 1 min</span><span>Flash parado: <span class="mono">flash.log</span>, cabo e <span class="mono">recover</span>.</span>
+        <span class="s">device caiu da USB</span><span>Durante um teste: <span class="mono">recover</span> e repetir.</span>
+        <span class="s">erro 404 / 400 novo</span><span>O servidor mudou: <span class="mono">docs/migracao_servidor.md</span>.</span>
+      </div>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Falhou na bancada?</h3>
+      <ul>
+        <li><b>Teste de Telemetria falha</b>: conferir a telemetria em INFO; cabos RS232 e derivador (no Suntech, o <b>fio azul</b> no derivador costuma afrouxar); alimentação do conjunto; versão; trocar o conjunto.</li>
+        <li><b>Suntech sem comunicação</b>: padrão de piscar das duas luzes do módulo; energização; trocar o kit Suntech, depois o kit do etilômetro.</li>
+        <li><b>Relé não comuta</b>: CONFIG 2 → Autodiagnóstico → Teste de Relé; relé de 12 ou 24 V conforme a alimentação; fiação GND → VCC → pino 30 → 87a.</li>
+        <li><b>Álcool estranho</b>: data de calibração preenchida (ID pág. 2)? Trocar o sensor e repetir; conferir a curva no app de calibração.</li>
+        <li><b>Sopro difícil demais</b>: ajustar <span class="mono">blowProb</span> (passo 6.5).</li>
+      </ul>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Comandos do Tester usados aqui</h3>
+      <div class="cmdl">
+        <code>init</code><span>início de sessão: firmware, ESP ID e sensor ID</span>
+        <code>recover</code><span>tira o aparelho de estado travado</span>
+        <code>flash · progresso</code><span>atualiza pela USB e mostra a %</span>
+        <code>firmware · status</code><span>versão lida no aparelho</span>
+        <code>erase</code><span>restaura o ID nativo (reset de fábrica)</span>
+        <code>test &lt;nome&gt;</code><span>sensor · temp · blow · alcohol · alcohol-blow</span>
+        <code>block · unblock</code><span>aciona o relé de bloqueio</span>
+        <code>telemetry &lt;modo&gt;</code><span>mix2 · mix · suntech · entrack</span>
+        <code>settings --set k=v</code><span>grava uma configuração (ex.: blowProb)</span>
+        <code>onde &lt;ID&gt;</code><span>onde um MIC, ETL ou módulo está cadastrado</span>
+        <code>register · edit</code><span>cadastra / edita no servidor</span>
+        <code>server-device</code><span>mostra o cadastro do aparelho</span>
+        <code>install</code><span>registra a instalação na placa</span>
+      </div>
+    </div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Consulta rápida</span><span class="pg">9 / 13</span></div>
+</section>
+
+<!-- ======================= 10. ANEXO A — CONJUNTOS ======================= -->
+<section class="page" id="p-a1">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip ref">Anexo A</span></div>
+  <div class="pt"><div class="pn">A</div><div><h2>Conjuntos por telemetria</h2><p>O que vai em cada kit (passo 7.4) e como fica o Entrack montado na plataforma de testes (passo 5.3).</p></div></div>
+  <div class="grid" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr">
+    <div class="fig"><div class="im"><img src="../../Notion/Placa_Exposta.png" alt="Conjunto MIX"></div>
+      <div class="cap"><b>Conjunto MIX</b> — placa exposta (etilômetro), placa embutida, conector de 6 vias e cabo RS232 MIX.</div></div>
+    <div class="fig"><div class="im"><img src="../../Notion/conjunto_suntech.png" alt="Conjunto Suntech"></div>
+      <div class="cap"><b>Conjunto Suntech</b> — placa exposta, placa embutida, cabo RS232 Suntech, relé, chicote Suntech (cabo derivado, Anexo B) e o módulo Suntech.</div></div>
+    <div class="fig"><div class="im"><img src="../../Notion/WhatsApp_Image_2026-03-18_at_15.23.22.jpeg" alt="Conjunto Entrack"></div>
+      <div class="cap"><b>Conjunto Entrack</b> — módulo Entrack, conector Entrack, cabo RS232 Entrack, relé, placas exposta e embutida e cabo espiral.</div></div>
+    <div class="fig"><div class="im"><img src="../../Notion/WhatsApp_Image_2026-03-18_at_15.33.05.jpeg" alt="Entrack na plataforma"></div>
+      <div class="cap"><b>Entrack montado na plataforma</b> — IGN, GND e VCC da giga; conectores de 8 e 6 vias na embutida; RS232 Entrack.</div></div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Anexo A — Conjuntos (fotos: Notion, Envio de Etilômetros)</span><span class="pg">10 / 13</span></div>
+</section>
+
+<!-- ======================= 11. ANEXO B — LIGAÇÕES ======================= -->
+<section class="page" id="p-a2">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip ref">Anexo B</span></div>
+  <div class="pt"><div class="pn">B</div><div><h2>Ligações e pinagem</h2><p>Plataforma de testes, preparo do cabo Suntech, ligações do Entrack e pinagem dos conectores microfit.</p></div></div>
+  <div class="grid" style="grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto 1fr">
+    <div class="rc">
+      <h3><span class="dot"></span>Plataforma de testes (passo 5.3)</h3>
+      <table class="tbl">
+        <tr><th>Sinal</th><th>MIX</th><th>Suntech</th><th>Entrack</th></tr>
+        <tr><td><b>VCC</b></td><td>vermelho</td><td>vermelho</td><td>vermelho</td></tr>
+        <tr><td><b>GND</b></td><td>marrom</td><td>marrom</td><td>marrom</td></tr>
+        <tr><td><b>Ignição</b></td><td>preto pequeno e fino</td><td>branco</td><td>branco</td></tr>
+      </table>
+      <div class="small" style="margin-top:6px">Na giga (passo 5.5): MIX = bipe de desbloqueio no módulo; Suntech/Entrack = acionamento da lâmpada (relé comutou) e tensão de saída do relé (12/24 V).</div>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Cabo Suntech derivado</h3>
+      <ol>
+        <li>Vermelho (Suntech) → vermelho (Sighir): <b>VCC</b></li>
+        <li>Azul (Suntech) → branco (Sighir): <b>IGN</b></li>
+        <li>Preto (Suntech) → marrom (Sighir): <b>GND</b></li>
+        <li>Relé: <b>85</b> ← vermelho do chicote Sighir; <b>86</b> ← laranja do cabo Suntech</li>
+        <li>No porta-relé, manter só os fios do <b>30</b> e do <b>87a</b></li>
+      </ol>
+      <div class="small">Continuidade em cada emenda; espuma e abraçadeiras no fim. O fio <b>azul</b> no derivador é o que mais afrouxa.</div>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Ligações do Entrack</h3>
+      <table class="tbl">
+        <tr><th>Entrack</th><th>Ligar em</th></tr>
+        <tr><td>VCC (vermelho)</td><td>VCC do chicote Sighir</td></tr>
+        <tr><td>GND (preto)</td><td>GND do chicote Sighir</td></tr>
+        <tr><td>marrom</td><td>branco do conversor (DB9 cinza)</td></tr>
+        <tr><td>branco</td><td>verde do conversor (DB9 cinza)</td></tr>
+        <tr><td>laranja (ignição)</td><td>branco do chicote (cortar na ponta da embutida)</td></tr>
+        <tr><td>amarelo</td><td>86 do relé</td></tr>
+        <tr><td>VCC do chicote (fio novo)</td><td>85 do relé</td></tr>
+      </table>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Conector de 8 vias (espiral)</h3>
+      <table class="tbl">
+        <tr><th>Pino</th><th>Lado da exposta</th><th>Lado da embutida</th></tr>
+        <tr><td><b>1</b></td><td>Chave · verde</td><td>VCC · vermelho</td></tr>
+        <tr><td><b>2</b></td><td>RX · azul</td><td>Relé/COM · laranja</td></tr>
+        <tr><td><b>3</b></td><td>Relé/COM · laranja</td><td>RX · azul</td></tr>
+        <tr><td><b>4</b></td><td>VCC · vermelho</td><td>Chave · verde</td></tr>
+        <tr><td><b>5</b></td><td>N/A</td><td>GND · preto</td></tr>
+        <tr><td><b>6</b></td><td>Alternador · branco</td><td>TX · amarelo</td></tr>
+        <tr><td><b>7</b></td><td>TX · amarelo</td><td>Alternador · branco</td></tr>
+        <tr><td><b>8</b></td><td>GND · preto</td><td>N/A</td></tr>
+      </table>
+      <div class="small" style="margin-top:5px">O lado do espiral importa (figura 7 do PPTC). Continuidade até 1,6 Ω por via.</div>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Conector de 6 vias (alimentação)</h3>
+      <table class="tbl">
+        <tr><th>Pino</th><th>Sinal</th><th>Cor</th></tr>
+        <tr><td><b>1</b></td><td>Chave</td><td>verde</td></tr>
+        <tr><td><b>2</b></td><td>Alternador (ALT)</td><td>branco</td></tr>
+        <tr><td><b>3</b></td><td>VCC</td><td>vermelho</td></tr>
+        <tr><td><b>4</b></td><td>GND</td><td>marrom</td></tr>
+        <tr><td><b>5</b></td><td>N/A</td><td>—</td></tr>
+        <tr><td><b>6</b></td><td>PSM</td><td>laranja</td></tr>
+      </table>
+      <div class="small" style="margin-top:5px">Etiqueta do corte de ignição: pós-chave nos pinos 30/87a do relé, VCC e GND (Notion: ETIQUETA_SINAL_IGNIÇÃO_E_RELÉ).</div>
+    </div>
+    <div class="rc">
+      <h3><span class="dot"></span>Circuitos da maleta (giga de testes)</h3>
+      <svg viewBox="0 0 320 190" width="100%" style="display:block;margin-top:2px" font-family="Segoe UI" font-size="10" fill="none" stroke="#334155" stroke-width="1.6">
+  <text x="0" y="12" fill="#0f172a" stroke="none" font-weight="700" font-size="10.5">Lâmpada (estado do relé)</text>
+  <circle cx="14" cy="52" r="4" fill="#fff"/><text x="2" y="72" fill="#334155" stroke="none">12 V</text>
+  <line x1="18" y1="52" x2="96" y2="52"/>
+  <circle cx="100" cy="52" r="3" fill="#334155"/><text x="92" y="72" fill="#b45309" stroke="none" font-weight="700">30</text>
+  <line x1="100" y1="52" x2="146" y2="52"/>
+  <circle cx="150" cy="52" r="3" fill="#334155"/><text x="141" y="72" fill="#b45309" stroke="none" font-weight="700">87a</text>
+  <circle cx="150" cy="30" r="3" fill="#fff"/><line x1="150" y1="30" x2="176" y2="30"/><text x="141" y="22" fill="#b45309" stroke="none" font-weight="700">87</text>
+  <line x1="153" y1="52" x2="206" y2="52"/>
+  <circle cx="218" cy="52" r="12" fill="#fef9c3"/><line x1="210" y1="44" x2="226" y2="60"/><line x1="226" y1="44" x2="210" y2="60"/>
+  <text x="203" y="78" fill="#334155" stroke="none">lâmpada</text>
+  <line x1="230" y1="52" x2="282" y2="52"/>
+  <line x1="282" y1="42" x2="282" y2="62"/><line x1="287" y1="46" x2="287" y2="58"/><line x1="292" y1="49" x2="292" y2="55"/>
+  <text x="276" y="78" fill="#334155" stroke="none">GND</text>
+  <line x1="125" y1="55" x2="125" y2="86" stroke-dasharray="3 3" stroke="#94a3b8"/><rect x="88" y="86" width="74" height="18" rx="4" fill="#f1f5f9" stroke="#94a3b8"/><text x="170" y="99" fill="#64748b" stroke="none" font-size="9">em repouso: 30–87a fechado</text><text x="96" y="99" fill="#334155" stroke="none" font-size="9.5">bobina 85 · 86</text>
+  <text x="0" y="130" fill="#0f172a" stroke="none" font-weight="700" font-size="10.5">Chave de ignição (giga)</text>
+  <circle cx="14" cy="164" r="4" fill="#fff"/><text x="2" y="184" fill="#334155" stroke="none">12 V</text>
+  <line x1="18" y1="164" x2="96" y2="164"/>
+  <circle cx="100" cy="164" r="3" fill="#334155"/><line x1="100" y1="164" x2="138" y2="148"/><circle cx="146" cy="164" r="3" fill="#fff"/>
+  <text x="92" y="184" fill="#334155" stroke="none">C1</text><text x="140" y="184" fill="#334155" stroke="none">C2</text>
+  <line x1="149" y1="164" x2="250" y2="164"/><circle cx="254" cy="164" r="4" fill="#fff"/>
+  <text x="200" y="184" fill="#334155" stroke="none">pós-chave (IGN)</text>
+</svg>
+    </div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Anexo B — Fontes: PPTC 0001-01, Passo a passo cabo Suntech, Notion (Maleta)</span><span class="pg">11 / 13</span></div>
+</section>
+
+<!-- ======================= 12. ANEXO C — TELAS ======================= -->
+<section class="page" id="p-a3">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip ref">Anexo C</span></div>
+  <div class="pt"><div class="pn">C</div><div><h2>Telas de configuração e conferência</h2><p>Programas usados na Fase 5 para configurar o módulo e conferir a comunicação com o servidor.</p></div></div>
+  <div class="grid" style="grid-template-columns:1.15fr 1fr;grid-template-rows:1fr 1fr">
+    <div class="fig"><div class="im"><img src="../../Notion/image 1.png" alt="SyncTrack"></div>
+      <div class="cap"><b>Suntech · SyncTrack (passo 5.2)</b> — Port Open → Network Parameter → itens de servidor e chip → Save Settings. Na aba IGNITION: <b>TIME OFF = 1 s</b>.</div></div>
+    <div class="fig" style="grid-column:span 2;grid-row:2"><div class="im"><img src="../../Notion/image 3.png" alt="EntrackApp"></div>
+      <div class="cap"><b>Entrack · EntrackApp / AOVX Config Tool (passo 5.2)</b> — enviar <span class="mono">AT+ASSISTMASK0900=2</span> e <span class="mono">AT+LOG=5</span>; em cada SEND a resposta deve ser <b>OK</b>.</div></div>
+    <div class="fig"><div class="im"><img src="../../Notion/image 2.png" alt="Telemetry Panel"></div>
+      <div class="cap"><b>Telemetry Panel · <a href="https://suntech.sighir.com">suntech.sighir.com</a> (passo 5.6)</b> — o módulo aparece em Dispositivos; depois de um teste chegam dados novos e a conexão fica verde.</div></div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Anexo C — Telas (Notion, Envio de Etilômetros)</span><span class="pg">12 / 13</span></div>
+</section>
+
+<!-- ======================= 13. FICHA ======================= -->
+<section class="page" id="p-ficha">
+  <div class="ph"><img src="../../Datasheet/images/logo.png" alt="Sighir"><div class="doc"><b>Procedimento padrão</b> · Bancada e produção do etilômetro</div><span class="chip ref">Ficha de produção</span></div>
+  <div class="pt"><div class="pn">✓</div><div><h2>Ficha de produção — um aparelho por ficha</h2><p>Imprima e preencha durante o processo. Guarde junto do registro da expedição.</p></div></div>
+  <div class="fx">
+    <div class="rc">
+      <h3><span class="dot"></span>Identificação</h3>
+      <div class="fld">
+        <div>Data</div><div>Responsável</div><div class="w2">Aparelho (ESP ID MIC…)</div>
+        <div class="w2">Sensor (ETL…)</div><div>Nº de série</div><div>Firmware final</div>
+        <div class="w2">Empresa</div><div>ID do módulo</div><div>Chip</div>
+      </div>
+      <div style="margin-top:9px;font-size:10.2px"><b>Telemetria:</b>&nbsp; <span class="cb"></span>MIX 2.0 &nbsp; <span class="cb"></span>MIX antigo &nbsp; <span class="cb"></span>Suntech &nbsp; <span class="cb"></span>Entrack
+        &nbsp;&nbsp;&nbsp; <b>Origem:</b>&nbsp; <span class="cb"></span>novo &nbsp; <span class="cb"></span>voltou de cliente</div>
+      <div class="ph2"><span>1</span> Bancada física <i style="font-style:normal;color:var(--muted);font-weight:600">(só aparelho novo)</i></div>
+      <ul class="chk">
+        <li><span class="cb"></span>Espiral: todas as vias até 1,6 Ω<span class="r">maior valor: ______ Ω</span></li>
+        <li><span class="cb"></span>Reguladores: VCC 3,0–3,5 V e 5,7–5,8 V · ALT e KEY 3,2–3,4 V</li>
+        <li><span class="cb"></span>Componentes: display/touch · A/D · pressão · buzzer · relé · temperatura</li>
+        <li><span class="cb"></span>Serial: <span class="mono">$ETAT01!</span> → <span class="mono">$ETATACK!</span></li>
+      </ul>
+      <div class="ph2"><span>2</span> Conexão e firmware</div>
+      <ul class="chk">
+        <li><span class="cb"></span><span class="mono">init</span> ok · ESP ID nativo MIC…<span class="r">versão inicial: ________</span></li>
+        <li><span class="cb"></span>Atualizado (<span class="mono">flash</span> ou Wi-Fi), se preciso<span class="r">versão final: ________</span></li>
+      </ul>
+      <div class="ph2"><span>3</span> Testes pela USB</div>
+      <ul class="chk c2g">
+        <li><span class="cb"></span>3.1 sensor de álcool</li><li><span class="cb"></span>3.5 ciclo com álcool</li>
+        <li><span class="cb"></span>3.2 temperatura</li><li><span class="cb"></span>3.6 relé de bloqueio</li>
+        <li><span class="cb"></span>3.3 pressão do sopro</li><li><span class="cb"></span>3.7 sopro real na tela</li>
+        <li><span class="cb"></span>3.4 ciclo sem álcool</li><li style="color:var(--muted)">telemetria usada: __________</li>
+      </ul>
+      <div class="ph2">Observações / defeitos encontrados</div>
+      <div class="lines"><div></div><div></div><div></div></div>
+    </div>
+    <div class="rc" style="display:flex;flex-direction:column">
+      <div class="ph2" style="margin-top:0"><span>4</span> Cadastro no servidor</div>
+      <ul class="chk">
+        <li><span class="cb"></span>Cadastrado (<span class="mono">register</span>) &nbsp; <span class="cb"></span>Editado (<span class="mono">edit</span>)<span class="r">conferido por: __________</span></li>
+      </ul>
+      <div class="ph2"><span>5</span> Telemetria</div>
+      <ul class="chk">
+        <li><span class="cb"></span>Telemetria gravada no aparelho e módulo configurado</li>
+        <li><span class="cb"></span>Teste de Telemetria na tela: “Estado Funcional”</li>
+        <li><span class="cb"></span>Teste pela giga: desbloqueou (bipe MIX / lâmpada e 12/24 V no relé)</li>
+        <li><span class="cb"></span>Logs no servidor, conexão verde (Suntech/Entrack)</li>
+      </ul>
+      <div class="ph2"><span>6</span> Validação final</div>
+      <ul class="chk">
+        <li><span class="cb"></span>1 · sem álcool: desbloqueou</li>
+        <li><span class="cb"></span>2 · álcool baixo: detectou<span class="r">______ mg/L</span></li>
+        <li><span class="cb"></span>3 · sem álcool: desbloqueou</li>
+        <li><span class="cb"></span>4 · álcool alto: detectou<span class="r">______ mg/L</span></li>
+        <li><span class="cb"></span>Sopro: 3× sem assoprar · 3× incompleto fraco · médio · forte<span class="r">blowProb: _____</span></li>
+      </ul>
+      <div class="ph2"><span>7</span> Preparar e enviar</div>
+      <ul class="chk">
+        <li><span class="cb"></span>Data de calibração atualizada para hoje</li>
+        <li><span class="cb"></span>Cadastro conferido (<span class="mono">server-device</span>) · etiqueta colada</li>
+        <li><span class="cb"></span>Conjunto completo separado<span class="r">placa (se instalado): ________</span></li>
+      </ul>
+      <div class="ph2">Expedição</div>
+      <div class="fld" style="grid-template-columns:1fr 2fr 1fr"><div>Data de envio</div><div>Destino (empresa / placa)</div><div>Embalado por</div></div>
+      <div style="display:grid;grid-template-columns:1.7fr 1fr 1fr;gap:12px;margin-top:auto;padding-top:26px">
+        <div class="sig">Resultado: <span class="cb" style="margin-left:4px"></span>aprovado <span class="cb" style="margin-left:4px"></span>reprovado</div>
+        <div class="sig">Técnico</div>
+        <div class="sig">Conferido por</div>
+      </div>
+    </div>
+  </div>
+  <div class="pf"><span>Sighir · Fluxo de bancada e produção · Ficha de produção</span><span class="pg">13 / 13</span></div>
+</section>
+
+<script>
+const G = '#16a34a', R = '#dc2626', A = '#b45309', N = '#475569';
+
+/* ============ conteúdo dos fluxos (coordenadas em px dentro de cada canvas) ============ */
+const C = {};
+
+// ---------- FASE 1: bancada física ----------
+C.f1 = {
+  rows: [['p11','p12'], ['p13','p14','p15']],
+  nodes: [
+    {id:'s1', k:'start', x:0, w:105, cy:62, t:'INÍCIO', h:'placas recém-montadas'},
+    {id:'p11', k:'man', x:133, w:195, cy:62, n:'1.1', t:'Ligar o espiral', h:'Grimpar os microfit: 8 vias no etilômetro, 6 vias na alimentação.'},
+    {id:'p12', k:'man', x:356, w:180, cy:62, n:'1.2', t:'Medir a continuidade', h:'Multímetro, espiral solto: cada via até 1,6 Ω.'},
+    {id:'d13', k:'dec', x:566, w:190, cy:62, t:'Todas as vias até 1,6 Ω?'},
+    {id:'p13', k:'man', x:0, w:205, cy:300, n:'1.3', t:'Ajustar os reguladores', h:'Fonte nos conectores, ponta negativa no GND, girar com suavidade. Valores no quadro ao lado.'},
+    {id:'p14', k:'man', x:233, w:215, cy:300, n:'1.4', t:'Conectar tudo', h:'Espiral nas duas placas (lado certo), USB-C no ESP32 e RS232-USB na embutida. Um aparelho por vez no PC.'},
+    {id:'p15', k:'man', x:476, w:290, cy:300, n:'1.5', t:'Testar componentes', h:'API de testes → <b>“Testar componentes”</b> na tela; seguir as instruções:<ul class="c2"><li>display e touch</li><li>A/D e sensor de álcool</li><li>pressão (apertar)</li><li>buzzer: som limpo</li><li>relé: clique, ~0 Ω acionado</li><li>temperatura coerente</li></ul>'},
+    {id:'p16', k:'dev', x:0, w:250, cy:478, n:'1.6', t:'Teste de comunicação serial', c:'$ETAT01!', h:'No app de teste serial, na porta do RS232: tem que voltar <span class="mono">$ETATACK!</span>.'},
+    {id:'d17', k:'dec', x:290, w:200, cy:478, t:'Todos os testes passaram?'},
+    {id:'t18', k:'ok', x:540, w:226, cy:478, t:'FASE 1 OK', h:'seguir para a Fase 2 →', href:'#p-f2'},
+    {id:'f19', k:'fail', x:280, w:220, cy:567, t:'REPROVADO', h:'separar a placa e anotar o componente'},
+  ],
+  edges: [
+    {f:'s1', fs:'r', t:'p11', ts:'l'},
+    {f:'p11', fs:'r', t:'p12', ts:'l'},
+    {f:'p12', fs:'r', t:'d13', ts:'l'},
+    {f:'d13', fs:'b', t:'p11', ts:'b', via:['y:140'], label:'NÃO · refazer o grimpo e medir de novo', lc:R, st:'loop', lseg:1, lt:.5},
+    {f:'d13', fs:'r', t:'p13', ts:'t', via:['x:778','y:178'], label:'SIM', lc:G, lseg:1, lt:.45},
+    {f:'p13', fs:'r', t:'p14', ts:'l'},
+    {f:'p14', fs:'r', t:'p15', ts:'l'},
+    {f:'p15', fs:'r', t:'p16', ts:'t', via:['x:778','y:400']},
+    {f:'p16', fs:'r', t:'d17', ts:'l'},
+    {f:'d17', fs:'r', t:'t18', ts:'l', label:'SIM', lc:G},
+    {f:'d17', fs:'b', t:'f19', ts:'t', label:'NÃO', lc:R, st:'fail'},
+  ],
+};
+
+// ---------- FASE 2: conexão e firmware ----------
+C.f2 = {
+  rows: [['p21','p22'], ['n26','n27','n28'], ['n29','n2a','n2b']],
+  nodes: [
+    {id:'s2', k:'start', x:0, w:105, cy:58, t:'INÍCIO', h:'aparelho na bancada'},
+    {id:'p21', k:'man', x:133, w:195, cy:58, n:'2.1', t:'Conectar e abrir', h:'Cabo USB <b>de dados</b> do ESP32 ao PC. Abrir <span class="mono">Tester_Claude.exe</span>.'},
+    {id:'p22', k:'dev', x:356, w:180, cy:58, n:'2.2', t:'Início de sessão', c:'init', h:'Lê firmware, ESP ID e sensor ID.'},
+    {id:'d23', k:'dec', x:574, w:190, cy:58, t:'Achou a porta e o aparelho respondeu?'},
+    {id:'r24', k:'dev', x:552, w:212, cy:188, n:'2.3', t:'Recuperar a conexão', h:'<ol><li>Cabo plugado nas duas pontas?</li><li>Driver: <span class="mono">assets\\files\\driver.exe</span></li><li>Outro cabo (existe cabo só de carga)</li><li>Rodar <span class="mono">recover</span></li></ol>'},
+    {id:'d25', k:'dec', x:0, w:200, cy:318, t:'Como o <span class="mono">init</span> classificou o firmware?'},
+    {id:'t2', k:'ok', x:600, w:150, cy:318, t:'FIRMWARE OK', h:'seguir para a Fase 3 →', href:'#p-f3'},
+    {id:'n26', k:'dev', x:236, w:168, cy:410, n:'2.4', t:'Atualizar pela USB', c:'flash', h:'~4 min, sem desconectar.'},
+    {id:'n27', k:'dev', x:426, w:152, cy:410, n:'2.5', t:'Acompanhar', c:'progresso', h:'% a cada 20 s.'},
+    {id:'n28', k:'dev', x:600, w:150, cy:410, n:'2.6', t:'Confirmar', c:'firmware', h:'Tem que dar ok.'},
+    {id:'n29', k:'man', x:236, w:168, cy:528, n:'2.7', t:'Atualizar pelo Wi-Fi', h:'Rede <b>Sighir</b>; atualizar pelo painel Wi-Fi do aparelho.'},
+    {id:'n2a', k:'dev', x:426, w:152, cy:528, n:'2.8', t:'Restaurar o ID', c:'erase', h:'Tira o <span class="mono">admin_sighir</span>.'},
+    {id:'n2b', k:'dev', x:600, w:150, cy:528, n:'2.9', t:'Conferir', c:'status', h:'Tem que dar ok.'},
+  ],
+  edges: [
+    {f:'s2', fs:'r', t:'p21', ts:'l'},
+    {f:'p21', fs:'r', t:'p22', ts:'l'},
+    {f:'p22', fs:'r', t:'d23', ts:'l'},
+    {f:'d23', fs:'b', t:'r24', ts:'t', tx:669, label:'NÃO', lc:R, st:'fail'},
+    {f:'r24', fs:'l', t:'p22', ts:'b', label:'tentar de novo', lc:N, st:'loop', lseg:1, lt:.55},
+    {f:'d23', fs:'r', t:'d25', ts:'t', via:['x:778','y:266'], label:'SIM', lc:G, lseg:2, lt:.05},
+    {f:'d25', fs:'r', t:'t2', ts:'l', label:'ok · ≥ 6.4.0', lc:G, lt:.45},
+    {f:'d25', fs:'b', fx:150, t:'n26', ts:'l', label:'below_min', lc:A, lseg:1, lt:.42},
+    {f:'d25', fs:'b', fx:56, t:'n29', ts:'l', label:'old', lc:R, st:'fail', lseg:1, lt:.42},
+    {f:'n26', fs:'r', t:'n27', ts:'l'},
+    {f:'n27', fs:'r', t:'n28', ts:'l'},
+    {f:'n28', fs:'t', t:'t2', ts:'b'},
+    {f:'n29', fs:'r', t:'n2a', ts:'l'},
+    {f:'n2a', fs:'r', t:'n2b', ts:'l'},
+    {f:'n2b', fs:'r', t:'t2', ts:'r', via:['x:776']},
+  ],
+};
+
+// ---------- FASE 3: testes pela USB ----------
+C.f3 = {
+  rows: [['t31','t32','t33','t34'], ['t35','t36','t37']],
+  nodes: [
+    {id:'s3', k:'start', x:0, w:110, cy:78, t:'INÍCIO', h:'firmware ok, aparelho só na USB'},
+    {id:'t31', k:'dev', x:140, w:195, cy:78, n:'3.1', t:'Sensor de álcool', c:'test sensor', ft:1, exp:'<span class="ev">$ETEV20!</span> &nbsp;(falha: <span class="ev" style="color:var(--fail)">$ETEV24!</span>)'},
+    {id:'t32', k:'dev', x:363, w:195, cy:78, n:'3.2', t:'Sensor de temperatura', c:'test temp', ft:1, exp:'<span class="ev">tempworking</span> &nbsp;(até ~10 s)'},
+    {id:'t33', k:'dev', x:586, w:195, cy:78, n:'3.3', t:'Sensor de pressão do sopro', c:'test blow', ft:1, exp:'<span class="ev">pressworking</span>'},
+    {id:'t34', k:'dev', x:809, w:205, cy:78, n:'3.4', t:'Ciclo completo sem álcool', c:'test alcohol --telemetry <i>T</i>', ft:1, exp:'<span class="ev">$ETEV29!</span> e libera <span class="ev">$ETEV01!</span>'},
+    {id:'t35', k:'dev', x:140, w:240, cy:262, n:'3.5', t:'Ciclo completo com álcool', c:'test alcohol-blow --telemetry <i>T</i>', ft:1, exp:'<span class="ev">$ETEV30…!</span> e bloqueia <span class="ev">$ETEV02!</span>'},
+    {id:'t36', k:'dev', x:408, w:200, cy:262, n:'3.6', t:'Relé de bloqueio', c:'block  →  unblock', ft:1, exp:'<span class="ev">$ETEV02!</span> · <span class="ev">$ETEV01!</span> e o clique do relé'},
+    {id:'t37', k:'man', x:636, w:220, cy:262, n:'3.7', t:'Sopro real (na tela)', ft:1, h:'CONFIG 2 → Autodiagnóstico → <b>Teste de Sopro</b>: soprar 3 s no bocal.', exp:'tela: <b style="color:var(--ok)">“Estado Funcional”</b>'},
+    {id:'t3', k:'ok', x:884, w:130, cy:262, t:'FASE 3 OK', h:'seguir para a Fase 4 →', href:'#p-f4'},
+    {id:'gF', k:'group', cls:'red', x:0, w:600, y:370, h_:230, t:'Se qualquer teste falhar', gs:'(o mesmo caminho para todos)'},
+    {id:'cF', k:'conn', x:22, w:40, cy:470, t:'F', g:'gF'},
+    {id:'r38', k:'dev', x:92, w:180, cy:470, n:'3.8', t:'Recuperar e repetir', c:'recover', h:'Repetir só o teste que falhou: falha de comunicação não é defeito.', g:'gF'},
+    {id:'d39', k:'dec', x:300, w:160, cy:470, t:'Passou na repetição?', g:'gF'},
+    {id:'k3', k:'note', x:505, w:85, cy:470, h:'<b>SIM:</b> seguir no teste seguinte', g:'gF'},
+    {id:'f3', k:'fail', x:290, w:180, cy:565, t:'REPROVADO', h:'separar e anotar o teste que falhou', g:'gF'},
+    {id:'nT', k:'note', x:630, w:416, y:370, h:'<div class="nt">ⓘ Como ler os testes</div><ul><li><b style="color:#b45309">T</b> = telemetria atual do aparelho: <span class="mono">suntech</span> (padrão de fábrica) ou <span class="mono">mix</span> (MiX).</li><li>3.4 e 3.5 simulam o sopro e forçam o resultado; álcool e sopro <b>reais</b> são validados na Fase 6. Cada ciclo leva cerca de 1 min.</li><li>Entrack: o ciclo completo não roda pelo Tester; faça os testes antes de trocar a telemetria (Fase 5).</li><li>Durante um teste o aparelho não aceita comandos: espere o resultado.</li><li><span style="color:var(--fail);font-weight:800">✗ F</span> em cada teste = se falhar, vá ao bloco <b>F</b>.</li></ul>'},
+  ],
+  edges: [
+    {f:'s3', fs:'r', t:'t31', ts:'l'},
+    {f:'t31', fs:'r', t:'t32', ts:'l'},
+    {f:'t32', fs:'r', t:'t33', ts:'l'},
+    {f:'t33', fs:'r', t:'t34', ts:'l'},
+    {f:'t34', fs:'r', t:'t35', ts:'t', via:['x:1032','y:172']},
+    {f:'t35', fs:'r', t:'t36', ts:'l'},
+    {f:'t36', fs:'r', t:'t37', ts:'l'},
+    {f:'t37', fs:'r', t:'t3', ts:'l'},
+    {f:'cF', fs:'r', t:'r38', ts:'l'},
+    {f:'r38', fs:'r', t:'d39', ts:'l'},
+    {f:'d39', fs:'r', t:'k3', ts:'l', label:'SIM', lc:G},
+    {f:'d39', fs:'b', t:'f3', ts:'t', label:'NÃO', lc:R, st:'fail'},
+  ],
+};
+
+// ---------- FASE 4: cadastro ----------
+C.f4 = {
+  rows: [['a43','n44'], ['a47','e48']],
+  nodes: [
+    {id:'n41', k:'srvr', x:0, w:200, cy:110, n:'4.1', t:'Procurar no servidor', c:'onde <i>&lt;MIC&gt;</i>', h:'Mostra se o aparelho, o sensor ou o módulo já estão em algum cadastro.'},
+    {id:'d42', k:'dec', x:0, w:200, cy:300, t:'O aparelho já está cadastrado?'},
+    {id:'a43', k:'ask', x:250, w:225, cy:110, n:'4.2', t:'Perguntar ao responsável', h:'<ul><li><b>Empresa</b>: mostrar a lista completa</li><li><b>Telemetria</b> do cliente</li><li>Suntech/Entrack: <b>ID do módulo</b> e <b>chip</b></li><li>Nº de série: <span class="mono">auto</span></li></ul>'},
+    {id:'n44', k:'srvw', x:505, w:290, cy:110, n:'4.3', t:'Cadastrar', c:'register --company <i>X</i> --series auto\n         --modulo <i>ID</i> --chip <i>N</i>', h:'MiX: <span class="mono">--modulo none</span>. Cria o aparelho (e o módulo, se novo). Se o ID for <span class="mono">admin_sighir</span>, faz <span class="mono">erase</span> sozinho.'},
+    {id:'d45', k:'dec', x:825, w:180, cy:110, t:'Cadastrou sem conflito?'},
+    {id:'n46', k:'ask', x:505, w:290, cy:303, n:'4.4', t:'Já existe em outro cadastro (código 4)', h:'Nada foi gravado. O Tester mostra onde está e as <b>opções numeradas</b>; o responsável escolhe: editar (4.6), deixar como está ou corrigir o outro cadastro.'},
+    {id:'a47', k:'ask', x:250, w:225, cy:478, n:'4.5', t:'Perguntar ao responsável', h:'<ul><li><b>Empresa nova</b> (mostrar a lista)</li><li>Sai da placa antiga? (normalmente sim)</li><li><b>Módulo</b> e <b>chip</b> novos</li><li>Trocou o sensor? → <span class="mono">--sensor usb</span></li></ul>'},
+    {id:'e48', k:'srvr', x:505, w:290, cy:478, n:'4.6', t:'Prévia da edição', c:'edit <i>&lt;MIC&gt;</i> --company <i>X</i> --desinstalar\n     --modulo <i>ID</i> --chip <i>N</i>', h:'Mostra o cadastro atual e só o que muda (antes → depois). <b>Nada é gravado.</b>'},
+    {id:'g49', k:'srvw', x:825, w:180, cy:478, n:'4.7', t:'Gravar a edição', c:'… --yes', h:'Com o ok do responsável. Grava e confere campo a campo.'},
+    {id:'t4', k:'ok', x:875, w:171, cy:300, t:'FASE 4 OK', h:'seguir para a Fase 5 →', href:'#p-f5'},
+    {id:'n4n', k:'note', x:0, w:220, y:470, h:'<div class="nt">⚠ Regra</div>Já cadastrado = <b>sempre editar</b>. Apagar (<span class="mono">server-delete</span>) e cadastrar de novo perde o histórico.'},
+  ],
+  edges: [
+    {f:'n41', fs:'b', t:'d42', ts:'t'},
+    {f:'d42', fs:'r', t:'a43', ts:'l', via:['x:225','y:110'], label:'NÃO · novo', lc:G, lseg:1, lt:.5},
+    {f:'d42', fs:'r', t:'a47', ts:'l', via:['x:225','y:478'], label:'SIM · já existe', lc:A, lseg:1, lt:.5},
+    {f:'a43', fs:'r', t:'n44', ts:'l'},
+    {f:'n44', fs:'r', t:'d45', ts:'l'},
+    {f:'d45', fs:'b', fx:950, t:'t4', ts:'t', tx:950, label:'SIM', lc:G},
+    {f:'d45', fs:'b', fx:860, t:'n46', ts:'r', label:'NÃO · código 4', lc:R, st:'fail', lseg:0, lt:.42},
+    {f:'n46', fs:'b', t:'e48', ts:'t', label:'opção editar', lc:A},
+    {f:'a47', fs:'r', t:'e48', ts:'l'},
+    {f:'e48', fs:'r', t:'g49', ts:'l'},
+    {f:'g49', fs:'t', t:'t4', ts:'b', tx:915, fx:915},
+  ],
+};
+
+// ---------- FASE 5: telemetria ----------
+C.f5 = {
+  rows: [['m52','m53'], ['s52','s53'], ['e52','e53'], ['c54','c55','c56']],
+  nodes: [
+    {id:'c51', k:'dev', x:0, w:200, cy:58, n:'5.1', t:'Gravar a telemetria', c:'telemetry <i>&lt;modo&gt;</i>', h:'Modo do cliente: mix2 · mix · suntech · entrack. Grava, reinicia e confere.'},
+    {id:'d51', k:'dec', x:0, w:200, cy:180, t:'Qual a telemetria do cliente?'},
+    {id:'Lm', k:'lane', x:228, w:818, y:0, h_:112, t:'MIX', ls:'MIX 2.0 ou antigo', lc:'#0f766e', lbg:'#f0fdfa', lb:'#99f6e4'},
+    {id:'Ls', k:'lane', x:228, w:818, y:124, h_:112, t:'Suntech', ls:'módulo ST8300', lc:'#1d4ed8', lbg:'#eff6ff', lb:'#bfdbfe'},
+    {id:'Le', k:'lane', x:228, w:818, y:248, h_:112, t:'Entrack', ls:'módulo AOVX', lc:'#9333ea', lbg:'#faf5ff', lb:'#e9d5ff'},
+    {id:'m52', k:'man', x:330, w:330, cy:56, n:'5.2', t:'Módulo MiX', g:'Lm', h:'Nada a configurar na bancada: o script do módulo é da MiX. Confira no cadastro qual MIX (tabela da pág. 9).'},
+    {id:'m53', k:'man', x:690, w:330, cy:56, n:'5.3', t:'Montar na plataforma', g:'Lm', h:'VCC (vermelho), GND (marrom), ignição (fio preto pequeno e fino).'},
+    {id:'s52', k:'man', x:330, w:330, cy:180, n:'5.2', t:'Configurar no SyncTrack', g:'Ls', h:'Port Open → Network Parameter → servidor e chip → Save. IGNITION: <b>TIME OFF = 1 s</b> (telas: pág. 12).'},
+    {id:'s53', k:'man', x:690, w:330, cy:180, n:'5.3', t:'Montar na plataforma', g:'Ls', h:'Cabo Suntech derivado (pág. 11). VCC (vermelho), GND (marrom), ignição (branco).'},
+    {id:'e52', k:'man', x:330, w:330, cy:304, n:'5.2', t:'Configurar no EntrackApp', c:'AT+ASSISTMASK0900=2   AT+LOG=5', g:'Le', h:'SEND em cada um: a resposta tem que ser <b>OK</b>.'},
+    {id:'e53', k:'man', x:690, w:330, cy:304, n:'5.3', t:'Ligar e montar', g:'Le', h:'Entrack no chicote, conversor DB9 e relé (pág. 11). Plataforma: VCC, GND, ignição (branco).'},
+    {id:'c54', k:'man', x:0, w:250, cy:500, n:'5.4', t:'Teste de Telemetria (na tela)', h:'Ignição ligada: CONFIG 2 → <b>Teste de Telemetria</b> → “Estado Funcional” (Suntech mostra o ID do módulo). Falhou: pág. 9.'},
+    {id:'c55', k:'man', x:280, w:330, cy:500, n:'5.5', t:'Teste pela ignição da giga', h:'Ligar a ignição → o aparelho pede o teste → soprar sem álcool → <b>“Veículo Desbloqueado”</b>. MIX: bipe de desbloqueio no módulo. Suntech/Entrack: conferir o acionamento da lâmpada (relé comutou) e a tensão de saída do relé (12/24 V).'},
+    {id:'c56', k:'srvr', x:640, w:250, cy:500, n:'5.6', t:'Comunicação com o servidor', h:'Suntech/Entrack: em <b>suntech.sighir.com</b> o módulo aparece; após um teste chegam logs novos e a conexão fica verde.'},
+    {id:'t5', k:'ok', x:920, w:126, cy:500, t:'FASE 5 OK', h:'Fase 6 →', href:'#p-f6'},
+  ],
+  edges: [
+    {f:'c51', fs:'b', t:'d51', ts:'t'},
+    {f:'d51', fs:'r', t:'m52', ts:'l', via:['x:214','y:56']},
+    {f:'d51', fs:'r', t:'s52', ts:'l'},
+    {f:'d51', fs:'r', t:'e52', ts:'l', via:['x:214','y:304']},
+    {f:'m52', fs:'r', t:'m53', ts:'l'},
+    {f:'s52', fs:'r', t:'s53', ts:'l'},
+    {f:'e52', fs:'r', t:'e53', ts:'l'},
+    {f:'m53', fs:'r', t:'c54', ts:'t', via:['x:1034','y:390']},
+    {f:'s53', fs:'r', t:'c54', ts:'t', via:['x:1034','y:390']},
+    {f:'e53', fs:'r', t:'c54', ts:'t', via:['x:1034','y:390']},
+    {f:'c54', fs:'r', t:'c55', ts:'l'},
+    {f:'c55', fs:'r', t:'c56', ts:'l'},
+    {f:'c56', fs:'r', t:'t5', ts:'l'},
+  ],
+};
+
+// ---------- FASE 6: validação final ----------
+C.f6 = {
+  rows: [['a1','a2','a3','a4'], ['b1','b2','b3','b4']],
+  nodes: [
+    {id:'s6', k:'start', x:0, w:105, cy:90, t:'INÍCIO', h:'conjunto montado (Fase 5)'},
+    {id:'v61', k:'dev', x:133, w:180, cy:90, n:'6.1', t:'Versão mais recente', c:'firmware', h:'Há versão nova? <span class="mono">flash</span> (Fase 2).'},
+    {id:'g62', k:'group', x:343, w:703, y:12, h_:146, n:'6.2', t:'Validação de álcool', gs:'— 4 testes reais, nesta ordem, pela ignição da giga'},
+    {id:'a1', k:'mini', cls:'k-alc', x:358, w:150, cy:96, g:'g62', mn:'1', t:'Sem álcool', r:'→ “Veículo Desbloqueado”'},
+    {id:'a2', k:'mini', cls:'k-alc', x:532, w:150, cy:96, g:'g62', mn:'2', t:'Álcool baixo', r:'→ “Álcool Detectado”; anotar mg/L'},
+    {id:'a3', k:'mini', cls:'k-alc', x:706, w:150, cy:96, g:'g62', mn:'3', t:'Sem álcool', r:'→ “Veículo Desbloqueado”'},
+    {id:'a4', k:'mini', cls:'k-alc', x:880, w:150, cy:96, g:'g62', mn:'4', t:'Álcool alto', r:'→ detecta; mg/L maior que no 2'},
+    {id:'d62', k:'dec', x:858, w:188, cy:232, t:'O álcool deu como esperado?'},
+    {id:'f62', k:'fail', x:540, w:240, cy:232, t:'REPROVADO NO ÁLCOOL', h:'separar; ver “álcool estranho” na pág. 9'},
+    {id:'g63', k:'group', x:0, w:690, y:308, h_:134, n:'6.3', t:'Testes de sopro', gs:'— 3 vezes cada'},
+    {id:'b1', k:'mini', cls:'k-blow', x:14, w:145, cy:390, g:'g63', mn:'1', t:'Sem assoprar', r:'→ “Sem Sopro” em 25 s'},
+    {id:'b2', k:'mini', cls:'k-blow', x:184, w:145, cy:390, g:'g63', mn:'2', t:'Incompleto fraco', r:'→ não aceita; recomeça o sopro'},
+    {id:'b3', k:'mini', cls:'k-blow', x:354, w:145, cy:390, g:'g63', mn:'3', t:'Incompleto médio', r:'→ não aceita; recomeça o sopro'},
+    {id:'b4', k:'mini', cls:'k-blow', x:524, w:145, cy:390, g:'g63', mn:'4', t:'Incompleto forte', r:'→ não aceita; recomeça o sopro'},
+    {id:'d63', k:'dec', x:714, w:160, cy:375, t:'O sopro deu como esperado?'},
+    {id:'t6', k:'ok', x:920, w:126, cy:375, t:'FASE 6 OK', h:'Fase 7 →', href:'#p-f7'},
+    {id:'a65', k:'dev', x:680, w:250, cy:522, n:'6.5', t:'Ajustar a suavização do sopro', c:'settings --set blowProb=<i>X</i>', h:'X de 0,3 a 1,5 s de tolerância. Repetir o 6.3.'},
+    {id:'n6', k:'note', x:0, w:610, y:468, h:'<div class="nt">ⓘ Durante os testes</div><ul><li>Depois de um positivo o aparelho bloqueia: tocar <b>“Realizar Outro Teste”</b> e esperar a purga (<b>“Aquecimento Necessário”</b>, 2 a 5 min).</li><li>Sopro válido = forte e <b>contínuo por 1,8 s</b> dentro da janela de 3 s; parou antes, o aparelho recomeça o sopro.</li><li>Anote as concentrações (mg/L) e o <span class="mono">blowProb</span> final na ficha de produção.</li></ul>'},
+  ],
+  edges: [
+    {f:'s6', fs:'r', t:'v61', ts:'l'},
+    {f:'v61', fs:'r', t:'g62', ts:'l', ty:90},
+    {f:'a1', fs:'r', t:'a2', ts:'l'}, {f:'a2', fs:'r', t:'a3', ts:'l'}, {f:'a3', fs:'r', t:'a4', ts:'l'},
+    {f:'a4', fs:'b', fx:955, t:'d62', ts:'t', tx:955},
+    {f:'d62', fs:'l', t:'f62', ts:'r', label:'NÃO', lc:R, st:'fail'},
+    {f:'d62', fs:'b', t:'g63', ts:'t', tx:345, via:['y:288'], label:'SIM', lc:G, lseg:1, lt:.06},
+    {f:'b1', fs:'r', t:'b2', ts:'l'}, {f:'b2', fs:'r', t:'b3', ts:'l'}, {f:'b3', fs:'r', t:'b4', ts:'l'},
+    {f:'g63', fs:'r', fy:375, t:'d63', ts:'l'},
+    {f:'d63', fs:'r', t:'t6', ts:'l', label:'SIM', lc:G},
+    {f:'d63', fs:'b', t:'a65', ts:'t', tx:794, label:'NÃO', lc:R, st:'fail'},
+    {f:'a65', fs:'l', fy:522, t:'g63', ts:'b', tx:645, label:'repetir', lc:N, st:'loop', lseg:1, lt:.5},
+  ],
+};
+
+// ---------- FASE 7: preparar e enviar ----------
+C.f7 = {
+  rows: [['p71','p72','p73','p74']],
+  nodes: [
+    {id:'s7', k:'start', x:0, w:105, cy:90, t:'INÍCIO', h:'validado (Fase 6)'},
+    {id:'p71', k:'man', x:133, w:210, cy:90, n:'7.1', t:'Data de calibração', h:'Atualizar a data de calibração do sensor para <b>hoje</b> antes do envio (vídeo no Notion: Envio de Etilômetros).'},
+    {id:'p72', k:'srvr', x:371, w:210, cy:90, n:'7.2', t:'Conferir o cadastro', c:'server-device <i>&lt;MIC&gt;</i>', h:'Empresa, série, sensor e módulo certos.'},
+    {id:'p73', k:'man', x:609, w:190, cy:90, n:'7.3', t:'Etiqueta', h:'Colar a etiqueta com o <b>nº de série</b> no aparelho.'},
+    {id:'p74', k:'man', x:827, w:200, cy:90, n:'7.4', t:'Separar o conjunto', h:'Kit completo da telemetria (fotos na pág. 10) e a ficha de produção preenchida.'},
+    {id:'d75', k:'dec', x:0, w:240, cy:282, t:'Vai registrar a instalação na placa agora?'},
+    {id:'t7', k:'ok', x:640, w:260, cy:282, t:'PRONTO', h:'aparelho validado, cadastrado e embalado'},
+    {id:'a76', k:'ask', x:0, w:240, cy:445, n:'7.5', t:'Perguntar ao responsável', h:'<ul><li><b>Placa</b> e <b>telemetria</b></li><li>Módulo e chip (Suntech/Entrack)</li><li>Tipo: caminhão ou carro</li><li>Instalador · maleta de demonstração?</li></ul>'},
+    {id:'n77', k:'srvw', x:280, w:340, cy:445, n:'7.6', t:'Registrar a instalação', c:'install <i>&lt;MIC&gt;</i> --placa <i>ABC1D23</i> --telemetria <i>mix2</i>', h:'Primeiro a prévia; com o ok do responsável, o mesmo comando + <span class="mono">--yes</span> grava e confere. Código 2 = placa ou aparelho em outra instalação.'},
+    {id:'ck', k:'note', x:660, w:386, y:400, h:'<div class="nt">✓ Antes de fechar a caixa</div><ul><li>Etiqueta com o nº de série colada</li><li>Conjunto completo da telemetria do cliente</li><li>Data de calibração = hoje</li><li>Cadastro conferido: empresa, série, sensor e módulo</li><li>Ficha de produção assinada</li></ul>'},
+  ],
+  edges: [
+    {f:'s7', fs:'r', t:'p71', ts:'l'},
+    {f:'p71', fs:'r', t:'p72', ts:'l'},
+    {f:'p72', fs:'r', t:'p73', ts:'l'},
+    {f:'p73', fs:'r', t:'p74', ts:'l'},
+    {f:'p74', fs:'r', t:'d75', ts:'t', via:['x:1038','y:200']},
+    {f:'d75', fs:'r', t:'t7', ts:'l', label:'NÃO', lc:G},
+    {f:'d75', fs:'b', t:'a76', ts:'t', label:'SIM', lc:A},
+    {f:'a76', fs:'r', t:'n77', ts:'l'},
+    {f:'n77', fs:'t', fx:600, t:'t7', ts:'b', tx:770, via:['y:360']},
+  ],
+};
+
+/* ============ motor de layout ============ */
+const CHIP = {dev:'Tester · USB', srvr:'Servidor · consulta', srvw:'Servidor · grava', ask:'Perguntar', man:'Manual'};
+const NS = 'http://www.w3.org/2000/svg';
+const STYLE = {main:{c:'#334155', w:1.8}, fail:{c:'#dc2626', w:1.8}, loop:{c:'#64748b', w:1.6, dash:'6 4'}};
+
+function nodeHTML(n){
+  if (n.k === 'dec') return `<svg class="hex"><polygon/></svg><div class="dq">${n.t}</div>${n.sub ? `<div class="dsub">${n.sub}</div>` : ''}`;
+  if (['start','ok','fail'].includes(n.k)) return `<div class="tt">${n.t}</div>${n.h ? `<div class="ts">${n.h}</div>` : ''}`;
+  if (n.k === 'note') return n.h;
+  if (n.k === 'conn') return n.t;
+  if (n.k === 'group') return `<div class="gt">${n.n ? `<span class="num">${n.n}</span>` : ''}${n.t}<span class="gs">${n.gs || ''}</span></div>`;
+  if (n.k === 'lane') return `<span class="lt">${n.t}</span><div class="lsub">${n.ls || ''}</div>`;
+  if (n.k === 'mini') return `<div class="mt"><span class="mn">${n.mn}</span>${n.t}</div><div class="mr">${n.r}</div>`;
+  return `<div class="head">${n.n ? `<span class="num">${n.n}</span>` : ''}<span class="chipk">${n.chip || CHIP[n.k] || ''}</span></div>` +
+    (n.t ? `<div class="title">${n.t}</div>` : '') + (n.c ? `<code class="cmd">${n.c}</code>` : '') +
+    (n.h ? (['card','info'].includes(n.k) ? n.h : `<div class="desc">${n.h}</div>`) : '') +
+    (n.exp ? `<div class="exp">esperado: ${n.exp}</div>` : '') + (n.ft ? `<span class="ftag">✗ F</span>` : '');
+}
+
+function build(cv, el){
+  cv.el = el; cv.byId = {};
+  const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('class', 'edges'); el.appendChild(svg); cv.svg = svg;
+  for (const n of cv.nodes){
+    const e = document.createElement(n.href ? 'a' : 'div');
+    if (n.href) e.setAttribute('href', n.href);
+    const kind = {start:'term', ok:'term', fail:'term', dec:'dec', note:'note', group:'group', lane:'lane', mini:'mini', conn:'conn'}[n.k] || '';
+    e.className = `node k-${n.k} ${kind} ${n.cls || ''}`;
+    e.style.left = n.x + 'px'; e.style.width = n.w + 'px';
+    if (n.h_) e.style.height = n.h_ + 'px';
+    if (n.k === 'conn') e.style.height = n.w + 'px';
+    if (n.k === 'lane'){ e.style.setProperty('--lc', n.lc); e.style.setProperty('--lbg', n.lbg); e.style.setProperty('--lb', n.lb); }
+    e.innerHTML = nodeHTML(n);
+    el.appendChild(e);
+    n.el = e; cv.byId[n.id] = n;
+  }
+}
+
+function layout(cv){
+  for (const row of cv.rows || []){
+    const h = Math.max(...row.map(id => cv.byId[id].el.offsetHeight));
+    for (const id of row) cv.byId[id].el.style.height = h + 'px';
+  }
+  for (const n of cv.nodes){
+    n.h = n.el.offsetHeight;
+    n.top = n.y != null ? n.y : n.cy - n.h / 2;
+    n.el.style.top = n.top + 'px';
+    if (n.k === 'dec'){
+      const w = n.w, h = n.h, d = 18, s = n.el.querySelector('svg.hex');
+      s.setAttribute('width', w); s.setAttribute('height', h); s.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      const p = s.querySelector('polygon');
+      p.setAttribute('points', `${d},1 ${w-d},1 ${w-1},${h/2} ${w-d},${h-1} ${d},${h-1} 1,${h/2}`);
+      p.setAttribute('fill', '#fef3c7'); p.setAttribute('stroke', '#d97706'); p.setAttribute('stroke-width', '1.8');
+    }
+  }
+}
+
+const isH = s => s === 'l' || s === 'r';
+function anchor(n, side, fx, fy){
+  const x = n.x, y = n.top, w = n.w, h = n.h;
+  if (side === 'r') return {x: x + w, y: fy != null ? fy : y + h / 2};
+  if (side === 'l') return {x: x, y: fy != null ? fy : y + h / 2};
+  if (side === 't') return {x: fx != null ? fx : x + w / 2, y: y};
+  return {x: fx != null ? fx : x + w / 2, y: y + h};
+}
+function route(cv, e){
+  const a = cv.byId[e.f], b = cv.byId[e.t];
+  const p0 = anchor(a, e.fs, e.fx, e.fy), p1 = anchor(b, e.ts, e.tx, e.ty);
+  const pts = [p0];
+  if (e.via){
+    for (const v of e.via){
+      const [k, s] = v.split(':'), last = pts[pts.length - 1];
+      pts.push(k === 'x' ? {x: +s, y: last.y} : {x: last.x, y: +s});
+    }
+    const last = pts[pts.length - 1];
+    pts.push(isH(e.ts) ? {x: last.x, y: p1.y} : {x: p1.x, y: last.y});
+  } else if (isH(e.fs) && isH(e.ts)){
+    if (Math.abs(p0.y - p1.y) > .5){ const m = (p0.x + p1.x) / 2; pts.push({x: m, y: p0.y}, {x: m, y: p1.y}); }
+  } else if (!isH(e.fs) && !isH(e.ts)){
+    if (Math.abs(p0.x - p1.x) > .5){ const m = (p0.y + p1.y) / 2; pts.push({x: p0.x, y: m}, {x: p1.x, y: m}); }
+  } else if (isH(e.fs)) pts.push({x: p1.x, y: p0.y});
+  else pts.push({x: p0.x, y: p1.y});
+  pts.push(p1);
+  const out = [];
+  for (const p of pts){ const q = out[out.length - 1]; if (q && Math.abs(q.x - p.x) < .5 && Math.abs(q.y - p.y) < .5) continue; out.push(p); }
+  for (let i = out.length - 2; i > 0; i--){
+    const A = out[i - 1], B = out[i], Cc = out[i + 1];
+    if ((Math.abs(A.x - B.x) < .5 && Math.abs(B.x - Cc.x) < .5) || (Math.abs(A.y - B.y) < .5 && Math.abs(B.y - Cc.y) < .5)) out.splice(i, 1);
+  }
+  return out;
+}
+function pathD(pts, r = 9){
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++){
+    const A = pts[i - 1], B = pts[i], Cc = pts[i + 1];
+    const l1 = Math.hypot(B.x - A.x, B.y - A.y), l2 = Math.hypot(Cc.x - B.x, Cc.y - B.y);
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const p = {x: B.x - (B.x - A.x) / l1 * rr, y: B.y - (B.y - A.y) / l1 * rr};
+    const q = {x: B.x + (Cc.x - B.x) / l2 * rr, y: B.y + (Cc.y - B.y) / l2 * rr};
+    d += ` L${p.x},${p.y} Q${B.x},${B.y} ${q.x},${q.y}`;
+  }
+  const L = pts[pts.length - 1];
+  return d + ` L${L.x},${L.y}`;
+}
+let MK = 0;
+function draw(cv){
+  const svg = cv.svg, W = cv.el.offsetWidth, H = cv.el.offsetHeight;
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  const defs = document.createElementNS(NS, 'defs'), ids = {};
+  for (const [k, s] of Object.entries(STYLE)){
+    const id = `ah${++MK}`; ids[k] = id;
+    const m = document.createElementNS(NS, 'marker');
+    m.setAttribute('id', id); m.setAttribute('viewBox', '0 0 10 10'); m.setAttribute('refX', '9.5'); m.setAttribute('refY', '5');
+    m.setAttribute('markerWidth', '9'); m.setAttribute('markerHeight', '9'); m.setAttribute('markerUnits', 'userSpaceOnUse'); m.setAttribute('orient', 'auto');
+    const p = document.createElementNS(NS, 'path'); p.setAttribute('d', 'M0,0 L10,5 L0,10 z'); p.setAttribute('fill', s.c);
+    m.appendChild(p); defs.appendChild(m);
+  }
+  svg.appendChild(defs);
+  for (const e of cv.edges){
+    const st = e.st || 'main', s = STYLE[st];
+    e.pts = route(cv, e);
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', pathD(e.pts)); p.setAttribute('fill', 'none'); p.setAttribute('stroke', s.c);
+    p.setAttribute('stroke-width', s.w); p.setAttribute('stroke-linejoin', 'round');
+    if (s.dash) p.setAttribute('stroke-dasharray', s.dash);
+    p.setAttribute('marker-end', `url(#${ids[st]})`);
+    svg.appendChild(p);
+    if (e.label){
+      const segs = [];
+      for (let i = 0; i < e.pts.length - 1; i++) segs.push([e.pts[i], e.pts[i + 1]]);
+      let i = e.lseg;
+      if (i == null){ const len = s => Math.hypot(s[1].x - s[0].x, s[1].y - s[0].y); i = len(segs[0]) >= 60 || segs.length === 1 ? 0 : 1; }
+      const [A, B] = segs[Math.min(i, segs.length - 1)], t = e.lt != null ? e.lt : .5;
+      const lab = document.createElement('div');
+      lab.className = 'elabel'; lab.style.setProperty('--c', e.lc || '#334155'); lab.textContent = e.label;
+      lab.style.left = (A.x + (B.x - A.x) * t) + 'px'; lab.style.top = (A.y + (B.y - A.y) * t) + 'px';
+      cv.el.appendChild(lab); e.lab = lab;
+    }
+  }
+}
+
+/* ============ conferência automática ============ */
+function qa(name, cv, issues){
+  const fr = cv.el.getBoundingClientRect(), W = fr.width, H = fr.height;
+  const R = el => { const r = el.getBoundingClientRect(); return {x: r.left - fr.left, y: r.top - fr.top, w: r.width, h: r.height}; };
+  const hit = (a, b, m = 0) => a.x < b.x + b.w + m && b.x < a.x + a.w + m && a.y < b.y + b.h + m && b.y < a.y + a.h + m;
+  const inside = (a, b) => a.x >= b.x - .5 && a.y >= b.y - .5 && a.x + a.w <= b.x + b.w + .5 && a.y + a.h <= b.y + b.h + .5;
+  const box = cv.nodes.map(n => ({n, id: n.id, r: R(n.el), bg: n.k === 'group' || n.k === 'lane'}));
+  for (const B of box){
+    if (B.r.x < -.5 || B.r.y < -.5 || B.r.x + B.r.w > W + .5 || B.r.y + B.r.h > H + .5)
+      issues.push(`[${name}] ${B.id} sai do quadro (${Math.round(B.r.x)},${Math.round(B.r.y)} ${Math.round(B.r.w)}x${Math.round(B.r.h)} em ${W}x${H})`);
+    if (B.n.g){ const G2 = box.find(x => x.id === B.n.g); if (!inside(B.r, G2.r)) issues.push(`[${name}] ${B.id} sai do grupo ${B.n.g}`); }
+    if (B.n.el.scrollHeight > B.n.el.clientHeight + 1 && !B.bg) issues.push(`[${name}] texto cortado em ${B.id}`);
+  }
+  for (let i = 0; i < box.length; i++) for (let j = i + 1; j < box.length; j++){
+    const a = box[i], b = box[j];
+    if (a.bg || b.bg){ if (a.bg && b.bg && hit(a.r, b.r, 6)) issues.push(`[${name}] fundos ${a.id} × ${b.id}`); continue; }
+    if (hit(a.r, b.r, 14)) issues.push(`[${name}] nós próximos/sobrepostos: ${a.id} × ${b.id}`);
+  }
+  for (const e of cv.edges){
+    for (let i = 0; i < e.pts.length - 1; i++){
+      const P = e.pts[i], Q = e.pts[i + 1];
+      const seg = {x: Math.min(P.x, Q.x) - .5, y: Math.min(P.y, Q.y) - .5, w: Math.abs(P.x - Q.x) + 1, h: Math.abs(P.y - Q.y) + 1};
+      for (const B of box){
+        if (B.bg || B.id === e.f || B.id === e.t) continue;
+        const inner = {x: B.r.x + 2, y: B.r.y + 2, w: B.r.w - 4, h: B.r.h - 4};
+        if (hit(seg, inner)) issues.push(`[${name}] seta ${e.f}→${e.t} atravessa ${B.id}`);
+      }
+    }
+    const L = e.pts[e.pts.length - 1], P = e.pts[e.pts.length - 2];
+    if (Math.hypot(L.x - P.x, L.y - P.y) < 16) issues.push(`[${name}] ponta curta: ${e.f}→${e.t}`);
+    if (e.lab){
+      const lr = R(e.lab);
+      for (const B of box) if (!B.bg && hit(lr, B.r, 3)) issues.push(`[${name}] rótulo "${e.label}" encosta em ${B.id}`);
+      for (const e2 of cv.edges) if (e2 !== e && e2.lab && hit(lr, R(e2.lab), 4)) issues.push(`[${name}] rótulo "${e.label}" × "${e2.label}"`);
+    }
+  }
+}
+function pageQa(issues){
+  document.querySelectorAll('.page').forEach((pg, i) => {
+    const pr = pg.getBoundingClientRect();
+    pg.querySelectorAll('.rc,.card,.fig,.pt,.cols3,.map,.grid,.fx,.side,.sign').forEach(el => {
+      const r = el.getBoundingClientRect(), cls = el.className.split(' ')[0];
+      if (r.bottom > pr.bottom - 38 + .5) issues.push(`[pág ${i + 1}] ${cls} invade o rodapé (${Math.round(r.bottom - pr.top)} px)`);
+      if (r.right > pr.right - 37) issues.push(`[pág ${i + 1}] ${cls} passa da margem direita`);
+      if (['rc','card','fig'].includes(cls) && el.scrollHeight > el.clientHeight + 1)
+        issues.push(`[pág ${i + 1}] conteúdo cortado em ${cls} (${el.scrollHeight}>${el.clientHeight}): ${(el.textContent || '').trim().slice(0, 40)}`);
+    });
+    const side = pg.querySelector('.side');
+    if (side && side.scrollHeight > side.clientHeight + 1) issues.push(`[pág ${i + 1}] painel lateral maior que a página (${side.scrollHeight}>${side.clientHeight})`);
+  });
+}
+
+function run(){
+  const issues = [], geo = {};
+  document.querySelectorAll('.canvas[data-c]').forEach(el => {
+    const name = el.dataset.c, cv = C[name];
+    build(cv, el); layout(cv); draw(cv); qa(name, cv, issues);
+    geo[name] = Object.fromEntries(cv.nodes.map(n => [n.id, [n.x, Math.round(n.top), n.w, n.h]]));
+  });
+  pageQa(issues);
+  document.body.setAttribute('data-geo', JSON.stringify(geo));
+  document.body.setAttribute('data-qa', JSON.stringify(issues));
+  document.body.setAttribute('data-done', '1');
+}
+document.fonts.ready.then(run);
+</script>
+</body>
+</html>

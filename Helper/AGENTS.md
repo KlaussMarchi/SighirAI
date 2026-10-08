@@ -95,9 +95,9 @@ Sem a pasta `../docs` você fica limitado: diga isso ao usuário e trabalhe com 
 | `patch devices|telemetries ID campo=valor [--sim]` | **escrita em produção** |
 
 - Leitura é livre. **Escrita**: só `patch`, só campos permitidos (lista em `tools/api.py::WRITABLE`). Desde
-  24/09/2026 a instalação é o próprio device: placa/telemetria/módulo se editam em `devices <MIC>` (`plate`,
-  `vehicle_type`, `telemetry_company` = CNPJ, `telemetry` = módulo, `is_operating`…); o `chip` é do módulo
-  (`telemetries <ID>`). `etilometers/` é só leitura. Rode sem `--sim` (mostra antes →
+  24/09/2026 a instalação é o próprio device: placa/módulo se editam em `devices <MIC>` (`plate`,
+  `vehicle_type`, `telemetry` = módulo, `is_operating`…); `chip` e, desde 07/10/2026, a telemetria (`brand` =
+  CNPJ; MiX usa o módulo `MIX-<MIC>`) são do módulo (`telemetries <ID>`). `etilometers/` é só leitura. Rode sem `--sim` (mostra antes →
   depois), **confirme com o usuário**, então `--sim`. O comando confere o valor gravado.
 - Sem DELETE aqui (remover cadastro é do Tester, com confirmação). Nunca `limit=all`. Bloqueio/desbloqueio
   remoto: oriente pelo portal (sighir.com → Controle) ou portal da telemetria — não pela API.

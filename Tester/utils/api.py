@@ -11,7 +11,7 @@ from utils.functions import (
 BASE_URL = 'https://sighir.com:8000'
 API      = f'{BASE_URL}/api/v2'
 USER     = 'sighir@gmail.com'
-PASS     = 'sighir12345'
+PASS     = 'Acesso@Sighir01'
 
 # ----------------------------------- Gerenciamento de Tokens -----------------------------------
 stored_access_token  = ''

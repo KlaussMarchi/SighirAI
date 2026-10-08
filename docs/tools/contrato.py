@@ -42,16 +42,16 @@ SKIP_DIRS = {'.venv', '__pycache__', '.git', 'launcher', 'node_modules'}
 # 'le' = campos lidos de cada linha; 'grava' = campos enviados em POST/PATCH.
 USO = {
     'devices/': {
-        'le': {'Tester register/install/server-device': ['id', 'plate', 'telemetry', 'telemetry_company',
+        'le': {'Tester register/install/server-device': ['id', 'plate', 'telemetry', 'telemetry_brand',
                                                           'installation_data', 'series_num', 'company'],
                'Tester onde/duplicidade': ['id', 'sensor_id', 'telemetry', 'plate', 'series_num', 'company',
-                                           'installation_date', 'telemetry_company_label'],
+                                           'installation_date', 'telemetry_brand_label'],
                'Helper veiculo/device': ['id', 'series_num', 'sensor_id', 'software_version', 'need_update',
                                          'telemetry', 'company', 'timestamp', 'default_settings']},
         'grava': {'Tester register': ['id', 'company', 'series_num', 'sensor_id', 'need_update', 'telemetry'],
-                  'Tester install': ['plate', 'vehicle_type', 'telemetry_company', 'telemetry', 'is_operating',
+                  'Tester install': ['plate', 'vehicle_type', 'telemetry', 'is_operating',
                                      'installation_date', 'installer', 'nickname', 'installation_data'],
-                  'Tester edit': ['company', 'series_num', 'sensor_id', 'telemetry', 'plate', 'telemetry_company',
+                  'Tester edit': ['company', 'series_num', 'sensor_id', 'telemetry', 'plate',
                                   'installation_date', 'installer', 'nickname', 'installation_data', 'need_update'],
                   'Tester flash (re-arma)': ['need_update'],
                   'Helper patch': 'WRITABLE:devices'},
@@ -59,8 +59,8 @@ USO = {
     'telemetries/': {
         'le': {'Helper veiculo/device': ['id', 'chip', 'is_connected', 'is_ignition_on', 'is_relay_on',
                                          'has_to_block', 'has_to_unblock', 'ip', 'port'],
-               'Tester register/install': ['id', 'chip', 'vehicle']},
-        'grava': {'Tester register/install': ['id', 'chip'], 'Helper patch': 'WRITABLE:telemetries'},
+               'Tester register/install': ['id', 'chip', 'vehicle', 'brand', 'brand_label']},
+        'grava': {'Tester register/install': ['id', 'chip', 'brand'], 'Helper patch': 'WRITABLE:telemetries'},
     },
     'etilometers/': {
         'le': {'Server scanner': ['vehicle', 'telemetry', 'telemetry_label', 'installation_date', 'sensor_id',

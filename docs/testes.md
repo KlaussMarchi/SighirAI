@@ -12,7 +12,8 @@ Como provar que as três IAs funcionam — depois de mudar código, depois de um
 | completo | `python docs/tools/testar.py --completo` | + check **seco** do Scanner (`scan.py` sem `--write`; 3–4 min na 1ª do dia) | não |
 | bancada | `python docs/tools/testar.py --bancada` | + aparelho na USB: `init`, `firmware`, `settings`, `telemetry` (só mostra), lista de testes | não |
 
-Gravação real verificada em 07/10/2026 (aparelho de estoque da Sighir na placa `BANCADA`): `install`,
+Gravação real verificada em 08/10/2026 no modelo de telemetria no módulo (MIX 2.0 → MIX → Suntech, recusa de
+marca errada; ver `migracao_servidor.md`) e em 07/10/2026 (aparelho de estoque da Sighir na placa `BANCADA`): `install`,
 `edit --desinstalar`, `edit --modulo` (cria módulo em `/telemetries` com chip) e `--modulo none` —
 tudo conferido e devolvido ao estado original.
 

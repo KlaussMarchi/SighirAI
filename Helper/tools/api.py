@@ -18,20 +18,21 @@ urllib3.disable_warnings()
 
 URL  = os.environ.get('SIGHIR_API_URL', 'https://sighir.com:8000/api/v2')
 USER = os.environ.get('SIGHIR_API_USER', 'sighir@gmail.com')
-PASS = os.environ.get('SIGHIR_API_PASS', 'sighir12345')
+PASS = os.environ.get('SIGHIR_API_PASS', 'Acesso@Sighir01')
 
 # o login custa ~1,3 s (hash de senha no servidor) e o refresh ~0,15 s: guardo os tokens entre
 # execuções (access dura 5 min, refresh 24 h) — fora do git, em .sighir/
 TOKENS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.sighir', 'token.json')
 
 # desde a migração do servidor (24/09/2026) a instalação é o próprio device (plate → Vehicle,
-# telemetry_company = CNPJ, telemetry = módulo); o chip mora no módulo (telemetries/). etilometers/
+# telemetry = módulo); o chip mora no módulo (telemetries/) e, desde 07/10/2026, a telemetria também:
+# `brand` = CNPJ (MiX usa o módulo MIX-<MIC>); o device só mostra telemetry_brand. etilometers/
 # virou só leitura aqui: é uma visão dos devices instalados.
 WRITABLE = {
     'devices': {'need_update', 'software_version', 'series_num', 'company', 'sensor_id', 'location',
-                'plate', 'vehicle_type', 'telemetry', 'telemetry_company', 'installer', 'is_operating',
+                'plate', 'vehicle_type', 'telemetry', 'installer', 'is_operating',
                 'nickname', 'camera_service'},
-    'telemetries': {'chip', 'model'},
+    'telemetries': {'chip', 'model', 'brand'},
 }
 
 

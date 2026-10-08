@@ -177,17 +177,25 @@ def optional(value):
     return None if v.upper() in NO_VALUE else v
 
 
-def ensureModule(mod, chip=None, plate=None):
-    """garante o módulo rastreador (Suntech/Entrack) em /telemetries — era /suntechs, 404 desde a migração
-    de 24/09/2026. Cria se não existe e grava o chip (o chip saiu do device e mora no módulo). Recusa módulo
-    já ligado ao aparelho de outra placa (Device.telemetry é único). Devolve o registro ou None."""
+def mixModule(esp):
+    """MiX não tem rastreador com ID: desde a migração de 07/10/2026 cada aparelho MiX aponta para um módulo
+    próprio `MIX-<esp_id>` em /telemetries, só para guardar a marca (MIX ou MIX 2.0)."""
+    return f'MIX-{esp}'
+
+
+def ensureModule(mod, chip=None, plate=None, brand=None, mine=False):
+    """garante o módulo em /telemetries — era /suntechs, 404 desde a migração de 24/09/2026. Cria se não
+    existe e grava o chip (mora no módulo desde 24/09/2026) e a marca (`brand` = CNPJ da telemetria, mora no
+    módulo desde 07/10/2026; antes era `telemetry_company` no device). Recusa módulo já ligado ao aparelho de
+    outra placa (Device.telemetry é único; `mine` = o módulo já é deste aparelho, não barra) e rastreador de
+    outra marca. Devolve o registro ou None."""
     if mod.upper().startswith(('MIC', 'ETL')):
         log('err', f'{mod!r} é ID de aparelho/sensor, não de módulo (Suntech 1700…, Entrack 69…): confira com o usuário')
         return None
     res = get_req(f'/telemetries/{mod}/')
     cur = res.get('data') if res['status'] != 'error' else None
     if not cur:
-        payload = {'id': mod, **({'chip': chip} if chip else {})}
+        payload = {'id': mod, **({'chip': chip} if chip else {}), **({'brand': brand} if brand else {})}
         log('info', f'POST /telemetries: {payload}')
         res = post_req('/telemetries', payload)
         if res['status'] == 'error':
@@ -195,15 +203,23 @@ def ensureModule(mod, chip=None, plate=None):
             return None
         log('ok', f'módulo {mod} cadastrado')
         return res.get('data') or payload
-    if cur.get('vehicle') and cur['vehicle'] != plate:
+    if cur.get('vehicle') and cur['vehicle'] != plate and not mine:
         log('err', f"módulo {mod} já está no aparelho da placa {cur['vehicle']} (o servidor aceita 1 aparelho por "
                    'módulo): desvincule lá antes ou confira o ID com o usuário')
         return None
-    if chip and cur.get('chip') != chip:
-        log('info', f"PATCH /telemetries/{mod}: chip {cur.get('chip')!r} → {chip!r}")
-        res = post_req(f'/telemetries/{mod}', {'chip': chip}, type='PATCH')
+    # rastreador de verdade não muda de marca: marca diferente = ID ou telemetria digitados errado.
+    # O módulo MIX-<esp> pode (MIX antigo ↔ MIX 2.0 é só a marca)
+    if brand and cur.get('brand') and cur['brand'] != brand and not mod.startswith('MIX-'):
+        log('err', f"módulo {mod} é {cur.get('brand_label') or cur['brand']}, não da telemetria pedida: "
+                   'confira o ID do módulo e a telemetria com o usuário')
+        return None
+    change = {**({'chip': chip} if chip and cur.get('chip') != chip else {}),
+              **({'brand': brand} if brand and cur.get('brand') != brand else {})}
+    if change:
+        log('info', f"PATCH /telemetries/{mod}: " + ', '.join(f'{k} {cur.get(k)!r} → {v!r}' for k, v in change.items()))
+        res = post_req(f'/telemetries/{mod}', change, type='PATCH')
         if res['status'] == 'error':
-            log('err', f"falha ao gravar o chip: {res.get('data')}")
+            log('err', f"falha ao gravar o módulo: {res.get('data')}")
             return None
     log('ok', f"módulo {mod} já cadastrado (chip {chip or cur.get('chip') or '-'})")
     return cur
@@ -211,12 +227,13 @@ def ensureModule(mod, chip=None, plate=None):
 
 def moduleKind(mod):
     m = str(mod or '')
-    return 'Suntech' if m.startswith('17') else 'Entrack' if m.startswith('69') else 'módulo'
+    return ('Suntech' if m.startswith('17') else 'Entrack' if m.startswith('69') else
+            'MiX' if m.startswith('MIX-') else 'módulo')
 
 
 def deviceSummary(dev, companies):
     plate = dev.get('plate')
-    where = f"placa {plate} ({dev.get('telemetry_company_label') or 'sem telemetria'}, instalado " \
+    where = f"placa {plate} ({dev.get('telemetry_brand_label') or 'sem telemetria'}, instalado " \
             f"{str(dev.get('installation_date') or '-')[:10]})" if plate else 'sem placa (estoque)'
     mod = dev.get('telemetry')
     kind = moduleKind(mod)
@@ -660,8 +677,9 @@ MODULE_TELEMETRY = ('suntech', 'entrack')     # MiX não tem módulo/chip
 
 def cmdInstall(args):
     """Instala o aparelho numa placa. Desde a migração do servidor de 24/09/2026 a instalação é o próprio
-    Device: PATCH /devices/<esp> com `plate` (o servidor cria/associa o Vehicle), `vehicle_type`,
-    `telemetry_company` (CNPJ da telemetria) e, em Suntech/Entrack, `telemetry` (ID do módulo).
+    Device: PATCH /devices/<esp> com `plate` (o servidor cria/associa o Vehicle), `vehicle_type` e
+    `telemetry` (módulo). Desde 07/10/2026 a telemetria é a marca do módulo (`telemetries/<id>.brand` = CNPJ;
+    o device só mostra `telemetry_brand`): Suntech/Entrack = o rastreador; MiX = o módulo `MIX-<esp>`.
     Sem --yes só valida e mostra o que seria gravado. Procedimento: procedimentos/cadastro.md §13."""
     esp = args.esp_id.strip()
     plate = normPlate(args.placa)
@@ -689,9 +707,18 @@ def cmdInstall(args):
     if module and args.telemetria not in MODULE_TELEMETRY:
         log('err', f'--modulo só vale para Suntech/Entrack; {args.telemetria} não tem módulo')
         return 1
-    if args.telemetria in MODULE_TELEMETRY and not (module or dev.get('telemetry')):
-        log('warn', f'{args.telemetria} sem módulo vinculado: pergunte o ID do módulo (--modulo) — sem ele o '
-                    'servidor não associa os logs do rastreador a este aparelho')
+    linked = dev.get('telemetry')
+    if args.telemetria in MODULE_TELEMETRY:
+        moduleId = module or (linked if linked and not linked.startswith('MIX-') else None)
+        if not moduleId and linked:
+            log('err', f'o aparelho hoje está na MiX ({linked}): para {args.telemetria} informe o ID do módulo '
+                       '(--modulo) — sem ele a telemetria continuaria MiX no servidor')
+            return 1
+        if not moduleId:
+            log('warn', f'{args.telemetria} sem módulo vinculado: pergunte o ID do módulo (--modulo) — sem ele o '
+                        'servidor não associa os logs do rastreador a este aparelho nem guarda a telemetria')
+    else:
+        moduleId = mixModule(esp)
 
     # placa já em outro aparelho? (Vehicle.plate é único; 1 aparelho por placa)
     rows = get_req('/etilometers').get('data') or []
@@ -703,12 +730,11 @@ def cmdInstall(args):
         data['observation'] = args.observacao
     if args.maleta:
         data['suitcase'] = 1
-    payload = {'plate': plate, 'vehicle_type': 1 if args.tipo == 'carro' else 0,
-               'telemetry_company': tel['id'], 'is_operating': True}
+    payload = {'plate': plate, 'vehicle_type': 1 if args.tipo == 'carro' else 0, 'is_operating': True}
     if current.upper() != plate.upper():        # reinstalar na mesma placa mantém a data original
         payload['installation_date'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
-    if module:
-        payload['telemetry'] = module
+    if moduleId and moduleId != linked:
+        payload['telemetry'] = moduleId
     if args.instalador:
         payload['installer'] = args.instalador
     if args.apelido:
@@ -716,8 +742,16 @@ def cmdInstall(args):
     if data:
         payload['installation_data'] = data
 
-    log('info', f"instalação (PRODUÇÃO) PATCH /devices/{esp}: {payload}  [telemetria {tel.get('label')}"
-                f"{', chip ' + chip if chip else ''}]")
+    log('info', f"instalação (PRODUÇÃO) PATCH /devices/{esp}: {payload}  [telemetria {tel.get('label')} = marca "
+                f"do módulo {moduleId or '-'}{', chip ' + chip if chip else ''}]")
+    if moduleId:
+        res = get_req(f'/telemetries/{moduleId}/')
+        modRow = res.get('data') if res['status'] != 'error' else None
+        if not modRow:
+            log('info', f"módulo {moduleId}: será criado em /telemetries com a marca {tel.get('label')}")
+        elif modRow.get('brand') != tel['id']:
+            log('info', f"módulo {moduleId}: marca {modRow.get('brand_label') or modRow.get('brand') or '-'} → "
+                        f"{tel.get('label')}")
     blocked = False
     for e in others:
         other = (get_req(f"/devices/{e.get('esp_id')}/").get('data') or {'id': e.get('esp_id'), 'plate': plate})
@@ -739,7 +773,9 @@ def cmdInstall(args):
         log('warn', 'nada foi gravado. Confirme os dados com o usuário e rode de novo com --yes')
         return 3
 
-    if module and not ensureModule(module, chip, plate):
+    # o módulo que já é deste aparelho pode estar na placa antiga (troca com --forcar): não barra por placa
+    if moduleId and not ensureModule(moduleId, chip if module else None, plate, brand=tel['id'],
+                                     mine=moduleId == linked):
         return 1
     res = post_req(f'/devices/{esp}', payload, type='PATCH')
     if res['status'] == 'error':
@@ -747,10 +783,10 @@ def cmdInstall(args):
         return 1
 
     after = get_req(f'/devices/{esp}/').get('data') or {}
-    checks = {'placa': (after.get('plate') or '').upper() == plate.upper(),
-              'telemetria': after.get('telemetry_company') == tel['id']}
-    if module:
-        checks['módulo'] = after.get('telemetry') == module
+    checks = {'placa': (after.get('plate') or '').upper() == plate.upper()}
+    if moduleId:
+        checks['módulo'] = after.get('telemetry') == moduleId
+        checks['telemetria'] = after.get('telemetry_brand') == tel['id']
     inst = [e for e in (get_req('/etilometers').get('data') or [])
             if e.get('esp_id') == esp and (e.get('vehicle') or '').upper() == plate.upper()]
     checks['etilometers/'] = bool(inst)
@@ -760,8 +796,9 @@ def cmdInstall(args):
     return 0 if not bad else 1
 
 
-UNINSTALL = {'plate': None, 'telemetry_company': None, 'installation_date': None, 'installer': '',
-             'nickname': '', 'installation_data': {}}
+# a telemetria (marca) fica no módulo desde 07/10/2026: tirar da placa não mexe nela; o install seguinte
+# troca de módulo/marca se o cliente novo usar outra telemetria
+UNINSTALL = {'plate': None, 'installation_date': None, 'installer': '', 'nickname': '', 'installation_data': {}}
 
 
 def companyLabel(cid, companies):
@@ -784,7 +821,7 @@ def cmdEdit(args):
     log('info', f"----- {esp} hoje -----")
     log('info', f"empresa {companyLabel(dev.get('company'), companies)} | série {dev.get('series_num')} | "
                 f"sensor {dev.get('sensor_id')} | módulo {mod or '-'} (chip {modRow.get('chip') or '-'})")
-    log('info', f"placa {dev.get('plate') or '-'} | telemetria {dev.get('telemetry_company_label') or '-'} | "
+    log('info', f"placa {dev.get('plate') or '-'} | telemetria {dev.get('telemetry_brand_label') or '-'} | "
                 f"instalado {str(dev.get('installation_date') or '-')[:10]} por {dev.get('installer') or '-'}")
 
     change = {}
@@ -863,7 +900,7 @@ def cmdEdit(args):
         return 3
 
     if chipModule and (chipModule != mod or chipChange):
-        if not ensureModule(chipModule, chip, None if args.desinstalar else dev.get('plate')):
+        if not ensureModule(chipModule, chip, None if args.desinstalar else dev.get('plate'), mine=chipModule == mod):
             return 1
     if change:
         res = post_req(f'/devices/{esp}', change, type='PATCH')
@@ -897,7 +934,7 @@ def cmdServerDelete(args):
     log('warn', 'REGISTRO A DELETAR (produção, hard delete). O módulo (/telemetries) e a placa (Vehicle) ficam; '
                 'os logs apontam para o aparelho (log.device) e podem ir junto — confirme com o usuário:')
 
-    for key in ('id', 'series_num', 'company', 'sensor_id', 'plate', 'telemetry', 'telemetry_company_label'):
+    for key in ('id', 'series_num', 'company', 'sensor_id', 'plate', 'telemetry', 'telemetry_brand_label'):
         log('info', f'{key:12} = {data.get(key)!r}')
 
     if not args.yes:

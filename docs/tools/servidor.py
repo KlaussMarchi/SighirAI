@@ -38,7 +38,7 @@ OUT_MD   = os.path.join(DOCS, 'servidor_resumo.md')
 SNAPSHOT = os.path.join(DOCS, 'ServerAnalysis', 'files', 'db.sqlite3')
 URL      = os.environ.get('SIGHIR_API_URL', 'https://sighir.com:8000/api/v2')
 USER     = os.environ.get('SIGHIR_API_USER', 'sighir@gmail.com')
-PASS     = os.environ.get('SIGHIR_API_PASS', 'sighir12345')
+PASS     = os.environ.get('SIGHIR_API_PASS', 'Acesso@Sighir01')
 HOST     = os.environ.get('SIGHIR_SSH_HOST', 'ubuntu@52.91.100.216')
 REMOTE_DB = '/home/ubuntu/v2/api/db.sqlite3'
 BRT      = timezone(timedelta(hours=-3))

@@ -95,6 +95,7 @@ def testWriteGuards():
         raise AssertionError('limit=all deveria ser recusado')
     assert 'need_update' in WRITABLE['devices'] and 'plate' in WRITABLE['devices']
     assert 'chip' in WRITABLE['telemetries'] and 'chip' not in WRITABLE['devices']
+    assert 'brand' in WRITABLE['telemetries'] and 'telemetry_company' not in WRITABLE['devices']   # 07/10/2026
     assert 'etilometers' not in WRITABLE        # instalação se edita no device desde 24/09/2026
 
 

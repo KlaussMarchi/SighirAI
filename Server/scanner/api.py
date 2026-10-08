@@ -9,7 +9,7 @@ urllib3.disable_warnings()
 class Api:
     URL     = 'https://sighir.com:8000/api/v2'
     USER    = 'sighir@gmail.com'
-    PASS    = 'sighir12345'
+    PASS    = 'Acesso@Sighir01'
     MARGIN  = 60
     TRIES   = 4
 

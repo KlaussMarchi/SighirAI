@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Testes da CLI (tools/sighir.py) sem aparelho e sem rede: a API é trocada por uma falsa em memória.
 Cobre o cadastro/instalação no modelo do servidor de 24/09/2026 (instalação = PATCH /devices com a placa;
-módulo e chip em /telemetries). Rodar: python tools/test_cli.py"""
+módulo e chip em /telemetries) e de 07/10/2026 (telemetria = marca do módulo; MiX usa o módulo MIX-<esp>).
+Rodar: python tools/test_cli.py"""
 
 import os
 import sys
@@ -11,9 +12,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from tools import sighir  # noqa: E402
 
-MIX2, SUNTECH = '17131425000130', '44922499000'
+MIX2, MIX, SUNTECH, ENTRACK = '17131425000130', '17131425000132', '44922499000', '12729135000171'
 COMPANIES = [{'id': MIX2, 'type': 'telemetry', 'value': '5', 'label': 'MIX TELEMATICS (NOVO)'},
+             {'id': MIX, 'type': 'telemetry', 'value': '0', 'label': 'MIX TELEMATICS'},
              {'id': SUNTECH, 'type': 'telemetry', 'value': '2', 'label': 'SUNTECH'},
+             {'id': ENTRACK, 'type': 'telemetry', 'value': '6', 'label': 'ENTRACK'},
              {'id': '29863420000930', 'type': 'transportation', 'value': 'predileto', 'label': 'EXPRESSO PREDILETO'},
              {'id': '40000000000100', 'type': 'transportation', 'value': 'logika', 'label': 'LOGIKA TRANSPORTES'}]
 PREDILETO, LOGIKA = '29863420000930', '40000000000100'
@@ -23,11 +26,12 @@ class FakeServer:
     def __init__(self):
         self.devices = {'MICLIVRE': {'id': 'MICLIVRE', 'plate': None, 'telemetry': None, 'installation_data': {}},
                         'MICINST': {'id': 'MICINST', 'plate': 'RJT5E02', 'telemetry': '1700006560',
-                                    'telemetry_company': SUNTECH, 'installation_data': {'observation': 'x'},
+                                    'installation_data': {'observation': 'x'},
                                     'company': PREDILETO, 'series_num': '00032', 'sensor_id': 'ETL111',
                                     'installer': 'Paulo', 'installation_date': '2026-02-06T00:00:00Z',
                                     'nickname': '', 'need_update': False}}
-        self.modules = {'1700006560': {'id': '1700006560', 'chip': '', 'vehicle': 'RJT5E02'}}
+        self.modules = {'1700006560': {'id': '1700006560', 'chip': '', 'vehicle': 'RJT5E02', 'brand': SUNTECH}}
+        self.labels = {c['id']: c['label'] for c in COMPANIES}
         self.calls = []
 
     def etilometers(self):
@@ -44,8 +48,16 @@ class FakeServer:
         table = {'devices': self.devices, 'telemetries': self.modules}[parts[0]]
         if len(parts) > 1:
             row = table.get(parts[1])
-            return {'status': 'success', 'data': dict(row)} if row else {'status': 'error', 'data': '404'}
-        return {'status': 'success', 'data': list(table.values())}
+            return {'status': 'success', 'data': self.view(parts[0], row)} if row else {'status': 'error', 'data': '404'}
+        return {'status': 'success', 'data': [self.view(parts[0], r) for r in table.values()]}
+
+    def view(self, kind, row):
+        """como a API devolve: o device mostra a marca do módulo (telemetry_brand, só leitura)."""
+        row = dict(row)
+        if kind == 'devices':
+            brand = (self.modules.get(row.get('telemetry')) or {}).get('brand')
+            row.update(telemetry_brand=brand, telemetry_brand_label=self.labels.get(brand))
+        return row
 
     def post(self, endpoint, data, type='POST', **_):
         self.calls.append((type, endpoint, dict(data)))
@@ -107,10 +119,10 @@ def testInstalaComModuloNovo():
                  '--chip', '8955', '--instalador', 'Fulano', '--maleta', '--yes')
     assert rc == 0, s.calls
     writes = s.writes()
-    assert writes[0] == ('POST', '/telemetries', {'id': '1700099999', 'chip': '8955'}), writes
+    assert writes[0] == ('POST', '/telemetries', {'id': '1700099999', 'chip': '8955', 'brand': SUNTECH}), writes
     kind, endpoint, payload = writes[1]
     assert (kind, endpoint) == ('PATCH', '/devices/MICLIVRE'), writes
-    assert payload['plate'] == 'ABC1D23' and payload['telemetry_company'] == SUNTECH
+    assert payload['plate'] == 'ABC1D23' and 'telemetry_company' not in payload    # campo removido em 07/10/2026
     assert payload['telemetry'] == '1700099999' and payload['vehicle_type'] == 0 and payload['is_operating']
     assert payload['installer'] == 'Fulano' and payload['installation_data'] == {'suitcase': 1}
     assert 'installation_date' in payload
@@ -144,6 +156,46 @@ def testMixNaoAceitaModulo():
     assert install(s, 'MICLIVRE', '--placa', 'abc1d23', '--telemetria', 'mix2', '--modulo', '1700', '--yes') == 1
 
 
+def testInstalaMixCriaModuloMix():
+    s = FakeServer()
+    assert install(s, 'MICLIVRE', '--placa', 'abc1d23', '--telemetria', 'mix2', '--yes') == 0, s.calls
+    writes = s.writes()
+    assert writes[0] == ('POST', '/telemetries', {'id': 'MIX-MICLIVRE', 'brand': MIX2}), writes
+    assert writes[1][1] == '/devices/MICLIVRE' and writes[1][2]['telemetry'] == 'MIX-MICLIVRE'
+
+
+def testMixAntigoParaMix2TrocaSoAMarca():
+    s = FakeServer()
+    s.modules['MIX-MICLIVRE'] = {'id': 'MIX-MICLIVRE', 'chip': '', 'vehicle': None, 'brand': MIX}
+    s.devices['MICLIVRE']['telemetry'] = 'MIX-MICLIVRE'
+    assert install(s, 'MICLIVRE', '--placa', 'abc1d23', '--telemetria', 'mix2', '--yes') == 0, s.calls
+    writes = s.writes()
+    assert writes[0] == ('PATCH', '/telemetries/MIX-MICLIVRE', {'brand': MIX2}), writes
+    assert 'telemetry' not in writes[1][2]                     # já aponta para o módulo certo
+
+
+def testSuntechSemModuloNumAparelhoMixRecusa():
+    s = FakeServer()
+    s.modules['MIX-MICLIVRE'] = {'id': 'MIX-MICLIVRE', 'chip': '', 'vehicle': None, 'brand': MIX2}
+    s.devices['MICLIVRE']['telemetry'] = 'MIX-MICLIVRE'
+    assert install(s, 'MICLIVRE', '--placa', 'abc1d23', '--telemetria', 'suntech', '--yes') == 1
+    assert not s.writes()
+
+
+def testModuloDeOutraMarcaRecusado():
+    s = FakeServer()
+    s.modules['1700055555'] = {'id': '1700055555', 'chip': '', 'vehicle': None, 'brand': SUNTECH}
+    rc = install(s, 'MICLIVRE', '--placa', 'abc1d23', '--telemetria', 'entrack', '--modulo', '1700055555', '--yes')
+    assert rc == 1 and not s.writes()
+
+
+def testSuntechNoModuloAtualGravaAMarca():
+    s = FakeServer()
+    s.modules['1700006560']['brand'] = ''                      # módulo sem marca: o install completa
+    assert install(s, 'MICINST', '--placa', 'rjt5e02', '--telemetria', 'suntech', '--yes') == 0, s.calls
+    assert s.writes()[0] == ('PATCH', '/telemetries/1700006560', {'brand': SUNTECH}), s.writes()
+
+
 def edit(server, *argv):
     sighir.get_req, sighir.post_req = server.get, server.post
     args = sighir.build().parse_args(['edit', *argv])
@@ -165,7 +217,7 @@ def testEditVoltouDaPrediletoVaiParaLogika():
     assert writes[0] == ('POST', '/telemetries', {'id': '1700077777', 'chip': '8955'}), writes
     kind, endpoint, payload = writes[1]
     assert (kind, endpoint) == ('PATCH', '/devices/MICINST')
-    assert payload == {'company': LOGIKA, 'telemetry': '1700077777', 'plate': None, 'telemetry_company': None,
+    assert payload == {'company': LOGIKA, 'telemetry': '1700077777', 'plate': None,
                        'installation_date': None, 'installer': '', 'installation_data': {}, 'need_update': True}, payload
     assert 'series_num' not in payload and 'sensor_id' not in payload    # só o que mudou
 

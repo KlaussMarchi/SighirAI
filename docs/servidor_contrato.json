@@ -274,12 +274,12 @@
      "so_leitura": false,
      "tipo": "field"
     },
-    "telemetry_company": {
+    "telemetry_brand": {
      "obrigatorio": false,
-     "so_leitura": false,
-     "tipo": "field"
+     "so_leitura": true,
+     "tipo": "string"
     },
-    "telemetry_company_label": {
+    "telemetry_brand_label": {
      "obrigatorio": false,
      "so_leitura": true,
      "tipo": "string"
@@ -328,8 +328,8 @@
     "software_version",
     "srv_created_at",
     "telemetry",
-    "telemetry_company",
-    "telemetry_company_label",
+    "telemetry_brand",
+    "telemetry_brand_label",
     "timestamp",
     "update_settings",
     "updated_at",
@@ -338,7 +338,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 281
+   "total": 279
   },
   "etilometers/": {
    "escrita": {
@@ -425,8 +425,8 @@
     },
     "telemetry": {
      "obrigatorio": false,
-     "so_leitura": false,
-     "tipo": "field"
+     "so_leitura": true,
+     "tipo": "string"
     },
     "telemetry_label": {
      "obrigatorio": false,
@@ -482,7 +482,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 147
+   "total": 145
   },
   "firmwares/": {
    "escrita": {
@@ -617,7 +617,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 286940
+   "total": 288846
   },
   "sensors/": {
    "escrita": {
@@ -753,6 +753,22 @@
   },
   "telemetries/": {
    "escrita": {
+    "brand": {
+     "escolhas": [
+      "44922499000",
+      "12729135000171",
+      "17131425000132",
+      "17131425000130"
+     ],
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "choice"
+    },
+    "brand_label": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "string"
+    },
     "chip": {
      "max": 30,
      "obrigatorio": false,
@@ -851,6 +867,8 @@
     }
    },
    "leitura": [
+    "brand",
+    "brand_label",
     "chip",
     "deleted",
     "has_to_block",
@@ -872,7 +890,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 84
+   "total": 178
   },
   "user-connections/": {
    "escrita": {},
@@ -892,7 +910,7 @@
     "username"
    ],
    "metodos": [],
-   "total": 183
+   "total": 188
   }
  },
  "banco": {
@@ -941,9 +959,11 @@
    "Etilometros.0030_device_camera_service_device_installation_data_and_more",
    "Etilometros.0031_rename_suntech_telemetry_and_more",
    "Etilometros.0032_remove_telemetry_device_alter_device_telemetry",
-   "Etilometros.0033_alter_device_installation_data"
+   "Etilometros.0033_alter_device_installation_data",
+   "Etilometros.0034_telemetry_brand",
+   "Etilometros.0035_remove_device_telemetry_company"
   ],
-  "snapshot": "07/10/2026 10:20",
+  "snapshot": "08/10/2026 09:58",
   "tabelas": {
    "Etilometros_anomaly": [
     "id",
@@ -994,14 +1014,13 @@
     "updated_at",
     "software_version",
     "camera_service",
+    "installation_data",
     "installation_date",
     "installer",
     "is_operating",
     "nickname",
     "plate_id",
-    "telemetry_company_id",
-    "telemetry_id",
-    "installation_data"
+    "telemetry_id"
    ],
    "Etilometros_etilometro": [
     "id",
@@ -1089,7 +1108,8 @@
     "updated_at",
     "lat",
     "lon",
-    "chip"
+    "chip",
+    "brand"
    ],
    "Etilometros_vehicle": [
     "id",
@@ -1149,7 +1169,7 @@
    ]
   }
  },
- "capturado": "07/10/2026 10:36 (BRT)",
+ "capturado": "08/10/2026 10:07 (BRT)",
  "raiz_api": [
   "anomalies",
   "calibrations",

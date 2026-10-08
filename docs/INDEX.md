@@ -53,7 +53,7 @@ Fora do git (grandes ou sensíveis): `Notion/` (136 MB, tem credenciais na `Hand
 
 <!-- KB:AUTO:BEGIN -->
 
-## Catálogo automático (gerado por `tools/kb.py atualizar` em 07/10/2026 10:35)
+## Catálogo automático (gerado por `tools/kb.py atualizar` em 08/10/2026 10:03)
 
 Não edite este bloco à mão: descrições vêm de `tools/catalogo.json` (registre com `kb.py revisado`). ⚠ = novo/alterado e ainda não revisado.
 
@@ -65,11 +65,11 @@ Não edite este bloco à mão: descrições vêm de `tools/catalogo.json` (regis
 | `diagnostico.md` | Playbook por sintoma: hipóteses, testes, soluções, casos, categorias de anomalias — *quando:* qualquer problema de campo |
 | `eletrica_instalacao.md` | Cabos, pinagens, relé, chicote Suntech, instalação, validação, bancada, lições de campo — *quando:* elétrica e instalação |
 | `firmware_reference.md` | Eventos $ETEVnn! com linha do firmware, fluxos e o que cada telemetria repassa (medido no banco) — *quando:* interpretar eventos e logs |
-| `migracao_servidor.md` | Roteiro quando o servidor muda: contrato.py diferenca (rotas/campos/tabelas/migrações × referência, com quem usa), medir no snapshot, onde mexer em cada IA, testar, histórico das migrações — *quando:* servidor/tabelas/API mudaram, erro 404/400 novo numa IA, aviso 'O CONTRATO MUDOU' |
+| `migracao_servidor.md` ⚠ | Roteiro quando o servidor muda: contrato.py diferenca (rotas/campos/tabelas/migrações × referência, com quem usa), medir no snapshot, onde mexer em cada IA, testar, histórico das migrações — *quando:* servidor/tabelas/API mudaram, erro 404/400 novo numa IA, aviso 'O CONTRATO MUDOU' |
 | `operacao_telas.md` | Telas (texto exato), cores, sons, fluxo do teste e menu ID/INFO/CONFIG — *quando:* o que o motorista/técnico vê |
-| `portal_app.md` | Portal web, app Sighir Monitor, portais MiX/SystemSat/Movieit, API (rotas, filtros, armadilhas) — *quando:* portal, app e servidor |
+| `portal_app.md` ⚠ | Portal web, app Sighir Monitor, portais MiX/SystemSat/Movieit, API (rotas, filtros, armadilhas) — *quando:* portal, app e servidor |
 | `sensor_calibracao.md` | Sensor, sopro, estabilização, purga, vida útil, calibração, troca de sensor, falso positivo — *quando:* problemas de sensor/sopro/leitura |
-| `server_reference.md` | Schema do servidor Django, sincronização, instalar/editar/deletar, rotas — *quando:* operar no banco/servidor |
+| `server_reference.md` ⚠ | Schema do servidor Django, sincronização, instalar/editar/deletar, rotas — *quando:* operar no banco/servidor |
 | `sincronizar.md` | Procedimento "sincronizar os documentos": Notion inteiro (API ou conector) + resumo do servidor + índice, e o que revisar depois — *quando:* atualizar a base docs/ |
 | `sistema.md` | Visão geral: peças, identidades, fluxo de dados, ciclo de uso, perfis, glossário — *quando:* entender o sistema |
 | `telemetrias.md` | MiX/MIX 2.0/Suntech/Entrack: ignição, bloqueio, handshake, portais, o que chega ao servidor — *quando:* problemas de integração/telemetria |
@@ -143,6 +143,7 @@ Código-fonte real do etilômetro em `hardware/Main/` (versão no `Main.ino`: **
 | `Datasheet/tex/desenhos.tex` | desenhos.tex (10 KB) |
 | `Datasheet/tex/telas.tex` | telas.tex (6 KB) |
 | `ServerAnalysis/files/db.sqlite3` | snapshot do banco de produção (SQLite) (141 MB) |
+| `fluxograma_tester.pdf` ⚠ | Procedimento padrão · Bancada e produção do etilômetro · Rev. 1 — 07/10/2026 (4 MB) |
 | `servidor_contrato.json` | servidor_contrato.json (23 KB) |
 
 Imagens soltas indexadas por nome: 34. Chamados de campo resumidos em `casos_notion.md` (gerado).

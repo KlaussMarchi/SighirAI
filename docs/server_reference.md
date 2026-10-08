@@ -9,7 +9,11 @@
 > **Reestruturação em produção desde 24/09/2026** (Notion → Tarefas → Servidor, "CHALLENGE — Consertar
 > servidor"; migrações `0030`–`0033`, a última em 06/10/2026). Conferido no snapshot e na API em
 > 07/10/2026 — o §2 já descreve o modelo novo:
-> - A instalação passou para o **`Device`** (`plate_id` → `Vehicle`, `telemetry_company`, `installer`,
+> - **07/10/2026 (`0034_telemetry_brand`, `0035_remove_device_telemetry_company`):** a telemetria saiu do
+>   device e virou a **marca do módulo** (`Telemetry.brand` = CNPJ da Company `type=telemetry`). Toda instalação
+>   aponta para um módulo; na **MiX** é um módulo próprio `MIX-<MIC>` (94 criados pela migração). O device só
+>   mostra `telemetry_brand`/`telemetry_brand_label` (leitura); `etilometers/.telemetry` deriva disso.
+> - A instalação passou para o **`Device`** (`plate_id` → `Vehicle`, `telemetry_company` (até 07/10), `installer`,
 >   `installation_date`, `installation_data`, `is_operating`, `camera_service`, `nickname`). A rota
 >   continua `etilometers/` (não virou `installed/`), agora com `id` = ESP ID. A tabela `Etilometro`
 >   ficou **legada e congelada em 18/09/2026** (143 linhas; ainda existe no banco).
@@ -84,8 +88,8 @@ Todos herdam de **`BaseSyncModel`** → adicionam: `srv_created_at` (auto), `upd
 | `sensor_id` | Char(30) | cartucho `ETL...` |
 | `series_num` | Char(30) | nº de série (etiqueta) |
 | `plate` | FK→Vehicle (nullable) | `plate_id` (inteiro); preenchido = **instalado** (148 em 07/10/2026; placa única por aparelho) |
-| `telemetry_company` | FK→Company (nullable) | CNPJ de uma Company **type=`telemetry`** (2 instalados apontam para transportadora) |
-| `telemetry` | FK→Telemetry (nullable) | módulo rastreador; **nulo na MiX** (ver o aviso no topo) |
+| `telemetry` | FK→Telemetry (nullable) | módulo: rastreador Suntech/Entrack ou, na MiX, `MIX-<MIC>` (desde 07/10/2026) |
+| `telemetry_brand` + `_label` (API) | só leitura | CNPJ/nome da telemetria = `brand` do módulo (era `telemetry_company`, removido em 07/10/2026) |
 | `installer` | Char | **string livre** (nome do instalador), não é FK |
 | `installation_date` | DateTime | |
 | `installation_data` | JSON | livre: `observation`, e na maleta `suitcase: 1` + parâmetros (`max_postpone`, `maneuver_time`…) |
@@ -104,7 +108,8 @@ Todos herdam de **`BaseSyncModel`** → adicionam: `srv_created_at` (auto), `upd
 ### `Telemetry`  (módulo rastreador; ex-`Suntech`, rota `telemetries/`)
 | Campo | Tipo | Notas |
 |---|---|---|
-| `id` | Char(40) **PK** | ID do módulo (Suntech `1700…`, Entrack `69…`) |
+| `id` | Char(40) **PK** | ID do módulo (Suntech `1700…`, Entrack `69…`, MiX `MIX-<MIC>`) |
+| `brand` (+ `brand_label`) | choice | **telemetria** (desde 07/10/2026): CNPJ — MIX `17131425000132`, MIX 2.0 `17131425000130`, Suntech `44922499000`, Entrack `12729135000171` |
 | `vehicle` (API) | | placa do aparelho vinculado (só leitura; o filtro `?vehicle=` é ignorado) |
 | `model`, `ip`, `port`, `last_stt`, `chip`, `lat`, `lon` | | |
 | flags | Bool | `has_to_block`, `has_to_unblock`, `is_connected`, `is_ignition_on`, `is_relay_on` |
@@ -158,20 +163,22 @@ em Suntech/Entrack, o ID do módulo e o chip. Opcionais: `installer`, `nickname`
 
 ```json
 PATCH devices/MIC…/
-{ "plate": "ABC1D23", "vehicle_type": 0, "telemetry_company": "<CNPJ da telemetria>",
-  "telemetry": "<ID do módulo, se Suntech/Entrack>", "is_operating": true,
+{ "plate": "ABC1D23", "vehicle_type": 0,
+  "telemetry": "<ID do módulo; na MiX, MIX-<MIC>>", "is_operating": true,
   "installation_date": "2026-10-07T12:00:00+00:00", "installer": "Fulano",
   "installation_data": {"observation": "…"} }
 ```
 
 **Antes de gravar:** a placa já está em outro aparelho (`etilometers/`, `vehicle`)? o aparelho já está em
 outra placa (`devices/<MIC>.plate`)? → é **troca**: confirme com o usuário. Reinstalar na mesma placa não
-muda a data de instalação. **Depois:** confira `devices/<MIC>/` (`plate`, `telemetry_company`, `telemetry`) e
+muda a data de instalação. A telemetria vai **no módulo** antes do PATCH: `POST telemetries/` (`id`, `chip`,
+`brand`) ou `PATCH telemetries/<id>/ {"brand": "<CNPJ>"}`. **Depois:** confira `devices/<MIC>/` (`plate`,
+`telemetry`, `telemetry_brand`) e
 `etilometers/` (a placa aparece com o `esp_id`).
 
 **Editar / desinstalar / trocar de cliente** (aparelho que voltou): `PATCH devices/<MIC>/` só com o que muda
-(`company`, `telemetry`, `sensor_id`, `series_num`…). Tirar da placa = `plate`, `telemetry_company` e
-`installation_date` nulos (a API aceita `null` nesses campos — validação de 07/10/2026). CLI:
+(`company`, `telemetry`, `sensor_id`, `series_num`…). Tirar da placa = `plate` e `installation_date` nulos
+(a telemetria fica no módulo) (a API aceita `null` nesses campos — validação de 07/10/2026). CLI:
 `Tester/tools/sighir.py edit <MIC> [--company X] [--desinstalar] [--modulo ID|none] [--chip N] … [--yes]`.
 
 CLI: `Tester/tools/sighir.py install <MIC> --placa <P> --telemetria mix2|mix|suntech|entrack [--modulo ID

@@ -76,6 +76,30 @@ a primeira vez dar certo.
 
 ## Histórico
 
+### 07/10/2026 — migrações `0034_telemetry_brand` e `0035_remove_device_telemetry_company`
+
+**Servidor (18h21–18h24 UTC):** a telemetria saiu do `Device` (`telemetry_company` removido) e virou a marca do
+módulo, `Telemetry.brand` (CNPJ: MIX `17131425000132`, MIX 2.0 `17131425000130`, Suntech `44922499000`, Entrack
+`12729135000171`). Toda instalação aponta para um módulo; a MiX ganhou um módulo próprio `MIX-<MIC>` por aparelho
+(94 criados na migração, 93 ligados). O device mostra `telemetry_brand`/`telemetry_brand_label` (só leitura) e
+`etilometers/.telemetry`/`telemetry_label` derivam disso (rótulos agora "Mix Telematics (novo)", "Suntech"…:
+as IAs comparam em maiúsculas). Achado em 08/10/2026 pelo `testar.py --api` (contrato).
+
+**Adaptado (08/10/2026):**
+- Tester: `install` grava a marca no módulo (`POST`/`PATCH telemetries/` com `brand`; MiX cria/usa `MIX-<MIC>`)
+  e confere `telemetry_brand`; recusa rastreador de outra marca e Suntech/Entrack sem `--modulo` num aparelho
+  que hoje está na MiX; `edit --desinstalar` não mexe mais na telemetria; rótulos lidos de `telemetry_brand_label`.
+  `ensureModule(..., mine=True)` não barra o módulo do próprio aparelho. Testes: `tools/test_cli.py` (+5).
+- Helper: `WRITABLE` sem `telemetry_company`; `brand` gravável em `telemetries`.
+- `contrato.py` (`USO`) e docs (`server_reference.md`, `portal_app.md`, `cadastro.md`, `AGENTS.md`).
+- **Gravação verificada em produção (08/10/2026)** com MIC4598591955329199 (estoque Sighir) na placa `BANCADA`:
+  `install` MIX 2.0 (cria `MIX-<MIC>` com a marca) → MIX antigo (troca só a marca) → Suntech com módulo novo
+  (cria com a marca) → recusa Entrack em módulo Suntech → Helper `veiculo` confere → `edit --desinstalar
+  --modulo none`; `vehicle_type` voltou a nulo e os módulos de teste foram apagados (404). Estado final = inicial.
+- No mesmo dia a senha da conta de serviço `sighir@gmail.com` mudou (Tester, Server, Helper, `servidor.py` e o
+  app desktop de calibração). A senha nova da `sighir_admin` não serve às IAs: ela não tem empresas liberadas
+  e a API devolve 0 aparelhos/logs (sem erro).
+
 ### 24/09 a 06/10/2026 — migrações `0030`–`0033` ("CHALLENGE — consertar servidor")
 
 **Servidor:** a instalação passou para o `Device` (`plate` → `Vehicle`, `telemetry_company` = CNPJ,

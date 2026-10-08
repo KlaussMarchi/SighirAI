@@ -67,7 +67,7 @@ edite só o que muda com `edit` (o histórico de logs e o número de série cont
 | Opção | Efeito no servidor |
 |---|---|
 | `--company X` | `company` (transportadora dona). Com o aparelho ainda numa placa, exige `--desinstalar` (ou `--forcar`) |
-| `--desinstalar` | tira da placa: `plate`, `telemetry_company`, `installation_date` = nulos; `installer`, `nickname` vazios; `installation_data` = `{}` |
+| `--desinstalar` | tira da placa: `plate`, `installation_date` = nulos (a telemetria fica no módulo); `installer`, `nickname` vazios; `installation_data` = `{}` |
 | `--modulo ID` / `--modulo none` | troca / desvincula o módulo (`telemetry`); módulo novo é criado em `/telemetries` |
 | `--chip N` | chip do módulo (novo ou o atual) em `/telemetries` |
 | `--sensor ETL…` / `--sensor usb` | `sensor_id` (troca de sensor) |
@@ -84,15 +84,16 @@ Servidor Django em repositório `etilometro-server-v2` (fora desta máquina) (ac
 **Mapa completo do schema, API e procedimentos: `../docs/server_reference.md` — leia-o antes de qualquer operação de banco.**
 
 **Tabelas (modelo desde a migração de 24/09/2026; esquema completo em `../docs/server_reference.md` §2):**
-`Device` (aparelho **e** instalação, PK = ESP ID: `plate` → `Vehicle`, `telemetry_company` = CNPJ da telemetria,
+`Device` (aparelho **e** instalação, PK = ESP ID: `plate` → `Vehicle`, `telemetry_brand` = CNPJ da telemetria (só leitura, vem do módulo),
 `telemetry` = módulo, `installer`, `installation_date`, `installation_data`, `is_operating`), `Vehicle` (placa;
 **sem rota** — o servidor cria/associa pela `plate` do device), `Telemetry` (módulo Suntech/Entrack + `chip`,
 rota `/telemetries`), `Company` (`type=transportation`|`telemetry`). `Etilometro` é legado (congelado em
 18/09/2026); `/etilometers` continua como **leitura** das instalações (`id` = ESP ID).
 
 **Instalar um etilômetro** = associar o aparelho a uma placa: `PATCH /devices/<esp_id>` com `plate`,
-`vehicle_type` (0 = caminhão, 1 = carro), `telemetry_company` (CNPJ da Company `type=telemetry`) e, em
-Suntech/Entrack, `telemetry` (ID do módulo). Pergunte o que faltar.
+`vehicle_type` (0 = caminhão, 1 = carro) e `telemetry` = módulo. Desde 07/10/2026 a telemetria é a **marca do
+módulo** (`telemetries/<id>.brand` = CNPJ da Company `type=telemetry`): em Suntech/Entrack o módulo é o
+rastreador (`--modulo`); na MiX, o módulo próprio `MIX-<MIC>`, que o `install` cria. Pergunte o que faltar.
 1. **Valide** que o `Device` existe e **deduplique**: a placa já está em outro aparelho? o aparelho já está em
    outra placa? (é troca → confirme e use `--forcar`).
 2. **Confirme os dados** com o usuário (grava em **produção**).

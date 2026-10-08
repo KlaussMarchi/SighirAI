@@ -16,6 +16,12 @@ suporte técnico) + base comum `docs/`. Visão geral e uso: `README.md`. Mapa da
   `<Pasta>_Claude.exe`/`<Pasta>_Gemini.exe`, `start.sh`.
 - **Arquivos idênticos nas três pastas**: `tools/boot.py`, `tools/_venv.py`, `tools/launcher/*`,
   `start.sh`. Mudou um → copie para as outras e recompile os `.exe` (`tools/launcher/build.ps1`).
+- **Sem código compartilhado entre IAs** (independência): cada uma tem o seu cliente da API de produção
+  (`https://sighir.com:8000/api/v2`, JWT `token/` + `token/refresh/`) — `Tester/utils/api.py`,
+  `Server/scanner/api.py`, `Helper/tools/api.py`. Mudança de rota/campo se replica nas três.
+- Tester: `tools/sighir.py` (CLI não interativa usada pelos agentes; subcomandos na docstring) →
+  `tools/core.py` → `objects/` (`Device`, `Serial`, `Server`, `Updater`) + `protocol.json` (comandos/eventos
+  `$ETEV…!` do firmware). `main.py` é o programa interativo antigo da bancada.
 - `docs/tools/kb.py`: indexa `docs/` (PDF via pdftotext/pypdf), gera o bloco automático do `INDEX.md` e
   o `casos_notion.md` e o `troubleshooting.md`; catálogo curado em `docs/tools/catalogo.json`.
 - **"Sincronizar os documentos"** (ou "sincronize com o notion") → siga `docs/sincronizar.md`, sem perguntar:
@@ -42,6 +48,7 @@ python docs/tools/sincronizar.py [--sem-snapshot]                  # "sincroniza
 python docs/tools/notion_sync.py status | mcp-proximos | mcp-fim --arquivar
 python docs/tools/servidor.py resumo | snapshot                    # produção → docs (só leitura)
 python docs/tools/test_notion_sync.py          # testes do sincronizador (sem rede)
+python docs/tools/test_contrato.py             # testes do contrato.py (sem rede)
 python docs/tools/testar.py [--api|--completo|--bancada]   # bateria das 3 IAs (docs/testes.md)
 python docs/tools/contrato.py diferenca | verificar | uso | capturar   # o que mudou no servidor
 python Tester/tools/test_cli.py                 # register/install/edit/onde/progresso do Tester com API falsa
@@ -52,6 +59,10 @@ python Helper/tools/test_helper.py              # testes do Helper (sem rede; in
 python Tester/tools/sighir.py install MIC… --placa X --telemetria mix2   # prévia de instalação (grava só com --yes)
 python Helper/tools/helper.py veiculo PLACA      # leitura da produção
 ```
+
+As suítes `test_*.py` não usam unittest/pytest: cada uma roda todas as funções `test*` do próprio arquivo e
+sai com código 1 se alguma falhar (`test_scan.py` para na primeira falha com traceback). Não há seleção de um
+teste só — rode a suíte inteira.
 
 Nesta máquina é `python` (não `python3`); no Bash use `PYTHONIOENCODING=utf-8`. AGY só carrega
 `AGENTS.md`/hooks em modo **interativo** e em pasta confiável (o `boot.py` marca); `agy -p` ignora ambos.

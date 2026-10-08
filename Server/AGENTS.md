@@ -108,8 +108,8 @@ reserva se `sensors/` cair. Atualizar (chave `.pem` fora do repo, ver README §6
 ver"): `scp -i <pwdsighir.pem> ubuntu@52.91.100.216:/home/ubuntu/v2/api/db.sqlite3 ../docs/ServerAnalysis/files/db.sqlite3`.
 Sem CLI `sqlite3` no Windows: consulte com `python -c "import sqlite3; …"`. Tabelas: `Etilometros_*`.
 Desde a migração de 24/09/2026 (0030–0033): **`device` = hardware + instalação** (`plate_id` → `vehicle`,
-`telemetry_company_id` = CNPJ da telemetria, `telemetry_id` = módulo, `installer`, `is_operating`,
-`installation_data`); `telemetry` (ex-`suntech`: módulo, `chip`, flags); `log.device_id` (todo o
+`telemetry_id` = módulo, `installer`, `is_operating`, `installation_data`); `telemetry` (ex-`suntech`: módulo,
+`chip`, flags e, desde 07/10/2026 (0034–0035), `brand` = CNPJ da telemetria; MiX = módulo `MIX-<MIC>`); `log.device_id` (todo o
 histórico); `anomaly.vehicle_id` → `vehicle.id`. **`etilometro` é legado, congelado em 18/09/2026** — não
 use. Esquema completo: `../docs/server_reference.md` §2.
 
