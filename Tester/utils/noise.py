@@ -24,6 +24,11 @@ noisePatterns = [
     r'\+QACC:(high|low)',               # entrack: resposta de ignição do módulo
     r'port changed to \d+',             # debug do NextSerial
     r'Serial2 Started at RX=\d+ e TX=\d+',
+    r'heater (ON|OFF)',                 # debug do aquecedor do sensor (v6.5)
+    r'sensor (calibrado!|descalibrado)', # debug da calibração do zero
+    r'id: \S* \| key: \d',            # suntech: print() a cada pacote STT
+    r'\(randomic\) first test: \d+ min',
+    r'No More Randomic Tests',
 ]
 
 

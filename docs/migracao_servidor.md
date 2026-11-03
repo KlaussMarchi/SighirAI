@@ -76,6 +76,19 @@ a primeira vez dar certo.
 
 ## Histórico
 
+### 08/10 a 28/10/2026 — migrações `0036`–`0041` (só acréscimos)
+
+**Servidor:** `Company` + `alerts`/`email` (0036); `Log` + `previous_company_id`/`previous_telemetry_brand` (0037);
+`Device` + `calibrated` e `sensor_id` opcional (0038–0039); tabela `DeviceChangeLog` com o histórico de placa,
+sensor, empresa e telemetria por aparelho (0040), no lugar do `SensorReplaceLog` (0041). Achado em 03/11/2026 pelo
+`sincronizar.py` ("O CONTRATO MUDOU").
+
+**Adaptado:** nada a mudar nas IAs — o `verificar` confirmou que tudo o que Tester, Server e Helper leem e gravam
+continua na API, e nenhuma usava o `SensorReplaceLog`. Docs: `server_reference.md` §2. Bateria `testar.py --completo`
+no mesmo dia. Em aberto com o time do servidor: o que liga/desliga o `calibrated` (o único `false` é o aparelho da
+bancada, que trocou de sensor) e o `default_settings` `{"lang": "PT"}` do 00004, em formato diferente do relatório
+do Tester.
+
 ### 07/10/2026 — migrações `0034_telemetry_brand` e `0035_remove_device_telemetry_company`
 
 **Servidor (18h21–18h24 UTC):** a telemetria saiu do `Device` (`telemetry_company` removido) e virou a marca do

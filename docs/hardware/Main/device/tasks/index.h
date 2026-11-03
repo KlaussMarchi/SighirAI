@@ -18,6 +18,9 @@ template <typename Parent> class Tasks{
         if(device->sensors.pressure.streaming)
             device->sensors.pressure.stream();
 
+        if(device->display.interface.menu.active)   // NO MENU SÓ O QUE NÃO ABRE TELA: OS ALERTAS DO DHT E DO SENSOR ESPERAM ELE FECHAR
+            device->sensors.warm();
+
         if(!device->display.interface.menu.active)
             device->sensors.handle();
 
@@ -63,13 +66,13 @@ template <typename Parent> class Tasks{
         if(Time::get() - device->startProg < 259200000) // 3 dias ligado direto
             return;
         
-        if(Time::get() - device->vehicle.ignition.getTime() < 10800000)  // 3h desde o ultimo teste
+        if(Time::get() - device->vehicle.ignition.getTime() < 14400000)  // 4h desde o ultimo teste
             return;
         
         if(device->vehicle.driving) // veículo tem que estar desligado
             return;
 
-        if(Time::get() - device->vehicle.valet.lastUpdate < 10800000)  // 3h desde o ultimo uso de vallet
+        if(Time::get() - device->vehicle.valet.lastUpdate < 14400000)  // 4h desde o ultimo uso de vallet
             return;
 
         device->reset();

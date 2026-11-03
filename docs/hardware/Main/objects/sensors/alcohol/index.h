@@ -12,6 +12,8 @@
 #include "storage/index.h"
 #include "screens/index.h"
 
+#define ADS_TIMEOUT 50   // A 128 SPS (PADRAO DA LIB) A CONVERSAO LEVA 8 MS
+
 
 template <typename Parent> class AlcoholSensor{
   private:
@@ -32,6 +34,7 @@ template <typename Parent> class AlcoholSensor{
     Adafruit_ADS1115 ads;
     EEPROM eeprom;
     byte ERROR_STATUS;
+    bool started = false;
     
     AlcoholSensor(Parent* dev):
         device(dev),
@@ -41,8 +44,9 @@ template <typename Parent> class AlcoholSensor{
         storage(dev){}
     
     void setup(){
-        Wire.begin(sda, scl);
-        ads.begin(storage.sensor_addr);
+        SENSOR_WIRE.begin(sda, scl);
+        ads.begin(storage.sensor_addr, &SENSOR_WIRE);
+        started = true;
         check(true);
         
         heater.setup();
@@ -61,14 +65,22 @@ template <typename Parent> class AlcoholSensor{
         check();
     }
     
+    // readADC_SingleEnded() ESPERA A CONVERSAO SEM LIMITE: UMA FALHA DO I2C NO MEIO TRAVAVA O APARELHO
     int get(){
         if(bypass)
             return 23000;
 
-        if(!eeprom.connect(storage.sensor_addr))
+        if(!started || !eeprom.connect(storage.sensor_addr))
             return -1;
-        
-        const int analog = ads.readADC_SingleEnded(pin);
+
+        const unsigned long startTime = Time::get();
+        ads.startADCReading(MUX_BY_CHANNEL[pin], false);
+
+        while(!ads.conversionComplete())
+            if(Time::get() - startTime > ADS_TIMEOUT)
+                return -1;
+
+        const int analog = ads.getLastConversionResults();
         return (analog > ANALOG_INVALID) ? analog : -1;
     }
     

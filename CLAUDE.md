@@ -20,8 +20,10 @@ suporte técnico) + base comum `docs/`. Visão geral e uso: `README.md`. Mapa da
   (`https://sighir.com:8000/api/v2`, JWT `token/` + `token/refresh/`) — `Tester/utils/api.py`,
   `Server/scanner/api.py`, `Helper/tools/api.py`. Mudança de rota/campo se replica nas três.
 - Tester: `tools/sighir.py` (CLI não interativa usada pelos agentes; subcomandos na docstring) →
-  `tools/core.py` → `objects/` (`Device`, `Serial`, `Server`, `Updater`) + `protocol.json` (comandos/eventos
-  `$ETEV…!` do firmware). `main.py` é o programa interativo antigo da bancada.
+  `tools/core.py` (`MIN_FIRMWARE` = v6.5.3) + `tools/quality.py` (ensaios e critérios) + `tools/report.py`
+  (relatório de ensaio → `Device.default_settings`; o PDF é do servidor; especificação entregue ao Jean em 30/10/2026) → `objects/`
+  (`Device`, `Serial`, `Server`, `Updater`) + `protocol.json` (comandos/eventos `$ETEV…!` do firmware). `main.py` é
+  o programa interativo antigo da bancada.
 - `docs/tools/kb.py`: indexa `docs/` (PDF via pdftotext/pypdf), gera o bloco automático do `INDEX.md` e
   o `casos_notion.md` e o `troubleshooting.md`; catálogo curado em `docs/tools/catalogo.json`.
 - **"Sincronizar os documentos"** (ou "sincronize com o notion") → siga `docs/sincronizar.md`, sem perguntar:
@@ -57,6 +59,8 @@ python <IA>/tools/boot.py setup | status | start claude|gemini --dry-run
 cd Server/scanner && python test_scan.py        # testes do scanner (sem rede)
 python Helper/tools/test_helper.py              # testes do Helper (sem rede; inclui cobertura dos eventos do firmware)
 python Tester/tools/sighir.py install MIC… --placa X --telemetria mix2   # prévia de instalação (grava só com --yes)
+python Tester/tools/sighir.py qualidade [autodiagnostico|sopro-*|sem-alcool|com-alcool]  # testes de qualidade (Tester/procedimentos/qualidade.md)
+python Tester/tools/sighir.py relatorio --tecnico NOME [--yes]   # reenvia o default_settings (configuração + relatório) ao servidor
 python Helper/tools/helper.py veiculo PLACA      # leitura da produção
 ```
 

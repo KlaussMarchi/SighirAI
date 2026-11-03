@@ -28,6 +28,9 @@ template <typename Parent> class Protocol{
         if(device->telemetry.serial.command.contains("firmware"))
             return device->telemetry.response.set(device->firmware);
 
+        if(device->telemetry.serial.command.contains("/get-data"))   // SEM EVENT(): LEITURA DE SENSOR NÃO VAI PARA O /logs.txt
+            return device->telemetry.serial.send(device->info());
+
         if(device->telemetry.serial.command.contains("ETBL02")){
             device->telemetry.response.set("$ETKAACK!");
             device->vehicle.block();
@@ -176,10 +179,18 @@ template <typename Parent> class Protocol{
 
         if(key.equals("testalc"))
             device->test.alcohol_debug = (bool) value.toInt();
-        
+
+        // ID novo (tela Gerar ID do app) vale já para /INFO e updater; o nome da rede do AP só
+        // muda quando o Wi-Fi reinicia, para não derrubar o celular conectado nele
+        if(key.equals("esp_id") && value.length() > 0)
+            device->id.set(value.get());
+
         device->settings.params.set(key.get(), value.get());
         device->telemetry.response.set(lang.ok.get());
         device->settings.save();
+
+        if(key.equals("valet") || key.equals("suitcase"))
+            device->vehicle.valet.refresh();
     }
 };
 

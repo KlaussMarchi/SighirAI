@@ -2,6 +2,7 @@
 #define STORAGE_SENSOR_H
 #include <Arduino.h>
 #include <Wire.h>
+#include "../eeprom/index.h"
 #include "blows/index.h"
 #include "../../../../utils/text/index.h"
 
@@ -54,11 +55,15 @@ template <typename Parent> class Storage{
         if(device->sensors.alcohol.debug)
             return;
 
-        id.set(read(0, 19));
-        id.set(0, 'E');
+        // ID de 19 bytes (ETL + 16 dígitos); o legado de 18 (ETL + 15) já emenda o '{' no byte 18
+        String raw = read(0, 170);
+        const int split = (raw.indexOf('{') == 18) ? 18 : 19;
+        const int open  = raw.indexOf('{', split);
+        const int close = (open == -1) ? -1 : raw.indexOf(';', open);
 
-        coefs.set(read(19, 170));
-        coefs.set(coefs.substring(coefs.indexOf('{'), coefs.indexOf(';')).get());
+        id.set(raw.substring(0, split));
+        id.set(0, 'E');
+        coefs.set((close == -1) ? String() : raw.substring(open, close));
 
         StaticJsonDocument<256> data;
         deserializeJson(data, coefs.buffer);
@@ -74,12 +79,12 @@ template <typename Parent> class Storage{
     }
     
     bool writeByte(int addr, byte val){
-        Wire.beginTransmission(eeprom_addr);
-        Wire.write((byte)(addr >> 8));   // MSB
-        Wire.write((byte)(addr & 0xFF)); // LSB
+        SENSOR_WIRE.beginTransmission(eeprom_addr);
+        SENSOR_WIRE.write((byte)(addr >> 8));   // MSB
+        SENSOR_WIRE.write((byte)(addr & 0xFF)); // LSB
 
-        Wire.write(val);
-        byte error = Wire.endTransmission();
+        SENSOR_WIRE.write(val);
+        byte error = SENSOR_WIRE.endTransmission();
 
         device->await(10);
         return (error == 0);
@@ -88,44 +93,50 @@ template <typename Parent> class Storage{
     byte readByte(int addr){
         byte rData = 0xFF;
         
-        Wire.beginTransmission(eeprom_addr);
-        Wire.write((byte)(addr >> 8));   // MSB
-        Wire.write((byte)(addr & 0xFF)); // LSB
-        byte error = Wire.endTransmission(false);
+        SENSOR_WIRE.beginTransmission(eeprom_addr);
+        SENSOR_WIRE.write((byte)(addr >> 8));   // MSB
+        SENSOR_WIRE.write((byte)(addr & 0xFF)); // LSB
+        byte error = SENSOR_WIRE.endTransmission(false);
 
         if(error != 0)
             return rData;
         
-        Wire.requestFrom(eeprom_addr, 1);
+        SENSOR_WIRE.requestFrom(eeprom_addr, 1);
 
-        if(Wire.available())
-            rData = Wire.read();
+        if(SENSOR_WIRE.available())
+            rData = SENSOR_WIRE.read();
 
         device->await(10);
         return rData;
     }
 
+    // Cada byte espera 10ms num await(), que atende o servidor web: se uma rota HTTP estiver lendo o
+    // sensor, o handleClient() aninhado derrubaria a conexão dela. Por isso o servidor fica pausado
     String read(int startIndex, int endIndex){
+        const bool busy = device->server.busy;
+        device->server.busy = true;
         String data = "";
-        
+
         for(int i=startIndex; i<endIndex; i++){
             byte byteVal = readByte(i);
             char charVal = (char) byteVal;
             data += String(charVal);
         }
 
+        device->server.busy = busy;
         return data;
     }
 
     bool write(String data, int startIndex) {
-        for(int i=0; i<data.length(); i++) {
-            byte val = (byte) data.charAt(i);
+        const bool busy = device->server.busy;
+        device->server.busy = true;
+        bool ok = true;
 
-            if(!writeByte(startIndex + i, val))
-                return false;
-        }
+        for(int i=0; i<data.length() && ok; i++)
+            ok = writeByte(startIndex + i, (byte) data.charAt(i));
 
-        return true;
+        device->server.busy = busy;
+        return ok;
     }
 
     bool genCoefs(String data){
@@ -144,6 +155,108 @@ template <typename Parent> class Storage{
         return true;
     }
 
+    // POST /CF_SENSOR do app: "$<ID><JSON>;!". Grava no mesmo formato do cf_coefs do desktop:
+    // ID + {"c1".."c4","timestamp","zero"} + ';'. Devolve nullptr ou o motivo do erro
+    const char* configure(const String& request){
+        const int start = request.indexOf('$');
+        const int open  = request.indexOf('{');
+        const int close = request.lastIndexOf('}');
+
+        if(device->sensors.alcohol.debug)
+            return "sensor em modo debug";
+
+        if(start == -1 || open < start || close < open)
+            return "formato invalido";
+
+        String newID = request.substring(start+1, open);
+        newID.trim();
+
+        if(!isSensorID(newID))
+            return "ID do sensor invalido";
+
+        StaticJsonDocument<256> received;
+
+        if(deserializeJson(received, request.substring(open, close+1)) || !received.is<JsonObject>())
+            return "JSON invalido";
+
+        if(!device->sensors.alcohol.eeprom.check(eeprom_addr, 1500))
+            return "sensor nao encontrado";
+
+        update();
+        StaticJsonDocument<256> blob;
+        const char* error = merge(received, blob, newID.equals(id.get()));
+
+        if(error != nullptr)
+            return error;
+
+        String json;
+        serializeJson(blob, json);
+
+        if(newID.length() + json.length() + 1 > 170)   // do byte 170 em diante é o contador de sopros
+            return "dados grandes demais";
+
+        int x = 0;
+        while(!write(newID + json + ";", 0))
+            if(x++ == 5)
+                return "falha ao gravar na EEPROM";
+
+        setup();
+        return (id.equals(newID) && coefs.equals(json)) ? nullptr : "falha na verificacao da EEPROM";
+    }
+
+    // Junta o pedido com o que já está no sensor. Sem coeficientes (o app manda {} ao gerar um ID
+    // novo) mantém a calibração; para atualizar, os 4 precisam vir e ser maiores que zero
+    const char* merge(JsonDocument& received, JsonDocument& blob, const bool sameID){
+        static const char* keys[] = {"c1", "c2", "c3", "c4"};
+        StaticJsonDocument<256> current;
+        deserializeJson(current, coefs.get());
+        blob.to<JsonObject>();   // sensor sem calibração ganhando ID novo grava {} (e não "null")
+        int given = 0;
+
+        for(const char* key : keys){
+            JsonVariant value = received[key];
+            double number;
+
+            if(value.isNull() || (value.is<const char*>() && strlen(value.as<const char*>()) == 0))
+                continue;
+
+            if(!jsonToNumber(value, number) || number <= 0)
+                return "coeficientes devem ser numeros maiores que zero";
+
+            blob[key] = number;
+            given++;
+        }
+
+        if(given > 0 && given < 4)
+            return "informe os 4 coeficientes";
+
+        if(given == 0 && sameID)
+            return "nenhum coeficiente enviado";
+
+        if(given == 0)
+            for(const char* key : keys)
+                if(!current[key].isNull())
+                    blob[key] = current[key];
+
+        const char* timestamp = received["timestamp"] | "";
+
+        if(strlen(timestamp) > 0 && !isTimestamp(timestamp))
+            return "data invalida";
+
+        if(strlen(timestamp) > 0)
+            blob["timestamp"] = timestamp;
+        else if(!current["timestamp"].isNull())
+            blob["timestamp"] = current["timestamp"];
+
+        double zeroValue;
+
+        if(jsonToNumber(received["zero"], zeroValue) && zeroValue > 0)
+            blob["zero"] = (int) zeroValue;
+        else if(!current["zero"].isNull())
+            blob["zero"] = current["zero"];
+
+        return nullptr;
+    }
 };
 
 #endif

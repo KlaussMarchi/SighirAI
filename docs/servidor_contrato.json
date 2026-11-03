@@ -68,7 +68,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 246
+   "total": 245
   },
   "calibrations/": {
    "escrita": {
@@ -148,13 +148,15 @@
    "metodos": [
     "POST"
    ],
-   "total": 5886
+   "total": 6391
   },
   "companies/": {
    "escrita": {},
    "leitura": [
+    "alerts",
     "data",
     "deleted",
+    "email",
     "id",
     "label",
     "locations",
@@ -164,10 +166,15 @@
     "value"
    ],
    "metodos": [],
-   "total": 32
+   "total": 33
   },
   "devices/": {
    "escrita": {
+    "calibrated": {
+     "obrigatorio": false,
+     "so_leitura": false,
+     "tipo": "boolean"
+    },
     "camera_service": {
      "escolhas": [
       "None",
@@ -310,6 +317,7 @@
     }
    },
    "leitura": [
+    "calibrated",
     "camera_service",
     "company",
     "default_settings",
@@ -338,7 +346,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 279
+   "total": 289
   },
   "etilometers/": {
    "escrita": {
@@ -482,7 +490,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 145
+   "total": 149
   },
   "firmwares/": {
    "escrita": {
@@ -565,6 +573,11 @@
      "so_leitura": false,
      "tipo": "string"
     },
+    "id": {
+     "obrigatorio": false,
+     "so_leitura": true,
+     "tipo": "integer"
+    },
     "lat": {
      "obrigatorio": false,
      "so_leitura": false,
@@ -606,6 +619,7 @@
     "created_at",
     "etilometer",
     "event",
+    "id",
     "lat",
     "lon",
     "srv_created_at",
@@ -617,7 +631,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 288846
+   "total": 316619
   },
   "sensors/": {
    "escrita": {
@@ -677,7 +691,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 525
+   "total": 554
   },
   "solutions/": {
    "escrita": {
@@ -890,7 +904,7 @@
    "metodos": [
     "POST"
    ],
-   "total": 178
+   "total": 190
   },
   "user-connections/": {
    "escrita": {},
@@ -910,7 +924,7 @@
     "username"
    ],
    "metodos": [],
-   "total": 188
+   "total": 315
   }
  },
  "banco": {
@@ -961,9 +975,15 @@
    "Etilometros.0032_remove_telemetry_device_alter_device_telemetry",
    "Etilometros.0033_alter_device_installation_data",
    "Etilometros.0034_telemetry_brand",
-   "Etilometros.0035_remove_device_telemetry_company"
+   "Etilometros.0035_remove_device_telemetry_company",
+   "Etilometros.0036_alter_telemetry_options_company_alerts_company_email",
+   "Etilometros.0037_log_previous_company_log_previous_telemetry_brand_and_more",
+   "Etilometros.0038_device_calibrated_alter_device_sensor_id",
+   "Etilometros.0039_alter_device_calibrated",
+   "Etilometros.0040_devicechangelog",
+   "Etilometros.0041_remove_sensorreplacelog_device_and_more"
   ],
-  "snapshot": "08/10/2026 09:58",
+  "snapshot": "03/11/2026 10:41",
   "tabelas": {
    "Etilometros_anomaly": [
     "id",
@@ -996,7 +1016,9 @@
     "locations",
     "deleted",
     "srv_created_at",
-    "updated_at"
+    "updated_at",
+    "alerts",
+    "email"
    ],
    "Etilometros_device": [
     "id",
@@ -1020,7 +1042,20 @@
     "is_operating",
     "nickname",
     "plate_id",
-    "telemetry_id"
+    "telemetry_id",
+    "calibrated"
+   ],
+   "Etilometros_devicechangelog": [
+    "id",
+    "srv_created_at",
+    "updated_at",
+    "deleted",
+    "kind",
+    "old_value",
+    "new_value",
+    "from_device",
+    "to_device",
+    "changed_at"
    ],
    "Etilometros_etilometro": [
     "id",
@@ -1062,21 +1097,13 @@
     "timestamp",
     "lat",
     "lon",
-    "device_id"
+    "device_id",
+    "previous_company_id",
+    "previous_telemetry_brand"
    ],
    "Etilometros_sensor": [
     "id",
     "current_calibration_id",
-    "deleted",
-    "srv_created_at",
-    "updated_at"
-   ],
-   "Etilometros_sensorreplacelog": [
-    "id",
-    "old_sensor",
-    "new_sensor",
-    "replaced_at",
-    "device_id",
     "deleted",
     "srv_created_at",
     "updated_at"
@@ -1169,7 +1196,7 @@
    ]
   }
  },
- "capturado": "08/10/2026 10:07 (BRT)",
+ "capturado": "03/11/2026 10:54 (BRT)",
  "raiz_api": [
   "anomalies",
   "calibrations",

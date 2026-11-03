@@ -106,6 +106,56 @@ def testFlavoredFileBlock():
     assert '![foto.png](foto.png)' in md and '[imagem: sumiu.png]' in md and 'notion-file-block' not in md, md
 
 
+ROOT_TOGGLES = '\n'.join([      # FORMATO DO CONECTOR DESDE 11/2026: <toggle> COM O TÍTULO NA 1ª LINHA, SEÇÕES EM CALLOUT
+    '<columns>', '<column ratio="50">', '<callout icon="/icons/feed_green.svg">', '<b>Credenciais e Acessos</b>', '',
+    '<toggle>', 'Servidor Sighir', '', '<bookmark source="https://sighir.com:8000/admin/" />', '',
+    '- <b>Usuário</b>: <i>sighir\\_admin</i>', '- <b>Senha</b>: <i>@Segredo01</i>', '</toggle>', '',
+    '<page url="https://app.notion.com/p/' + 'f' * 32 + '">', 'Senhas', '</page>', '</callout>', '',
+    '<callout icon="/icons/gradebook_green.svg">', '<b>Documentos</b>', '', '<toggle>', 'Apresentação Geral', '',
+    '<bookmark source="https://www.canva.com/x?a=1&amp;b=2" />', '',
+    '<pdf source="notion-file-block://3fb7/u9?space_id=e2b4&name=main.pdf" />', '</toggle>', '',
+    '<page url="https://app.notion.com/p/' + 'b' * 32 + '">', 'Estoque X', '</page>', '',
+    '<database url="https://app.notion.com/p/' + 'c' * 32 + '" data-source-url="collection://z" inline="false">',
+    'Controle', '</database>', '</callout>', '</column>', '</columns>', '',
+    '<callout icon="/icons/warning_red.svg">', '<b>Troubleshooting</b>', '', '<toggle>', '<b>Problemas de Sopro</b>', '',
+    '<ol>', '<li>', 'Verificar versão', '</li>', '<li>', 'Retirar o sensor', '', '1. Se sair da tela', '</li>', '</ol>', '',
+    '6. Teste de fio', '   <toggle>', '   Abrir', '', '   fio azul', '   </toggle>', '</toggle>', '',
+    '<callout color="gray_bg">', '<code>STT;1;2</code>', '</callout>', '</callout>'])
+
+
+def testFlavoredToggle():
+    with sandbox():
+        files = ns.Files(ns.State(), 1)
+        ctx = {'id': 'p', 'folder': ns.NOTION, 'base': ns.NOTION, 'attach': []}
+        open(os.path.join(ns.NOTION, 'main.pdf'), 'w').close()
+        md = ns.scrub(ns.flavored(ROOT_TOGGLES, ctx, files), ['Credenciais'])
+    assert 'sighir_admin' not in md and 'Segredo' not in md and 'Credenciais' not in md and 'Senhas' not in md, md
+    assert '## Documentos' in md and '### Apresentação Geral' in md and '[PDF: main.pdf](main.pdf)' in md, md
+    assert '[https://www.canva.com/x?a=1&b=2](https://www.canva.com/x?a=1&b=2)' in md, md
+    assert '[Estoque X] (subpágina)' in md and '[Banco: Controle]' in md, md
+    assert '## Troubleshooting' in md and '### Problemas de Sopro' in md, md
+    assert '1. Verificar versão' in md and '2. Retirar o sensor' in md and '   1. Se sair da tela' in md, md
+    assert 'Abrir' not in md and 'fio azul' in md and '> `STT;1;2`' in md, md
+    assert '<' not in md.replace('<br', ''), md                                  # NENHUMA TAG DO CONECTOR SOBRA
+
+
+def testMcpCrawlToggle():
+    root, sub, db = 'a' * 32, 'b' * 32, 'c' * 32
+    with sandbox() as tmp:
+        state = ns.State()
+        ns.mcpStart(CFG, state)
+        f = os.path.join(tmp, 'root.json')
+        json.dump({'text': f'<page url="https://app.notion.com/p/{root}">\n<properties>\n{{"title":"Raiz"}}\n</properties>\n'
+                           f'<content>\n{ROOT_TOGGLES}\n</content>\n</page>'}, open(f, 'w', encoding='utf-8'))
+        ns.mcpPage(type('A', (), {'arquivos': [f]}), CFG, ns.State())
+        data = ns.State().data
+        fila = data['fila']
+        md = open(os.path.join(ns.NOTION, f'Raiz {root}.md'), encoding='utf-8').read()
+    assert set(fila) == {sub, db}, fila                         # A PÁGINA DENTRO DO CALLOUT "Credenciais" NÃO ENTRA
+    assert fila[sub]['titulo'] == 'Estoque X' and data['bancos'][db]['titulo'] == 'Controle', data
+    assert 'sighir_admin' not in md and '## Documentos' in md, md
+
+
 def testMcpProps():
     props = {'Problema': 'X', 'Status': 'Concluído', 'date:Data:start': '2025-08-28T21:03:00.000Z',
              'date:Data:is_datetime': 1, 'Empresa': '["Predileto"]',
@@ -140,6 +190,8 @@ class FakeApi:
         t = lambda s, **a: [{'type': 'text', 'plain_text': s, 'annotations': a}]  # noqa: E731
         self.blocks = {
             root: [
+                {'id': 'c1', 'type': 'callout', 'has_children': True,
+                 'callout': {'rich_text': t('Credenciais e Acessos'), 'icon': {'type': 'external'}}},
                 {'id': '1', 'type': 'heading_2', 'heading_2': {'rich_text': t('💳 Credenciais')}},
                 {'id': '2', 'type': 'paragraph', 'paragraph': {'rich_text': t('Senha: segredo')}},
                 {'id': '3', 'type': 'heading_2', 'heading_2': {'rich_text': t('🚚 Suporte')}},
@@ -151,6 +203,7 @@ class FakeApi:
                    'numbered_list_item': {'rich_text': t('Segundo', bold=True)}},
                   {'id': '8', 'type': 'code', 'code': {'language': 'text', 'rich_text': t('$ETEV01!')}}],
             '6': [{'id': '7', 'type': 'bulleted_list_item', 'bulleted_list_item': {'rich_text': t('detalhe')}}],
+            'c1': [{'id': 'c2', 'type': 'paragraph', 'paragraph': {'rich_text': t('Usuário: sighir_admin')}}],
             row: [{'id': 'r1', 'type': 'heading_2', 'heading_2': {'rich_text': t('Solução')}},
                   {'id': 'r2', 'type': 'paragraph', 'paragraph': {'rich_text': t('Trocar o conjunto')}}],
         }
@@ -196,7 +249,7 @@ def testRestSync():
         state, sync = run(api)
         root = os.path.join(ns.NOTION, f"Raiz {'a' * 32}.md")
         md = open(root, encoding='utf-8').read()
-        assert 'segredo' not in md and 'Credenciais' not in md
+        assert 'segredo' not in md and 'Credenciais' not in md and 'sighir_admin' not in md, md    # CALLOUT-SEÇÃO TAMBÉM SAI
         assert '### Troubleshooting' in md and '1. Primeiro' in md and '2. **Segundo**' in md
         assert '  - detalhe' in md and '$ETEV01!' in md
         csvs = [f for f in os.listdir(ns.NOTION) if f.endswith('_all.csv')]

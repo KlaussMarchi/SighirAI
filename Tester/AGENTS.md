@@ -16,11 +16,11 @@ pasta-como-módulo (`index.py`).
 ## 2. Início de sessão (obrigatório)
 
 1. `python tools/sighir.py init` — uma só chamada: preflight rápido (cache 24 h) + status do aparelho
-   (firmware, `esp_id`, `sensor_id`). No Linux use `python3` se `python` não existir; as CLIs se
-   re-executam no `.venv` sozinhas.
+   (firmware × v6.5.3, `esp_id`, `sensor_id`, `servidor:` cadastrado ou não). No Linux use `python3` se
+   `python` não existir; as CLIs se re-executam no `.venv` sozinhas.
 2. Interprete a classificação de firmware (§4) e só então siga com a tarefa.
-3. Sem porta serial / status falhou: **não conclua "quebrado"** — pergunte se está plugado e ofereça o
-   driver (fluxo em `procedimentos/ambiente_arquitetura.md` §2.1: Windows `assets\files\driver.exe`;
+3. Várias placas USB: a CLI fica com a que responde `$ETKAACK!`. Sem porta serial / status falhou: **não
+   conclua "quebrado"** — pergunte se está plugado e ofereça o driver (fluxo em `procedimentos/ambiente_arquitetura.md` §2.1: Windows `assets\files\driver.exe`;
    Linux = permissão/grupo `dialout`, `dmesg`; depois cabo de dados, `recover`).
 4. Se o hook de início avisar problema de ambiente ("Atenção"), resolva antes (`python tools/boot.py setup`).
 
@@ -35,12 +35,16 @@ pasta-como-módulo (`index.py`).
 | `block` / `unblock` | bloqueia/desbloqueia (confirma pelo `$ETEV02!`/`$ETEV01!`) |
 | `test [alcohol\|alcohol-blow\|blow\|temp\|sensor] [--telemetry mix\|suntech]` | roda teste do `protocol.json` (sem nome, lista) |
 | `erase [--force]` | garante `esp_id` nativo `MIC…`; `--force` = reset de fábrica mesmo já nativo |
-| `recover` | tira de estado travado (reset + resync) |
-| `register --company X [--series auto] [--modulo ID] [--chip N]` | cadastra o aparelho (e o módulo Suntech/Entrack em `/telemetries`, com o chip); sem `--company` lista as transportadoras |
+| `recover` | tira de estado travado (`$ETRS!` + resync; tela que não lê a serial → reset pelo pino RTS) |
+| `register --company X --tecnico NOME [--obs T] [--series auto] [--modulo ID] [--chip N]` | cadastra o aparelho (e o módulo em `/telemetries`, com o chip) gravando o `default_settings` (configuração + relatório de ensaio); sem `--company` lista as transportadoras |
+| `configurar --company X [--set chave=valor] [--yes]` | aparelho → padrão da empresa (+ pedidos); sem `--yes` só mostra; grava, reinicia e confere |
 | `install <esp_id> --placa P --telemetria mix2\|mix\|suntech\|entrack [--modulo ID --chip N] [--tipo carro] [--maleta] [--instalador N] [--yes]` | **instala** = associa o aparelho à placa (`PATCH /devices`: `plate`, telemetria, módulo); sem `--yes` só valida e mostra; `--forcar` em troca |
 | `edit <esp_id> [--company X] [--modulo ID\|none] [--chip N] [--sensor ETL…\|usb] [--series N] [--desinstalar] [--rearmar] [--yes]` | **edita** aparelho já cadastrado (ex.: voltou de um cliente e vai para outro): muda só o que foi pedido, mostra antes → depois, grava com `--yes` e confere |
 | `server-device <esp_id>` / `server-delete <esp_id> --yes` | consulta / **deleta de verdade** no servidor |
-| `flash` | re-arma `need_update` + baixa + flasha firmware pela serial (~4 min — **em background**) |
+| `flash [--forcar]` | baixa e grava pela serial (~5 min — **em background**): cadastrado = build da empresa (re-arma `need_update`); novo = build genérica Sighir; já atualizado = não grava |
+| `qualidade [etapas] [--vezes N] [--forca F]` | sem etapas = `serial temperatura sensor calibracao pressao` (~40 s); com operador: `autodiagnostico`, `sopro-nenhum`, `sopro-incompleto`/`sopro-completo --forca fraco\|medio\|forte` (3×), `sem-alcool`, `com-alcool` |
+| `relatorio --tecnico NOME [--obs T] [--yes]` | reenvia o `default_settings` de aparelho cadastrado (PATCH); o servidor gera o PDF no portal |
+| `monitor [--segundos S]` | `/get-data` ao vivo: temperatura, umidade, analog, pressão, chave (debug dos sensores) |
 | `progresso` | porcentagem do flash em andamento (espera até 20 s); **mostre ao usuário a cada 20 s** |
 | `onde <MIC\|ETL\|módulo\|placa\|série>` | onde esse identificador já está cadastrado (empresa, placa, série, módulo) |
 
@@ -48,10 +52,17 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
 
 ## 4. Regras críticas
 
-- **Firmware** (`procedimentos/firmware.md`): mínimo **6.4.0**. `ok` ≥ 6.4.0; `below_min` = bloqueie
-  cadastro/telemetria e ofereça atualização; `old` = `$firmware!` sem resposta válida → firmware muito
-  antigo → atualização pelo Wi-Fi (§7.2). Confirme versão **no aparelho**, nunca pelo `software_version`
-  do servidor (defasa). **`/update` é one-shot**: nunca faça "download de teste"; o `flash` re-arma sozinho.
+- **Cadastrar = pipeline** (`procedimentos/qualidade.md`): `init` → **pergunte primeiro, numa mensagem: o padrão é
+  atualizar e fazer todos os testes — segue assim, só atualizar, só testar ou nenhum? E o nome dele** → `flash` →
+  `qualidade` + as etapas com operador (avise **antes** o que fazer na tela) → `configurar --company X` (mostre e
+  **pergunte se muda alguma configuração**) → `register … --tecnico "<nome>"` (grava o `default_settings`).
+  Repetir testes (`--vezes N`) só se ele pedir. Reprovou → pergunte antes de cadastrar.
+  Etapas com operador levam até ~6 min: rode com timeout de 10 min (ou em background e acompanhe), nunca o padrão.
+- **Firmware** (`procedimentos/firmware.md`): mínimo **v6.5.3**. `below_min`/`old` = qualidade e cadastro
+  bloqueados (código 2) → atualize; `old` = `$firmware!` sem resposta válida → atualização pelo Wi-Fi (§7.2).
+  Build do servidor abaixo de v6.5.3 → o `flash` recusa (código 2): avise que falta publicar a versão.
+  Confirme versão **no aparelho**, nunca pelo `software_version` do servidor (defasa). **`/update` é one-shot**:
+  nunca faça "download de teste"; o `flash` re-arma sozinho.
   Flash **sempre em background com log** (`flash.log`) e, **a cada 20 s, mostre ao usuário a porcentagem**
   (`python tools/sighir.py progresso` até sair `concluído`; `procedimentos/firmware.md` §7.1).
 - **Cadastro** (`procedimentos/cadastro.md`): exige firmware `ok` e `esp_id` nativo `MIC…` (o `register`
@@ -86,7 +97,8 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
 
 ## 5. Conhecimento
 
-- `procedimentos/`: `firmware.md` (regras + flash + Wi-Fi), `cadastro.md` (cadastro + servidor Django),
+- `procedimentos/`: `qualidade.md` (pipeline do cadastro, testes de qualidade, `monitor`), `firmware.md`
+  (regras + flash + Wi-Fi), `cadastro.md` (cadastro + servidor Django),
   `serial.md` (ruído, comandos, parser, gatilho do teste, desempenho), `ambiente_arquitetura.md`
   (sem conexão, cross-platform, arquitetura, problemas de campo).
 - Base compartilhada `../docs/` — comece por **`../docs/INDEX.md`**: `diagnostico.md` (sintoma → causa →
@@ -117,5 +129,6 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
 
 - Windows ou Linux. Preparar/consertar: `python tools/boot.py setup`; estado: `python tools/boot.py status`.
 - Abrir: `Tester_Claude.exe` (Claude Sonnet 5, esforço alto) ou `Tester_Gemini.exe` (Antigravity, Gemini
-  Pro High), ambos sem pedir permissão; no Linux `bash start.sh claude|gemini`.
+  3.8 Flash High — o mais novo da família `flash-high`, `tools/ai.json`), ambos sem pedir permissão; no Linux
+  `bash start.sh claude|gemini`.
 - Fora do git: `.venv/`, `.sighir/`, `scratch/`, `flash.log`.

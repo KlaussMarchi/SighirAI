@@ -13,9 +13,11 @@ class Firmware:
         self.server = server
         self.file = None
     
-    def download(self):
-        esp_id = self.server.getDeviceInfo('ID:esp_id$', 'MIC')
-        sleep(1.5)
+    # 'admin_sighir' RECEBE A BUILD GENÉRICA SEM CONSULTAR O APARELHO: É O CAMINHO DE QUEM AINDA NÃO ESTÁ CADASTRADO
+    def download(self, esp_id=None):
+        if esp_id is None:
+            esp_id = self.server.getDeviceInfo('ID:esp_id$', 'MIC')
+            sleep(1.5)
 
         data  = {'esp_id': esp_id}
         result = post_req('/update', data, use_base_url=True)

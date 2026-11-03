@@ -68,6 +68,8 @@ class Settings{
         params.data["presstream"] = false;
         params.data["lang"]  = "PT";
         params.data["wifi"]  = false;
+        params.data["suitcase"] = false;
+        params.data["blockinv"] = false;
         params.data["reset"] = 0;
     }
 };

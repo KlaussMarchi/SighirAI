@@ -131,11 +131,15 @@ Setas no rodapé trocam de página.
 | **INFO 3** | Tempo de Viagem (médio) · Número de Sopros · Suavização do Sopro (`blowProb`) · Telemetria Ativa/Desativada + "Time Check" · Testes por Viagem |
 | **INFO 4** | Pino de Aquecimento (ligado por X) · Calibração do Sensor (zero N %) · Estabilidade do Sensor (média, erro relativo – estável/estabilizando) |
 | **CONFIG 1** | Volume do Beep (−/+) · Brilho do Display (−/+) · WiFi (liga/desliga) · Reestabelecer Conexão (troca o canal) · Atualização de Firmware |
-| **CONFIG 2** | Autodiagnóstico (Teste de Sopro / Teste de Componentes / Teste de Relé) · Teste Alcoólico · Teste de Telemetria · Configuração Remota · Reinicio de Emergência |
+| **CONFIG 2** | Autodiagnóstico (v6.5: Diagnóstico Completo / Teste de Relé; v6.4: Teste de Sopro / Teste de Componentes / Teste de Relé) · Teste Alcoólico · Teste de Telemetria · Configuração Remota · Reinicio de Emergência |
 | **CONFIG 3** | Mudar Idioma (PT/EN/ES — reinicia) |
 
-Autodiagnóstico: **Teste de Sopro** (sopre 3 s → "Estado Funcional"/"Falha no Teste"), **Teste de
-Componentes** (pressão, temperatura, sensor de álcool: `$ETEV20!` ok / `$ETEV24!` falha), **Teste de Relé**
+Autodiagnóstico na **v6.5** (`objects/diagnostic/`): **Diagnóstico Completo** roda em sequência, mesmo quando um
+falha, pressão (`pressworking`/`$ERROR!`), sopro (só com o sensor de pressão ok; sopro cortado = `$NOBLOW!` e
+"Tentar novamente?" por 5 s), temperatura (`tempworking`/`ERROR`) e sensor de álcool (`$ETEV20!`/`$ETEV24!`), e
+fecha com a tabela azul (OK)/vermelha (Falha) por 5 s — é o que o Tester escuta em `qualidade autodiagnostico`.
+Na **v6.4**: **Teste de Sopro** (sopre 3 s → "Estado Funcional"/"Falha no Teste") e **Teste de Componentes**
+(pressão, temperatura, sensor de álcool: `$ETEV20!` ok / `$ETEV24!` falha). Nas duas, **Teste de Relé**
 ("Testando Comutação do Relé": bloqueia→desbloqueia→bloqueia — **vai bloquear o veículo**).
 **Teste de Telemetria**: manda `$ETKA!` e espera 15 s por resposta do rastreador → "Estado Funcional" (com
 os primeiros caracteres recebidos) ou falha + `$ETEV06!` (rastreador não responde).

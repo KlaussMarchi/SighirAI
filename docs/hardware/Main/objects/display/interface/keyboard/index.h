@@ -140,9 +140,8 @@ template <typename Parent> class Keyboard{
 
         if(!done && display.touch.areaClick(260, 400, 50, 50))
             update(lang.ok.get());
-        
+
         display.touch.reset();
-        device->await(350);
     }
 
     void update(const char* key){
@@ -189,8 +188,10 @@ template <typename Parent> class Keyboard{
         auto& lcd = device->display.lcd;
         message   = String();
 
-        while(!done)
+        while(!done){
             handle();
+            device->sensors.warm();   // O TECLADO SEGURA O LOOP: SENSORES E SERVIDOR SEGUEM AQUI
+        }
         
         reset();
         message.trim();

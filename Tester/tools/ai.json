@@ -5,6 +5,6 @@
   "imports": ["serial", "requests", "prompt_toolkit", "pypdf"],
   "extras": ["serial"],
   "claude": {"model": "claude-sonnet-5", "effort": "high"},
-  "gemini": {"model": "auto-pro-high", "fallback": "gemini-3.1-pro-high"},
+  "gemini": {"model": "auto-flash-high", "fallback": "gemini-3.8-flash-high"},
   "prompt_inicial": "Olá! Inicie a sessão."
 }

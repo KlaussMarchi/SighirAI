@@ -63,6 +63,7 @@ EVENTS = {
     '$ETEV20': ('Sensor OK (diagnóstico)', 'autodiagnóstico do sensor de álcool aprovado'),
     '$ETEV22': ('Modo Manobrista Ativado', 'uso administrativo, partida sem teste'),
     '!ETEV23': ('Modo Manobrista Desativado', 'delimitadores invertidos de propósito no firmware'),
+    '$ETEV23': ('Modo Manobrista Desativado', 'v6.5+: sai com os delimitadores certos'),
     '$ETEV24': ('Sensor Defeituoso', 'sensor de álcool/EEPROM sem resposta no I²C'),
     '$ETEV25': ('Teste Randômico Realizado', 'teste randômico concluído'),
     '$ETEV26': ('Contrassenha Aceita', 'liberação administrativa após positivo'),

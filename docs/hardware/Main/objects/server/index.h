@@ -13,6 +13,7 @@
 #include "updater/index.h"
 #include "sleeper/index.h"
 
+#define WIFI_CONNECT_TIMEOUT 15000   // associar + pegar IP em 2,4 GHz cheio passa de 5 s
 
 template <typename Parent> class EspServer{
   private:
@@ -28,9 +29,11 @@ template <typename Parent> class EspServer{
     int channel   = 1;
     bool enabled  = false;
     bool sleeping = false;
+    bool busy     = false;  // EEPROM do sensor em uso (ver Storage::read): sem handleClient() aninhado
 
-    Text<30> wifi_ssid, server_ssid;
-    Text<30> wifi_passwd;
+    Text<33> wifi_ssid;    
+    Text<65> wifi_passwd;
+    Text<30> server_ssid;
 
     EspServer(Parent* dev):
         device(dev),
@@ -52,10 +55,8 @@ template <typename Parent> class EspServer{
         WiFi.setTxPower(WIFI_POWER_19_5dBm);
     }
 
+    // SÓ ATÉ REINICIAR: NO BOOT VALE A CONFIG "WIFI" (WIFI AUTOMÁTICO, CONFIG PÁGINA 3)
     void set(const bool state){
-        device->settings.params.set("wifi", state);
-        device->settings.save();
-
         if(!state)
             return disable();
 
@@ -69,9 +70,9 @@ template <typename Parent> class EspServer{
         if(!timer.ready())
             return;
         
-        if(!enabled || sleeper.on)
+        if(!enabled || sleeper.on || busy)
             return;
-        
+
         network.handleClient();
         updater.handleCheck();
     }
@@ -81,13 +82,14 @@ template <typename Parent> class EspServer{
         IPAddress gateway(192, 168, 1, 2);    // GATEWAY ESTÁTICO IP
         IPAddress subnet(255, 255, 255, 0);
 
+        WiFi.disconnect();   // NO CORE 3.X O STA AINDA TENTANDO A REDE ANTIGA RECUSA A NOVA (ESP_ERR_WIFI_STATE)
         WiFi.softAPConfig(staticIP, gateway, subnet);
         device->await(50);
 
         WiFi.softAP(server_ssid.get(), "12345678", channel, 0);
         device->await(50);
 
-        WiFi.begin(wifi_ssid.get(), wifi_passwd.get(), channel);
+        WiFi.begin(wifi_ssid.get(), wifi_passwd.get());   // sem canal: conectado, o AP vai para o canal do roteador
         device->await(50);
 
         routes.setup();
@@ -105,10 +107,6 @@ template <typename Parent> class EspServer{
         WiFi.mode(WIFI_AP_STA);
         setup();
         start();
-
-        if(!connected())
-            WiFi.reconnect();
-
         device->await(50);
     }
 
@@ -120,48 +118,85 @@ template <typename Parent> class EspServer{
         device->await(50);
     }
     
-    void connect(bool show=false, bool tryChannel=true){
+    void connect(bool show=false){
         if(!show)
             return enable();
 
         auto& display = device->display;
-        display.interface.msg(MSG_WHITE, lang.connectingNetwork.get());
+        display.interface.msg(MSG_BLACK, lang.connectingNetwork.get());
         enable();
-        
-        display.interface.centeredText(wifi_ssid.get(),   TFT_BLACK, display.height*0.65);
-        display.interface.centeredText(wifi_passwd.get(), TFT_BLACK, display.height*0.72);
-        
-        device->sensors.warm(5000);
+        showNetwork();
+
+        const unsigned long startTime = Time::get();
+
+        while(!connected() && Time::get() - startTime < WIFI_CONNECT_TIMEOUT)
+            device->sensors.warm(100);
+
         bool ok = connected();
-        
-        display.interface.msg(ok ? MSG_GREEN : MSG_WHITE, ok ? lang.connected.get() : lang.notConnected.get());
+
+        display.interface.msg(ok ? MSG_GREEN : MSG_BLACK, ok ? lang.connected.get() : lang.notConnected.get());
         device->sensors.warm(1000);
 
         if(ok)
-            return updater.handleCheck(true);
+            return updater.handleCheck();
         else
             device->sensors.warm(1500);
-        
-        if(show && tryChannel)
-            changeChannel();
     }
 
     void changeChannel(){
-        device->display.interface.msg(MSG_WHITE, lang.configuringChannel.get());
-        wait(1500);
+        auto& display = device->display;
 
         channel = (channel == 1)  ? 6  :
                   (channel == 6)  ? 3  :
                   (channel == 3)  ? 11 :
                   (channel == 11) ? 2  : 1;
-        
-        device->display.interface.alert(lang.changingChannel.get(), lang.configuringFor.get() + String(channel), MSG_WHITE);
-        connect(true, false);
-        wait(1500);
+
+        display.interface.msg(MSG_BLACK, lang.reconnecting.get());
+        display.interface.centeredText(String(lang.configuringChannel.get()) + " " + channel, TFT_RED, display.height*0.65);
+        device->await(2000);
+        connect(true);
     }
-    
+
+    void changeNetwork(){
+        auto& keyboard = device->display.interface.keyboard;
+        Text<65> response;   // SENHA WPA2 TEM ATÉ 64
+
+        keyboard.draw(lang.wifiConfig.get(), lang.networkName.get(), true);
+        response = keyboard.get();
+        device->settings.params.set("ssid", response.get());
+
+        keyboard.draw(lang.wifiConfig.get(), lang.networkPassword.get());
+        response = keyboard.get();
+        device->settings.params.set("passwd", response.get());
+        device->settings.save();
+        connect(true);
+    }
+
+    void showNetwork(){
+        auto& display = device->display;
+        display.interface.centeredText(wifi_ssid.get(),   TFT_WHITE, display.height*0.65);
+        display.interface.centeredText(wifi_passwd.get(), TFT_WHITE, display.height*0.72);
+    }
+
     bool connected(){
         return (WiFi.status() == WL_CONNECTED);
+    }
+
+    // GENERATE_204 SO DEVOLVE 204 COM INTERNET DE VERDADE: PORTAL CATIVO E ROTEADOR SEM LINK RESPONDEM OUTRA COISA
+    int ping(const int timeout=2500){
+        if(!connected())
+            return -1;
+
+        const unsigned long startTime = Time::get();
+        HTTPClient http;
+
+        http.begin("http://connectivitycheck.gstatic.com/generate_204");
+        http.setConnectTimeout(timeout);
+        http.setTimeout(timeout);
+
+        const int code = http.GET();
+        http.end();
+        return (code == 204) ? (int) (Time::get() - startTime) : -1;
     }
 
     void wait(const int timeout){
@@ -184,9 +219,10 @@ template <typename Parent> class EspServer{
         return ssid.get(); 
     }
 
-    void send(const char* response){
+    void send(const char* response, const int code=200){
+        sleeper.touch();
         network.sendHeader("Access-Control-Allow-Origin", "*");
-        network.send(200, "text/plain", response);
+        network.send(code, "text/plain", response);
     }
 
     String post(const String &route, const String &data, const int timeout=7000){

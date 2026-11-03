@@ -42,7 +42,6 @@ template <typename Parent> class Vehicle{
         maneuver.setup();
         valet.setup();
         camera.setup();
-
         ignition.set(false);
         ignition.reset();
     }
@@ -56,19 +55,8 @@ template <typename Parent> class Vehicle{
 
         device->display.interface.msg(MSG_RED, lang.vehicleLocked.get());
         device->display.sound.badBeep();
-        
-        if(device->telemetry.type == SUNTECH_TEL)
-            device->telemetry.suntech.block();
+        send(true);
 
-        if(device->telemetry.type == ENTRACK_TEL)
-            device->telemetry.entrack.block();
-
-        digitalWrite(relay, LOW);
-        device->await(400);
-
-        device->telemetry.event("$ETBL020000!");
-        device->await(400);
-        
         device->telemetry.event("$ETEV02!");
         device->await(400);
     }
@@ -80,20 +68,26 @@ template <typename Parent> class Vehicle{
         
         device->display.interface.msg(MSG_GREEN, lang.vehicleUnlocked.get());
         device->display.sound.goodBeep();
+        send(false);
+
+        device->telemetry.event("$ETEV01!");
+        device->await(400);
+    }
+
+    // BLOCKINV TROCA OS COMANDOS PARA RASTREADOR COM RELÉ NORMALMENTE ABERTO
+    void send(bool lock){
+        lock = (lock != device->settings.isEnabled("blockinv"));
 
         if(device->telemetry.type == SUNTECH_TEL)
-            device->telemetry.suntech.unblock();
+            lock ? device->telemetry.suntech.block() : device->telemetry.suntech.unblock();
 
         if(device->telemetry.type == ENTRACK_TEL)
-            device->telemetry.entrack.unblock();
+            lock ? device->telemetry.entrack.block() : device->telemetry.entrack.unblock();
 
         digitalWrite(relay, LOW);
         device->await(400);
 
-        device->telemetry.event("$ETBL010000!");
-        device->await(400);
-        
-        device->telemetry.event("$ETEV01!");
+        device->telemetry.event(lock ? "$ETBL020000!" : "$ETBL010000!");
         device->await(400);
     }
     

@@ -26,6 +26,7 @@ template <typename Parent> class Menu{
     int submenuContainerStartY;
     int submenuContainerHeight;
     int submenuItemListHeight;
+    int valueWidth;
     bool active;
     Page idPage;
     Page infoPage;
@@ -44,10 +45,11 @@ template <typename Parent> class Menu{
         submenuContainerStartY = lcd.height() * 0.15;
         submenuContainerHeight = lcd.height() * 0.72;
         submenuItemListHeight  = lcd.height() * (0.72 / 5);
+        valueWidth = lcd.width() * 0.82;
         
         idPage.name   = ID_PAGE;
         idPage.label  = "ID";
-        idPage.icon   = u8"\uf02d";
+        idPage.icon   = "\uf02d";
         idPage.startX = lcd.width()  * 0.05; 
         idPage.startY = lcd.height() * 0.2; 
         idPage.width  = width;
@@ -56,7 +58,7 @@ template <typename Parent> class Menu{
         
         infoPage.name   = INFO_PAGE;
         infoPage.label  = "INFO";
-        infoPage.icon   = u8"\uee59";
+        infoPage.icon   = "\uee59";
         infoPage.startX = lcd.width()  * 0.55;  
         infoPage.startY = lcd.height() * 0.2; 
         infoPage.width  = width;
@@ -65,7 +67,7 @@ template <typename Parent> class Menu{
 
         configPage.name   = CONFIG_PAGE;
         configPage.label  = "CONFIG";
-        configPage.icon   = u8"\uf0e6";
+        configPage.icon   = "\uf0e6";
         configPage.startX = lcd.width()  * 0.05; 
         configPage.startY = lcd.height() * 0.5; 
         configPage.width  = width;
@@ -74,7 +76,7 @@ template <typename Parent> class Menu{
 
         exitPage.name   = EXIT_PAGE;   
         exitPage.label  = lang.exitCaps.get();
-        exitPage.icon   = u8"\ueb97";
+        exitPage.icon   = "\ueb97";
         exitPage.startX = lcd.width()  * 0.55; 
         exitPage.startY = lcd.height() * 0.5;
         exitPage.width  = width;
@@ -113,6 +115,9 @@ template <typename Parent> class Menu{
         
         if(device->test.pass.required() && display.touch.areaClick(display.width*.1, display.height*.8, display.width*.8, display.height*.1))
             return device->test.pass.start();
+
+        if(suitcase() && display.touch.areaClick(display.width*.05, display.height*.08, display.width*.9, 45))
+            return device->test.start(true);
 
         if(device->vehicle.valet.enabled && display.touch.areaClick(display.width*.15, display.height*.08, display.width*0.7, 45))
             return device->vehicle.valet.start();
@@ -161,44 +166,34 @@ template <typename Parent> class Menu{
         if(display.touch.areaClick(0, display.height*0.6, display.width, display.height*0.4)) {
             if(!display.interface.inputs.boolean(lang.askConfigWifi.get()))
                 return display.turnOFF();
-            
-            Text<30> response;
-            display.interface.keyboard.draw(lang.wifiConfig.get(), lang.networkName.get(), true);
-            response = display.interface.keyboard.get();
-            device->settings.params.set("ssid", response.get());
 
-            display.interface.keyboard.draw(lang.wifiConfig.get(), lang.networkPassword.get());
-            response = display.interface.keyboard.get();
-            device->settings.params.set("passwd", response.get());
-            device->settings.save();
-            device->server.connect(true);
-
-            display.interface.menu.draw();
-            return;
+            device->server.changeNetwork();
+            return draw();
         }
     }
 
     void handleConfig1Touch(){
         static auto& display = device->display;
+        const int width = display.width*0.5;   // VALOR À ESQUERDA DOS BOTÕES +/-
 
         if(display.touch.areaClick(display.width*0.61, display.height*0.18, 40, 40)) {
             display.sound.increase(-10);
-            return drawConfigPage1();
+            return drawValue(0, display.sound.toString(), width);
         }
 
         if(display.touch.areaClick(display.width*0.61 + 60, display.height*0.18, 40, 40)) {
             display.sound.increase(10);
-            return drawConfigPage1();
+            return drawValue(0, display.sound.toString(), width);
         }
-        
+
         if(display.touch.areaClick(display.width*0.61, display.height*0.325, 40, 40)) {
             display.brightness.increase(-10);
-            return drawConfigPage1(); 
+            return drawValue(1, display.brightness.toString(), width);
         }
 
         if(display.touch.areaClick(display.width*0.61 + 60, display.height*0.325, 40, 40)) {
             display.brightness.increase(10);
-            return drawConfigPage1();
+            return drawValue(1, display.brightness.toString(), width);
         }
 
         if(display.touch.areaClick(display.width*0.65, display.height*0.45, 65, 65)){
@@ -241,12 +236,7 @@ template <typename Parent> class Menu{
         }
 
         if(display.touch.areaClick(0, display.height*0.6, display.width, 65)){
-            if(!device->server.connected())
-                device->server.connect(true);
-            
-            const bool worked = device->server.updater.config();
-            
-            if(!worked)
+            if(!device->server.updater.connect() || !device->server.updater.config())
                 return device->display.turnOFF();
 
             device->display.interface.msg(MSG_GREEN, lang.restarting.get());
@@ -268,6 +258,12 @@ template <typename Parent> class Menu{
     
     void handleConfig3Touch(){
         static auto& display = device->display;
+
+        if(display.touch.areaClick(display.width*0.65, display.height*0.31, 65, 65)){
+            device->settings.params.set("wifi", !device->settings.isEnabled("wifi"));
+            device->settings.save();
+            return drawConfigPage3();
+        }
 
         if(display.touch.areaClick(0, display.height*0.15, display.width, 65)){
             int option = device->display.interface.inputs.trichoices("Português", "English", "Español");
@@ -294,6 +290,18 @@ template <typename Parent> class Menu{
         return device->display.touch.areaClick(page.startX, page.startY, page.width, page.height);
     }
 
+    // modo maleta: etilômetro fora de veículo, o teste é feito pelo botão do topo do menu
+    bool suitcase(){
+        return device->settings.isEnabled("suitcase");
+    }
+
+    // no lugar do botão do manobrista (que não existe no modo maleta), com a largura da grade de botões
+    void drawTestButton(){
+        auto& display = device->display;
+        display.interface.font.setStyle(&Roboto_Regular10pt8b, TFT_BLACK);
+        display.interface.label(lang.takeAlcoholTest.get(), display.width*.05, display.height*.08, display.width*.9, 45, TFT_BLACK, GREEN);
+    }
+
     bool previousClick(){
         return device->display.touch.areaClick(lcd.width()*0.50, lcd.height()*0.85, lcd.width()*0.32, 80);
     }
@@ -312,23 +320,28 @@ template <typename Parent> class Menu{
         if(device->server.connected() && device->server.updater.needed)
             device->server.updater.requestUpdate();
 
+        if(!display.on)   // O AVISO DE ATUALIZAÇÃO JÁ APAGOU A TELA
+            return;
+
         currPage    = MENU_PAGE;
         currSubpage = 0;
         display.lcd.fillScreen(BG_COLOR);
-        drawHeaderBar("MENU", u8"\uee1d");
+        drawHeaderBar("MENU", "\uee1d");
         drawButton(idPage.label, idPage.icon, idPage.startX, idPage.startY, idPage.width, idPage.height);
         drawButton(infoPage.label, infoPage.icon, infoPage.startX, infoPage.startY, infoPage.width, infoPage.height);
         drawButton(configPage.label, configPage.icon, configPage.startX, configPage.startY, configPage.width, configPage.height);
         drawButton(exitPage.label, exitPage.icon, exitPage.startX, exitPage.startY, exitPage.width, exitPage.height);
         drawLastAlcohol();
 
-        if(device->vehicle.valet.enabled)
+        if(suitcase())
+            drawTestButton();
+        else if(device->vehicle.valet.enabled)
             device->vehicle.valet.drawButton();
 
         if(device->test.pass.required())
             display.interface.label(lang.unlockVehicle.get(), lcd.width()*.1, lcd.height()*.8, lcd.width()*.8, lcd.height()*.1, TFT_BLACK, GREEN, true);
 
-        device->await(500);
+        display.touch.reset();
     }
 
     void drawButton(const String& label, const String& icon, int startX, int startY, int width, int height){
@@ -382,11 +395,11 @@ template <typename Parent> class Menu{
         display.interface.printIcon(icon, 0.18, DARK_GREY, lcd.width() * 0.05, 4.2);
 
         if(device->server.connected())
-            display.interface.printIcon(u8"\uf2c0", 0.16, DARK_GREY, lcd.width() * 0.84, 4.5);
+            display.interface.printIcon("\uf2c0", 0.16, DARK_GREY, lcd.width() * 0.84, 4.5);
         else
-            display.interface.printIcon(u8"\uf2c2", 0.16, DARK_GREY, lcd.width() * 0.84, 4.5);
+            display.interface.printIcon("\uf2c2", 0.16, DARK_GREY, lcd.width() * 0.84, 4.5);
 
-        display.interface.printIcon(u8"\ueaca", 0.16, DARK_GREY, lcd.width() * 0.9, 4.5);
+        display.interface.printIcon("\ueaca", 0.16, DARK_GREY, lcd.width() * 0.9, 4.5);
     }
 
     void drawLastAlcohol(){
@@ -405,9 +418,10 @@ template <typename Parent> class Menu{
         setSubpage(currPage, currSubpage + 1);
     }
 
+    // DA PÁGINA 1 VOLTA AO MENU: NÃO EXISTE PÁGINA 0
     void decreasePage(){
-        if(currSubpage <= 0)
-            draw();
+        if(currSubpage <= 1)
+            return draw();
 
         setSubpage(currPage, currSubpage - 1);
     }
@@ -458,7 +472,6 @@ template <typename Parent> class Menu{
                 drawConfigPage3();
         }
 
-        device->await(400);
         device->display.touch.reset();
     }
 
@@ -488,7 +501,7 @@ template <typename Parent> class Menu{
                 display.interface.font.setStyle(&Roboto_Regular10pt8b, DARK_GREY);
                 textPos = textY + (submenuItemListHeight - lcd.fontHeight()) / 1.2;
                 lcd.setCursor(lcd.width() * 0.1, textPos);
-                lcd.print(values[i]);
+                lcd.print(fit(values[i], valueWidth));
             }
 
             if(i != numItens-1)
@@ -503,13 +516,45 @@ template <typename Parent> class Menu{
         lcd.print(lang.pageStr.get() + String(currSubpage) + "/" + String(currMaxPages));
 
         if(currSubpage == currMaxPages){
-            display.interface.printIcon(u8"\uea5c", 0.3, LIGHT_GREY, lcd.width() * 0.6, lcd.height() * 0.9);
-            display.interface.printIcon(u8"\uea68", 0.3, DARK_GREY, lcd.width() * 0.83, lcd.height() * 0.9);
+            display.interface.printIcon("\uea5c", 0.3, LIGHT_GREY, lcd.width() * 0.6, lcd.height() * 0.9);
+            display.interface.printIcon("\uea68", 0.3, DARK_GREY, lcd.width() * 0.83, lcd.height() * 0.9);
             return;
         }
 
-        display.interface.printIcon(u8"\uea5c", 0.3, LIGHT_GREY, lcd.width() * 0.6, lcd.height() * 0.9);
-        display.interface.printIcon(u8"\uea68", 0.3, LIGHT_GREY, lcd.width() * 0.83, lcd.height() * 0.9);
+        display.interface.printIcon("\uea5c", 0.3, LIGHT_GREY, lcd.width() * 0.6, lcd.height() * 0.9);
+        display.interface.printIcon("\uea68", 0.3, LIGHT_GREY, lcd.width() * 0.83, lcd.height() * 0.9);
+    }
+
+    // REDESENHA SO O VALOR DO ITEM: O RESULTADO CHEGA DEPOIS DA PAGINA JA DESENHADA, OU O +/- MUDOU SÓ ELE
+    void drawValue(const int index, const String& value, int width=0){
+        device->display.interface.font.setStyle(&Roboto_Regular10pt8b, DARK_GREY);
+
+        const int textY   = submenuContainerStartY + index * submenuItemListHeight;
+        const int textPos = textY + (submenuItemListHeight - lcd.fontHeight()) / 1.2;
+
+        if(width == 0)
+            width = valueWidth;
+
+        lcd.fillRect(lcd.width() * 0.1, textPos, width, lcd.fontHeight() + 2, LIGHT_GREY);
+        lcd.setCursor(lcd.width() * 0.1, textPos);
+        lcd.print(fit(value, width));
+    }
+
+    // MEDE COM A FONTE ATUAL; CORTA POR CARACTERE UTF-8 INTEIRO PARA NAO PARTIR ACENTO
+    String fit(String text, const int width){
+        if(lcd.textWidth(text) <= width)
+            return text;
+
+        while(text.length() > 0 && lcd.textWidth(text + "...") > width){
+            int n = text.length() - 1;
+
+            while(n > 0 && (text[n] & 0xC0) == 0x80)
+                n--;
+
+            text.remove(n);
+        }
+
+        return text + "...";
     }
 
     void drawIdPage1(){
@@ -542,13 +587,9 @@ template <typename Parent> class Menu{
             lang.vehicleType.get()
         };
 
-        const byte telType = device->telemetry.type; 
-        const char* telID  = (telType == SUNTECH_TEL) ? device->telemetry.suntech.id.get() : 
-                             (telType == ENTRACK_TEL) ? device->telemetry.entrack.id.get() : "N/A";
-
         String values[] = {
             formatTimeString(device->vehicle.ignition.getTime()),
-            telID,
+            device->telemetry.id(),
             device->sensors.alcohol.storage.calibration_date.toString(),
             String(WiFi.macAddress()),
             device->vehicle.type == 0 ? lang.truck.get() : lang.carStr.get()
@@ -567,8 +608,15 @@ template <typename Parent> class Menu{
             lang.routerSsid.get()
         };
 
+        const String telID  = device->telemetry.id();
+        const String tel    = device->telemetry.toText();
+        const String suffix = (telID.length() > 0 && telID != "N/A") ? " (" + tel + ") " + telID : " - " + tel;
+
+        device->display.interface.font.setStyle(&Roboto_Regular10pt8b, DARK_GREY);
+        const String company = fit(device->company.name, valueWidth - lcd.textWidth(suffix)) + suffix;
+
         String values[] = {
-            String(device->company.name) + " - " + String(device->telemetry.toText()),
+            company,
             (device->vehicle.blocked ? lang.blockedStr.get() : lang.unblockedStr.get()) + String(" - ") + String(device->vehicle.driving ? lang.drivingStr.get() : lang.offStr.get()),
             String(device->test.last_alcohol, 3) + " mg/L",
             formatTimeString(Time::get()) + " - " + String(device->server.sleeper.frequency) + " MHz",
@@ -627,23 +675,29 @@ template <typename Parent> class Menu{
         String labels[] = {
             lang.heaterPin.get(),
             lang.sensorCalibration.get(),
-            lang.sensorStability.get()
+            lang.sensorStability.get(),
+            lang.internetConnection.get()
         };
         
         String values[] = {
             sensor.heater.toString(),
             String(sensor.calibration.newZero) + " (" + String(sensor.calibration.getPercent(sensor.calibration.data.mean)) + "%)",
-            String((int) sensor.calibration.data.mean)  + " (" + String(sensor.calibration.data.rel)  + ") - " + String(sensor.calibration.data.rel < 0.15 ? lang.stable.get() : lang.stabilizing.get())
+            String((int) sensor.calibration.data.mean)  + " (" + String(sensor.calibration.data.rel)  + ") - " + String(sensor.calibration.data.rel < 0.15 ? lang.stable.get() : lang.stabilizing.get()),
+            lang.checkingStr.get()
         };
 
         const int size = sizeof(labels) / sizeof(labels[0]);
         drawSubmenu(infoPage, labels, values, size);
+
+        const int ms = device->server.ping();
+        const String internet = !device->server.connected() ? String(lang.noWifi.get())     :
+                                (ms < 0)                    ? String(lang.noInternet.get()) :
+                                lang.connected.get() + String(" (") + ms + " ms)";
+        drawValue(size - 1, internet);
     }
 
     void drawConfigPage1(){
-        static auto& display = device->display; 
-        
-        String labels[] = { 
+        String labels[] = {
             lang.beepVolume.get(),
             lang.displayBrightness.get(),
             lang.wifiStr.get(),
@@ -664,11 +718,7 @@ template <typename Parent> class Menu{
 
         drawAdjustButtons(lcd.width() * 0.61, lcd.height() * 0.180, 40, 40);
         drawAdjustButtons(lcd.width() * 0.61, lcd.height() * 0.325, 40, 40);
-
-        if(device->server.enabled)
-            display.interface.printIcon(u8"\uf218", 0.4, GREEN, lcd.width() * 0.65, lcd.height() * 0.45);
-        else
-            display.interface.printIcon(u8"\uf219", 0.4, DARK_GREY, lcd.width() * 0.65, lcd.height() * 0.45);
+        drawSwitch(device->server.enabled, lcd.height() * 0.45);
     }
 
     void drawConfigPage2(){
@@ -694,7 +744,7 @@ template <typename Parent> class Menu{
         drawSubmenu(configPage, labels, values, size);
 
         const auto y = submenuContainerStartY + (submenuItemListHeight - lcd.fontHeight()) / 2;
-        display.interface.printIcon(u8"\uea68", 0.3, YELLOW, lcd.width() * 0.8, y);
+        display.interface.printIcon("\uea68", 0.3, YELLOW, lcd.width() * 0.8, y);
     }
 
      void drawConfigPage3(){
@@ -709,19 +759,27 @@ template <typename Parent> class Menu{
         if(currentLang != nullptr && strcmp(currentLang, "ES") == 0)
             langName = "Español";
         
-        String labels[] = { 
-            lang.changeLang.get()
+        const bool autoWifi = device->settings.isEnabled("wifi");
+
+        String labels[] = {
+            lang.changeLang.get(),
+            lang.autoWifi.get()
         };
 
         String values[] = {
-            langName
+            langName,
+            autoWifi ? lang.onStr.get() : lang.offStr.get()
         };
-        
+
         const int size = sizeof(labels) / sizeof(labels[0]);
         drawSubmenu(configPage, labels, values, size);
+        drawSwitch(autoWifi, lcd.height() * 0.31);
     }
 
-    
+    void drawSwitch(const bool on, const int y){
+        device->display.interface.printIcon(on ? "" : "", 0.4, on ? GREEN : DARK_GREY, lcd.width() * 0.65, y);
+    }
+
     void drawAdjustButtons(int x, int y, float width, float height){
         static auto& display = device->display; 
         

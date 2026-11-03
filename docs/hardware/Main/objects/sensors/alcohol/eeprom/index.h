@@ -4,13 +4,18 @@
 #include <Wire.h>
 #include "../../../../utils/time/index.h"
 
+// O touch do WT32-SC01 (LovyanGFX) usa o controlador I2C1 (Wire1) nos mesmos pinos 18/19 do sensor.
+// No core 3.x o Wire.begin(18, 19) tomaria os pinos e desligaria o I2C1 do touch, e cada leitura do
+// touch passaria a derrubar o sensor; por isso o sensor compartilha o Wire1 que o LovyanGFX já abriu.
+#define SENSOR_WIRE Wire1
+
 
 class EEPROM{
   public:
     bool connect(int addr){
-        Wire.beginTransmission(addr);
+        SENSOR_WIRE.beginTransmission(addr);
 
-        if(Wire.endTransmission() == 0)
+        if(SENSOR_WIRE.endTransmission() == 0)
             return true;
 
         return false;
@@ -32,17 +37,17 @@ class EEPROM{
     // pageSize divide a página física de 64 bytes: nenhuma escrita cruza a fronteira
     bool erase(int addr, int totalBytes=32768, int pageSize=16){
         for(int offset=0; offset < totalBytes; offset += pageSize){
-            Wire.beginTransmission(addr);
-            Wire.write((byte)(offset >> 8));
-            Wire.write((byte)(offset & 0xFF));
+            SENSOR_WIRE.beginTransmission(addr);
+            SENSOR_WIRE.write((byte)(offset >> 8));
+            SENSOR_WIRE.write((byte)(offset & 0xFF));
 
             int remaining = totalBytes - offset;
             int chunk = (remaining < pageSize) ? remaining : pageSize;
 
             for(int i=0; i < chunk; i++)
-                Wire.write((byte)0xFF);
+                SENSOR_WIRE.write((byte)0xFF);
 
-            if(Wire.endTransmission() != 0)
+            if(SENSOR_WIRE.endTransmission() != 0)
                 return false;
 
             delay(10);

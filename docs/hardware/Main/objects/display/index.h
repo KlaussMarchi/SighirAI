@@ -43,7 +43,7 @@ template <typename Parent> class Display{
         touch(dev){}
     
     void setup(){
-        lcd.init();
+        start();
         lcd.setRotation(2);
         lcd.setBrightness(255);
         width  = lcd.width();
@@ -61,6 +61,32 @@ template <typename Parent> class Display{
         if(on && Time::get() - touch.lastClick > 60000)
             if(!device->vehicle.maneuver.active)
                 turnOFF();
+    }
+
+    // SEM DISPLAY O BOOT SEGUE (O LGFX VIRA PAINEL NULO): APAGAR O NVS PERDIA O ID E REINICIAVA PARA SEMPRE
+    void start(){
+        for(int x=0; x<15; x++){
+            if(lcd.init())
+                return;
+
+            releaseBus();
+            delay(250);
+        }
+    }
+
+    // O AUTODETECT LE O TOUCH NO I2C DO SENSOR; UM CHIP PARADO NO MEIO DE UM BYTE SEGURA O SDA E O ESP.restart() NAO O REINICIA
+    void releaseBus(){
+        const int sda = device->sensors.alcohol.sda;
+        const int scl = device->sensors.alcohol.scl;
+        pinMode(sda, INPUT_PULLUP);
+        pinMode(scl, OUTPUT_OPEN_DRAIN);
+
+        for(int x=0; x<9 && !digitalRead(sda); x++){
+            digitalWrite(scl, LOW);  delayMicroseconds(5);
+            digitalWrite(scl, HIGH); delayMicroseconds(5);
+        }
+
+        pinMode(scl, INPUT_PULLUP);
     }
     
     void turnON(){

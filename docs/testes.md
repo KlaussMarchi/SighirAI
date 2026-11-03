@@ -37,14 +37,16 @@ Use um aparelho **da Sighir** na bancada (não de cliente). Anote o `esp_id` e o
 
 | # | Passo | Comando | Esperado |
 |---|---|---|---|
-| 1 | Sessão | `python tools/sighir.py init` | firmware classificado (`ok` ≥ 6.4.0), `esp_id` `MIC…`, `sensor_id` `ETL…` |
+| 1 | Sessão | `python tools/sighir.py init` | firmware classificado (`ok` ≥ 6.5.3), `esp_id` `MIC…`, `sensor_id` `ETL…`, `servidor:` cadastrado ou não |
 | 2 | Configuração ida e volta | `settings --set <chave>=<novo>` → `settings <chave>` → `settings --set <chave>=<original>` | valor lido = valor gravado; volta ao original |
 | 3 | Telemetria ida e volta | `telemetry suntech` → `telemetry` → `telemetry <original>` | grava, reinicia e confere o modo; volta ao original |
 | 4 | Bloqueio | `block` → `unblock` | confirma por `$ETEV02!` e `$ETEV01!` |
 | 5 | Testes do protocolo | `test sensor`, `test temp`, `test blow` (e `test alcohol` com solução) | cada um conclui com o evento esperado do `protocol.json` |
+| 5b | Qualidade (`Tester/procedimentos/qualidade.md`) | `qualidade` → `qualidade autodiagnostico` → `qualidade sem-alcool` → `qualidade com-alcool` (avise o operador antes de cada um) | automáticas (com `calibracao`) OK em ~40 s; autodiagnóstico da tela com as 4 etapas OK; `sopro-nenhum`/`sopro-incompleto`/`sopro-completo --forca …` 3/3; `$ETEV29!`; `$ETEV30<mg/L>!`. Build de debug: `sensor` reprova (bypass) |
+| 5c | Sensores ao vivo | `monitor --segundos 5` | tabela do `/get-data` com temperatura, umidade, analog e pressão coerentes |
 | 6 | Recuperação | `recover` | reinicia e ressincroniza |
 | 7 | Servidor: consulta | `server-device <MIC>` e `python ../Helper/tools/helper.py device <MIC>` | mesmo cadastro nos dois (empresa, módulo, placa) |
-| 8 | Servidor: cadastro | só se o aparelho **não** estiver cadastrado: `register --company <value> --modulo <ID ou none> --chip <N ou N/A>` | `POST /telemetries` (se módulo novo) e `POST /devices` ok; `server-device` mostra `telemetry` = módulo |
+| 8 | Servidor: cadastro | só se o aparelho **não** estiver cadastrado: `configurar --company <value>` (prévia) e `register --company <value> --modulo <ID ou none> --chip <N ou N/A> --tecnico <nome>` | `POST /telemetries` (se módulo novo) e `POST /devices` ok; `server-device` mostra `telemetry` = módulo |
 | 9 | Servidor: instalação | `install <MIC> --placa <placa de teste> --telemetria <t> [--modulo …] --observacao "teste de bancada"` (prévia) → mesmo comando com `--yes` | prévia sem bloqueio; com `--yes`: "gravada e conferida" (placa, telemetria, módulo e `etilometers/`) |
 | 9b | Servidor: edição | `edit <MIC> --company <outra> --desinstalar --modulo <ID>` (prévia) → com `--yes` | prévia só com os campos pedidos; com `--yes`: "alterado e conferido" |
 | 10 | Conferência cruzada | `python ../Helper/tools/helper.py veiculo <placa>` | a instalação aparece com telemetria e módulo |

@@ -90,7 +90,7 @@ template <typename Parent> class sensorDHT{
         event_first_time = event_first_time && !sendEvent;
         alert(lang.highHumidity.get(), humidity.toString(), MSG_ORANGE, "$ETEV41!", sendEvent);
     }
-
+    
     void alert(const String& title, const String& subtitle, byte type, const char* code, bool sendEvent=true){
         device->display.interface.alert(title, subtitle, type, 10000, true);
 

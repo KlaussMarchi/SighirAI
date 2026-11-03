@@ -4,7 +4,7 @@ Extraído em 21/09/2026 (para o Scanner, útil a todas as IAs) destas fontes:
 
 | Fonte | Onde está | O que deu |
 |---|---|---|
-| Firmware ESP32 (`Main.ino` diz `v6.4.8`) | `hardware/Main/` nesta pasta (cópia do repo git do firmware, commit `488260b`) | linha exata que emite cada evento, máquina de estados do teste, defaults de configuração |
+| Firmware ESP32 (`Main.ino` diz `v6.5.3`) | `hardware/Main/` nesta pasta (cópia de `Etilometro/hardware/Main`, sincronizada em 30/10/2026) | linha exata que emite cada evento, máquina de estados do teste, defaults de configuração |
 | PPTC 0001-01 — *Protocolo de Comunicação DAD01* | `docs/Notion/main.pdf` (export do Notion, ignorado no git) | tabela canônica dos `$ETEVnn!`, fluxos em MIX 2.0, estágios de vencimento por sopros |
 | Notion → *Resolução de Problemas* (18 chamados) | `docs/Notion/Resolução de Problemas/` | como cada tipo de defeito aparece na prática |
 | Banco (`Etilometros_log`, 276 mil linhas em 21/09/2026) | `docs/ServerAnalysis/files/db.sqlite3` | o que cada telemetria **de fato** repassa ao servidor |
@@ -42,42 +42,42 @@ ignição liga com o veículo desbloqueado; aceita `$ETEV31!` como ignição).
 
 ## 2. Tabela de eventos
 
-Coluna **Emissão** = arquivo:linha no firmware v6.4.8. **Chega na MiX?** = medido no banco inteiro
+Coluna **Emissão** = arquivo:linha no firmware v6.5.3 (conferido em 03/11/2026). **Chega na MiX?** = medido no banco inteiro
 (nenhuma ocorrência em veículo MiX = "não"). Suntech e Entrack repassam tudo que o aparelho emite.
 
 | Evento | Rótulo do painel | Emissão | Quando | Chega na MiX? |
 |---|---|---|---|---|
-| `$ETEV01!` | Veículo Desbloqueado | `objects/vehicle/index.h:96` | sempre logo após `$ETBL010000!`: teste sem álcool, contrassenha, adiamento, manobrista, `$ETBL01!` remoto, 5 reinícios (§5) | depende do script do rastreador (§4) |
-| `$ETEV02!` | Veículo Bloqueado | `vehicle/index.h:72` | após `$ETBL020000!`: álcool, sem sopro em condução, fim do tempo de manobra, 70 s de ignição sem teste (MIX 2.0), `$ETBL02!` remoto | depende do script |
+| `$ETEV01!` | Veículo Desbloqueado | `objects/vehicle/index.h:73` | sempre logo após `$ETBL010000!`: teste sem álcool, contrassenha, adiamento, manobrista, `$ETBL01!` remoto, 5 reinícios (§5) | depende do script do rastreador (§4) |
+| `$ETEV02!` | Veículo Bloqueado | `vehicle/index.h:60` | após `$ETBL020000!`: álcool, sem sopro em condução, fim do tempo de manobra, 70 s de ignição sem teste (MIX 2.0), `$ETBL02!` remoto | depende do script |
 | `$ETEV03!` | Veículo ligado | **rastreador → aparelho** (`telemetry/modes/mix2/index.h:58`) | comando do rastreador; em caminhão marca `driving = true` | não é logado |
 | `$ETEV04!` | Veículo desligado | **rastreador → aparelho** (`mix2/index.h:52`) | ignição estágio zero; encerra viagem, inicia tempo de manobra | sim, 1.746 na janela |
-| `$ETEV05!` | Sopro Realizado | `objects/test/index.h:245` | sopro contínuo de 3 s com pressão; início da análise (~25 s), **não é resultado** | sim |
-| `$ETEV06!` | Falha de Comunicação | `objects/diagnostic/index.h:63` | menu de diagnóstico: rastreador não respondeu `$ETKA!` em 15 s | — (0 na base) |
-| `$ETEV07!` | Parâmetros Atualizados | `objects/server/updater/index.h:123` | configuração baixada do servidor por Wi-Fi | — |
+| `$ETEV05!` | Sopro Realizado | `objects/test/index.h:263` | sopro contínuo de 3 s com pressão; início da análise (~25 s), **não é resultado** | sim |
+| `$ETEV06!` | Falha de Comunicação | `objects/diagnostic/index.h:73` | menu de diagnóstico: rastreador não respondeu `$ETKA!` em 15 s | — (0 na base) |
+| `$ETEV07!` | Parâmetros Atualizados | `objects/server/updater/index.h:165` | configuração baixada do servidor por Wi-Fi | — |
 | `$ETEV08!` | Dispositivo Inicializado | `objects/telemetry/index.h:59` | boot: serial aberta e modo de telemetria carregado | sim |
-| `$ETEV09<id>!` | Sensor Inicializado | `objects/sensors/alcohol/index.h:55` | sensor achado no I2C; payload = 19 chars do nº de série. **Firmware antigo emite sem payload** (`$ETEV09!`: só em aparelhos `1.0.0`/`v4.27.7`) | sim |
-| `$ETEV10!` | Firmware Atualizado | `server/updater/index.h:195` | OTA concluído (Wi-Fi); reinicia em seguida | sim |
-| `$ETEV11!` | Sem Sopro | `test/index.h:208` | `getFirstBreath()` falhou na janela de espera. Motorista pode repetir; se recusar, teste encerra sem resultado | sim |
+| `$ETEV09<id>!` | Sensor Inicializado | `objects/sensors/alcohol/index.h:59` | sensor achado no I2C; payload = 19 chars do nº de série. **Firmware antigo emite sem payload** (`$ETEV09!`: só em aparelhos `1.0.0`/`v4.27.7`) | sim |
+| `$ETEV10!` | Firmware Atualizado | `server/updater/index.h:340` | OTA concluído (Wi-Fi); reinicia em seguida | sim |
+| `$ETEV11!` | Sem Sopro | `test/index.h:238` | `getFirstBreath()` falhou na janela de espera. Motorista pode repetir; se recusar, teste encerra sem resultado | sim |
 | `$ETEV12!` | Teste Randômico | `test/randomic/index.h:80` | solicitação em condução (`enable_random`); reenviado a cada nova solicitação | sim |
 | `$ETEV13nnnn!` | Sensor Quase Vencido | `sensors/alcohol/storage/blows/index.h:85-108` | contador de sopros em 1750–2500; payload = contador com 4 dígitos | 0 na base (só a partir de 6.4.7, inferência) |
 | `$ETEV14nnnn!` | Sensor Vencido (sopros) | `blows/index.h:116` | contador acima de 2500 | 0 na base |
 | `$ETEV15!` | Teste Adiado | `test/postpone/index.h:46` | motorista adiou (até `max_postpone`); **`$ETEV01!` sai ~1 s ANTES** deste evento, e `forceDriving(true)` marca o veículo em condução | sim |
 | `$ETEV16!` | Teste Realizado | `test/index.h:84` | teste de ignição concluído (com ou sem álcool), após o resultado | sim |
-| `$ETEV17!` | Início do Tempo de Manobra | `vehicle/maneuver/index.h:60` **e** `telemetry/protocol/index.h:69` | ignição desligou com veículo desbloqueado — **e também é a resposta a todo `$ETKA!` do rastreador**, por isso é o evento mais comum na MiX | sim |
+| `$ETEV17!` | Início do Tempo de Manobra | `vehicle/maneuver/index.h:60` **e** `telemetry/protocol/index.h:72` | ignição desligou com veículo desbloqueado — **e também é a resposta a todo `$ETKA!` do rastreador**, por isso é o evento mais comum na MiX | sim |
 | `$ETEV18!` | Fim do Tempo de Manobra | `maneuver/index.h:141` | `maneuver_time` esgotou sem religar; segue `$ETEV02!` | depende do script |
-| `$ETEV20!` | Sensor Próximo do Vencimento | `diagnostic/index.h:128` | só como resultado positivo do autodiagnóstico do sensor (menu) | — |
-| `$ETEV22!` | Modo Manobrista Ativado | `vehicle/valet/index.h:30` | ativado no menu. **Em v4.27.7 sai logo após cada `$ETEV04!`** (RKG9C70: 309 na janela) — significava outra coisa no firmware antigo, não use pra contar manobrista | sim |
-| `!ETEV23$` | Modo Manobrista Desativado | `valet/index.h:30` | delimitadores **invertidos de propósito no firmware**; o servidor descarta (não começa com `$ETEV`) | não |
-| `$ETEV24!` | Sensor Defeituoso | `sensors/alcohol/index.h:122,131` | EEPROM/sensor não responde no I2C. v6.4.8 limita a 1 evento a cada 10 min (`EVENT_MIN_INTERVAL`, commit `5ffff50` de 16/09/2026, posterior à v6.4.7 do catálogo); **até a 6.4.7 emite a cada iteração (~1,5 s)** — daí TUI6C37 com 20 mil na janela | **não** |
+| `$ETEV20!` | Sensor Próximo do Vencimento | `diagnostic/index.h:120` | só como resultado positivo do autodiagnóstico do sensor (menu) | — |
+| `$ETEV22!` | Modo Manobrista Ativado | `vehicle/valet/index.h:39` | ativado no menu. **Em v4.27.7 sai logo após cada `$ETEV04!`** (RKG9C70: 309 na janela) — significava outra coisa no firmware antigo, não use pra contar manobrista | sim |
+| `!ETEV23$` | Modo Manobrista Desativado | `valet/index.h:39` | delimitadores **invertidos de propósito no firmware** até a v6.4; o servidor descarta (não começa com `$ETEV`). **v6.5+: `$ETEV23!` normal** (`valet/index.h:39`) | não |
+| `$ETEV24!` | Sensor Defeituoso | `sensors/alcohol/index.h:134,143` | EEPROM/sensor não responde no I2C. v6.4.8 limita a 1 evento a cada 10 min (`EVENT_MIN_INTERVAL`, commit `5ffff50` de 16/09/2026, posterior à v6.4.7 do catálogo); **até a 6.4.7 emite a cada iteração (~1,5 s)** — daí TUI6C37 com 20 mil na janela | **não** |
 | `$ETEV25!` | Teste Randômico Realizado | `test/index.h:84` | substitui `$ETEV16!` quando o teste é randômico | sim |
 | `$ETEV26!` | Código Inserido (Contrassenha Aceita) | `test/pass/index.h:109` | contrassenha validada: libera, descarta o álcool, `$ETEV01!` em seguida | sim |
 | `$ETEV27!` | Temperatura Alta | `sensors/dht/index.h:68,73` | > 52 °C ou sensor de temperatura mudo; no máx. a cada 15 min | sim |
 | `$ETEV28!` | Temperatura Crítica | `dht/index.h:71` | > 60 °C | sim |
-| `$ETEV29!` | Leitura Sem Álcool | `test/index.h:183` | resultado; antecede `$ETEV16!`/`$ETEV25!` | **não** |
-| `$ETEV30mgl!` | Álcool Detectado | `test/index.h:183` | payload = mg/L × 1000 com 4 dígitos (`$ETEV300021!` = 0,021). **`$ETEV300000!` = 0,000 mg/L**: só acontece quando o sensor não tem coeficientes (`test/index.h`: `has_coefs ? (result && mgl > 0.020) : result`) | **não** |
+| `$ETEV29!` | Leitura Sem Álcool | `test/index.h:190` | resultado; antecede `$ETEV16!`/`$ETEV25!` | **não** |
+| `$ETEV30mgl!` | Álcool Detectado | `test/index.h:190` | payload = mg/L × 1000 com 4 dígitos (`$ETEV300021!` = 0,021). **`$ETEV300000!` = 0,000 mg/L**: só acontece quando o sensor não tem coeficientes (`test/index.h`: `has_coefs ? (result && mgl > 0.020) : result`) | **não** |
 | `$ETEV31!` | Ignição em Veículo Leve | **rastreador → aparelho** (`mix2/index.h:46`) | aceito só com `vehicle_type = 1`. Na base aparece em Suntech v4 (RKG9C70) — semântica antiga desconhecida | — |
-| `$ETEV32!` | Desbloqueio em Modo Manobrista | `valet/index.h:59` | ignição ligada com manobrista ativo: **partida sem teste** | sim |
-| `$ETEV33!` | Teste Randômico Não Realizado | `test/index.h:215` | randômico sem sopro e motorista recusou repetir; logo após `$ETEV11!` | sim |
+| `$ETEV32!` | Desbloqueio em Modo Manobrista | `valet/index.h:68` | ignição ligada com manobrista ativo: **partida sem teste** | sim |
+| `$ETEV33!` | Teste Randômico Não Realizado | `test/index.h:245` | randômico sem sopro e motorista recusou repetir; logo após `$ETEV11!` | sim |
 | `$ETEV34!` | Teste Randômico Adiado | `postpone/index.h:46` | adiamento do randômico (`rand_ppn_time`) | sim |
 | `$ETEV35!` | Motorista Não Autorizado | `test/index.h:117` | `(TEST_ALCOHOL \|\| TEST_BLOW_TIMEOUT) && driving && !pass.liberated`: teste reprovado **com o veículo já em condução**. Alarme sonoro até a ignição desligar (`alertDriver()`), e só então `block()`. Na prática vem quase sempre depois de um `$ETEV15!` (adiou → dirigiu → não soprou) | **não** |
 | `$ETEV36<id>!` | Sensor Substituído | `sensors/alcohol/storage/index.h:47` | nº de série no boot difere do último gravado | sim |

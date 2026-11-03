@@ -23,13 +23,13 @@ template <typename Parent> class Test{
     AlcoholModel model;
 
     unsigned long lastTime, startRequestTime, endRequestTime;
-    bool active;
+    bool active = false;
     bool had_alcohol;
-    int   last_analog;
+    int  last_analog;
     float last_alcohol;
-    int MIN_TIME;
     bool alcohol_debug;
     bool done;
+    int MIN_TIME;
     byte status;
     
     Test(Parent* dev):
@@ -60,7 +60,7 @@ template <typename Parent> class Test{
         device->vehicle.ignition.reset();
         device->sensors.alcohol.heater.set(true);
         startRequestTime = Time::get();
-        pass.liberated = false;
+        pass.liberated   = false;
         active = true;
 
         screens.start();
@@ -172,36 +172,66 @@ template <typename Parent> class Test{
     
     void show(){
         auto& display = device->display;
+        bool hasCoefs = device->sensors.alcohol.storage.has_coefs;
+        Text<10> mgl  = String(last_alcohol, 3);
 
-        Text<10> mgl = String(last_alcohol, 3);
-        display.interface.msg(MSG_BLACK, mgl.toString() + " mg/L");
-        display.interface.label(String(last_analog), display.width*.1, display.height*.85, display.width*.8, 30, TFT_RED, TFT_BLACK, false);
+        if(hasCoefs){
+            display.interface.msg(MSG_BLACK, mgl.toString() + " mg/L");
+            display.interface.label(String(last_analog), display.width*.1, display.height*.85, display.width*.8, 30, TFT_RED, TFT_BLACK, false);
+        }
+        else{
+            display.interface.msg(MSG_BLACK, lang.noCalibration.get());
+            display.interface.label(String(last_analog), display.width*.1, display.height*.85, display.width*.8, 30, TFT_RED, TFT_BLACK, false);
+        }
+
+        device->await(1500);
         mgl.remove('.');
         mgl.remove(' ');
-        device->await(1500);
-
         device->telemetry.event(had_alcohol ? String("$ETEV30" + mgl.toString() + "!") : "$ETEV29!");
         device->await(1500);
-        //Serial.println("analog: " + String(last_analog));
-        //Serial.println("mgl:    " + String(last_alcohol));
-        //Serial.println("newZero:  " + String(model.data.get(0)));
-        //Serial.println();
         
         if(!had_alcohol)
             return;
-
+        
         display.interface.msg(MSG_RED, lang.alcoholDetected.get());
         display.sound.badBeep();
     }
 
-    bool compute(){;
-        model.init(device->sensors.alcohol.calibration.newZero);
+    // SOPRO DE 3 S DO TESTE (BRILHO, BEEP E LEITURAS), USADO TAMBÉM PELO AUTODIAGNÓSTICO
+    byte blow(){
         device->display.brightness.update(50);
         device->sensors.pressure.tare(true);
         screens.blow();
 
+        if(!device->sensors.pressure.getFirstBreath())
+            return BLOW_NONE;
+
+        const unsigned long startTime = Time::get();
+        int blowTime = 0;
+
+        while(blowTime < 3000){
+            const int analog = device->sensors.alcohol.smooth();
+
+            if(active)   // NO AUTODIAGNÓSTICO A CURVA DO ÚLTIMO TESTE (ROTA DO ÁLCOOL) FICA INTACTA
+                model.add(analog);
+
+            device->display.sound.handleBeep(75);
+            const bool blowing = device->sensors.pressure.blower.get();
+            blowTime = (Time::get() - startTime);
+
+            if(!blowing && blowTime <= 1800)
+                return BLOW_CUT;
+        }
+
+        return BLOW_DONE;
+    }
+
+    bool compute(){
+        model.init(device->sensors.alcohol.calibration.newZero);
+        const byte result = blow();
+
         // ASSOPRE (INÍCIO)
-        if(!device->sensors.pressure.getFirstBreath()){
+        if(result == BLOW_NONE){
             device->display.interface.msg(MSG_RED, lang.noBlow.get());
             device->await(1000);
 
@@ -219,20 +249,8 @@ template <typename Parent> class Test{
             return false;
         }
         
-        unsigned long startTime = Time::get();
-        int blowTime = 0;
-        
         // ASSOPRE (CONTINUANDO)
-        while(blowTime < 3000){
-            model.add(device->sensors.alcohol.smooth());
-            device->display.sound.handleBeep(75);
-
-            const bool blowing = device->sensors.pressure.blower.get();
-            blowTime = (Time::get() - startTime);
-
-            if(blowing || blowTime > 1800)
-                continue;
-            
+        if(result == BLOW_CUT){
             device->display.interface.msg(MSG_RED, lang.noBlow.get());
             device->display.sound.badBeep();
             device->telemetry.event("$NOBLOW!"); 

@@ -51,12 +51,6 @@ struct Languages {
         "Soplos Totales:"
     );
 
-    Lang configuringFor = Lang(
-        "Configurando para ",
-        "Configuring for ",
-        "Configurando para "
-    );
-
     Lang unlockVehicle = Lang(
         "Desbloquear Veículo",
         "Unlock Vehicle ",
@@ -121,12 +115,6 @@ struct Languages {
         "Verificando Comunicação",
         "Checking Communication",
         "Verificando Comunicación"
-    );
-
-    Lang checkingAlcohol = Lang(
-        "Verificando Sensor\r\nde Álcool",
-        "Checking Alcohol\r\nSensor Device",
-        "Verificando Sensor\r\nde Alcohol"
     );
 
     Lang sensorChangeReminder = Lang(
@@ -199,18 +187,6 @@ struct Languages {
         "Digite",
         "Type  ",
         "Escriba"
-    );
-
-    Lang sensorNoComm = Lang(
-        "Sensor Sem\r\nComunicação",
-        "Sensor Without\r\nCommunication",
-        "Sensor Sin\r\nComunicación"
-    );
-
-    Lang checkingTemp = Lang(
-        "Verificando Sensor\r\nde Temperatura",
-        "Checking Temperature\r\nSensor Device",
-        "Verificando Sensor\r\nde Temperatura"
     );
 
     Lang emergencyPostpone = Lang(
@@ -321,12 +297,6 @@ struct Languages {
         "Configuración Remota"
     );
 
-    Lang ensureInternet = Lang(
-        "certifique-se de estar\r\nconectado à internet",
-        "please ensure you\r\nare online now ",
-        "asegúrese de estar\r\nconectado a la red"
-    );
-
     Lang vehicleLocked = Lang(
         "Veículo Bloqueado",
         "Vehicle Locked ",
@@ -411,12 +381,6 @@ struct Languages {
         "Valor Inválido"
     );
 
-    Lang checkingPressure = Lang(
-        "Verificando Sensor\r\nde Pressão",
-        "Checking Pressure\r\nSensor Device",
-        "Verificando Sensor\r\nde Presión"
-    );
-
     Lang configuringChannel = Lang(
         "Configurando Canal",
         "Configuring Channel",
@@ -439,12 +403,6 @@ struct Languages {
         "Falha no Teste",
         "Test is Failed",
         "Falla de Prueba"
-    );
-
-    Lang sensorConnected = Lang(
-        "Sensor Conectado",
-        "Sensor Connected",
-        "Sensor Conectado"
     );
 
     Lang sensorBadContact = Lang(
@@ -489,12 +447,6 @@ struct Languages {
         "Sople  "
     );
 
-    Lang changingChannel = Lang(
-        "Mudando Canal",
-        "Changing Channel",
-        "Cambiando Canal  "
-    );
-
     Lang enableValet = Lang(
         "Ativar Manobrista",
         "Enable Valet Mode",
@@ -505,12 +457,6 @@ struct Languages {
         "Telemetria Entrack\r\nIniciada",
         "Entrack Telemetry\r\nStarted Now ",
         "Telemetria Entrack\r\nIniciada Ya "
-    );
-
-    Lang progress0 = Lang(
-        "Progresso: 0%",
-        "Progress: 0% ",
-        "Progreso: 0% "
     );
 
     Lang clickScreenTo = Lang(
@@ -625,6 +571,12 @@ struct Languages {
         "Reiniciando Dispositivo",
         "Restarting Device",
         "Reiniciando Equipo"
+    );
+
+    Lang deviceRestarted = Lang(
+        "Dispositivo Reinicializado",
+        "Device Restarted",
+        "Dispositivo Reiniciado"
     );
 
     Lang configParams = Lang(
@@ -825,10 +777,22 @@ struct Languages {
         "WiFi"
     );
 
+    Lang autoWifi = Lang(
+        "WiFi Automático",
+        "Automatic WiFi",
+        "WiFi Automático"
+    );
+
     Lang reconnect = Lang(
         "Reestabelecer Conexão",
         "Re-establish Connection",
         "Restablecer Conexión"
+    );
+
+    Lang reconnecting = Lang(
+        "Reestabelecendo Conexão",
+        "Re-establishing Connection",
+        "Restableciendo Conexión"
     );
 
     Lang selfDiagnostic = Lang(
@@ -841,6 +805,12 @@ struct Languages {
         "Teste Alcoólico",
         "Alcohol Test",
         "Prueba Alcohol"
+    );
+
+    Lang takeAlcoholTest = Lang(
+        "Realizar Teste Alcoólico",
+        "Take Alcohol Test",
+        "Realizar Prueba Alcohol"
     );
 
     Lang telemetryTest = Lang(
@@ -927,10 +897,10 @@ struct Languages {
         "Iniciando en: "
     );
 
-    Lang componentsTest = Lang(
-        "Teste de Componentes",
-        "Components Test",
-        "Prueba Componentes"
+    Lang fullDiagnostic = Lang(
+        "Diagnóstico Completo",
+        "Full Diagnostic",
+        "Diagnóstico Completo"
     );
 
     Lang relayTest = Lang(
@@ -939,10 +909,58 @@ struct Languages {
         "Prueba de Relé"
     );
 
-    Lang blowTest = Lang(
-        "Teste de Sopro",
-        "Blow Test",
-        "Prueba de Soplo"
+    Lang blowStr = Lang(
+        "Sopro",
+        "Blow",
+        "Soplo"
+    );
+
+    Lang pressureStr = Lang(
+        "Pressão",
+        "Pressure",
+        "Presión"
+    );
+
+    Lang temperatureStr = Lang(
+        "Temperatura",
+        "Temperature",
+        "Temperatura"
+    );
+
+    Lang alcoholStr = Lang(
+        "Álcool",
+        "Alcohol",
+        "Alcohol"
+    );
+
+    Lang failStr = Lang(
+        "Falha",
+        "Fail",
+        "Falla"
+    );
+
+    Lang testingPressure = Lang(
+        "Testando Sensor\r\nde Pressão",
+        "Testing Pressure\r\nSensor",
+        "Probando Sensor\r\nde Presión"
+    );
+
+    Lang testingTemp = Lang(
+        "Testando Sensor\r\nde Temperatura",
+        "Testing Temperature\r\nSensor",
+        "Probando Sensor\r\nde Temperatura"
+    );
+
+    Lang testingAlcohol = Lang(
+        "Testando Sensor\r\nde Álcool",
+        "Testing Alcohol\r\nSensor",
+        "Probando Sensor\r\nde Alcohol"
+    );
+
+    Lang readFailed = Lang(
+        "Leitura Falhou",
+        "Reading Failed",
+        "Lectura Fallida"
     );
 
     Lang performAnotherTest = Lang(
@@ -1143,12 +1161,6 @@ struct Languages {
         "Intentar de Nuevo?"
     );
 
-    Lang progressPrefix = Lang(
-        "progresso: ",
-        "progress: ",
-        "progreso: "
-    );
-
     Lang blockedStr = Lang(
         "Bloqueado",
         "Blocked",
@@ -1171,6 +1183,60 @@ struct Languages {
         "Mudar Idioma",
         "Change Language",
         "Cambiar Idioma"
+    );
+    
+    Lang noCalibration = Lang(
+        "Sem Calibração\r\nAtivando Modelo de IA",
+        "No Calibration\r\nActivating AI Model",
+        "Sin Calibración\r\nActivando Modelo IA"
+    );
+
+    Lang internetConnection = Lang(
+        "Conexão com a Internet",
+        "Internet Connection",
+        "Conexión a Internet"
+    );
+
+    Lang checkingStr = Lang(
+        "Verificando...",
+        "Checking...",
+        "Verificando..."
+    );
+
+    Lang noWifi = Lang(
+        "Sem Wi-Fi",
+        "No Wi-Fi",
+        "Sin Wi-Fi"
+    );
+
+    Lang noInternet = Lang(
+        "Wi-Fi sem Internet",
+        "Wi-Fi without Internet",
+        "Wi-Fi sin Internet"
+    );
+
+    Lang otherNetwork = Lang(
+        "Trocar de Rede",
+        "Change Network",
+        "Cambiar de Red"
+    );
+
+    Lang tryAgainStr = Lang(
+        "Tentar Novamente",
+        "Try Again",
+        "Intentar de Nuevo"
+    );
+
+    Lang exitStr = Lang(
+        "Sair",
+        "Exit",
+        "Salir"
+    );
+
+    Lang keepPowered = Lang(
+        "Não Desligue o Dispositivo",
+        "Do Not Turn Off the Device",
+        "No Apague el Dispositivo"
     );
 };
 

@@ -11,71 +11,114 @@
 template <typename Parent> class Updater{
   private:
     Parent* device;
-    int percent;
+    bool connecting = false;   // RECONECTAR CHAMA O HANDLECHECK: O AVISO DE VERSÃO NOVA NÃO ABRE POR CIMA
 
   public:
+    static const int CHUNK_SIZE  = 1.4*2048;   // BASE64 (4/3) DE 2048 BYTES MAIS OFFSET E CRC
+    static const int FIRST_DATA  = 35000;      // ms ATÉ O PRIMEIRO BLOCO
+    static const int SILENCE     = 10000;      // ms SEM DADOS ENCERRA A ATUALIZAÇÃO
+    static const int MAX_INVALID = 5;          // AS TENTATIVAS DO SIGHIRTESTER POR BLOCO
+    static const int ASK_TIMEOUT = 20000;      // ms SEM TOQUE NA ESCOLHA DE REDE VALE SAIR
     bool needed;
 
     Updater(Parent* dev):
         device(dev){}
-    
-    void start(){
-        if(!device->server.connected())
-            device->server.connect(true);
 
-        config();
+    void start(){
+        if(!connect())
+            return;
+
+        const bool configured = config();
         download();
+
+        if(configured)
+            return device->reset();
+
         handleCheck(true);
     }
 
-    void handleCheck(bool force=false){ 
-        static Listener timer = Listener(15000);
-        static unsigned long lastUpdate = Time::get();
-        static bool first_time = false;
+    // SÓ ATUALIZA OU CONFIGURA COM INTERNET: SEM ELA REESTABELECE A CONEXÃO E OFERECE TROCAR DE REDE
+    bool connect(){
+        auto& server = device->server;
+        int option   = 1;   // 0 OUTRA REDE, 1 TENTAR NOVAMENTE, 2 SAIR
+        connecting   = true;
 
-        if(first_time)
-            force = true;
+        if(!server.connected())
+            server.connect(true);
 
-        if(!force && timer.ready())
+        bool online = (server.ping() >= 0);
+
+        while(!online && option != 2){
+            if(option == 0)
+                server.changeNetwork();
+
+            if(option == 1)
+                server.changeChannel();
+
+            online = (server.ping() >= 0);
+
+            if(!online)
+                option = device->display.interface.inputs.trichoices(lang.otherNetwork.get(), lang.tryAgainStr.get(), lang.exitStr.get(), 2, ASK_TIMEOUT);
+        }
+
+        connecting = false;
+        return online;
+    }
+
+    // TODA CONEXAO NOVA (BOOT, ROTEADOR VOLTOU, FIM DO SLEEPER) REPORTA FIRMWARE, IDS E SE O SENSOR TEM COEFICIENTES; SEM RESPOSTA TENTA DE NOVO EM 2 MIN
+    void handleCheck(bool force=false){
+        static unsigned long lastCheck = 0;
+        static bool pending = true;
+        static bool synced  = false;
+
+        const bool connected = device->server.connected();
+        pending |= !connected;
+
+        if(!connected)
             return;
-        
-        if(!force && Time::get() - lastUpdate < 30*60*1000)
+
+        const unsigned long interval = synced ? 30*60*1000UL : 2*60*1000UL;
+
+        if(!force && !pending && Time::get() - lastCheck < interval)
             return;
 
-        if(!device->server.connected())
+        if(!force && device->test.active)
             return;
 
         Text<64> response = device->server.get(
             "api/v2/devices/check-update/?id=" + device->id.toString()    + 
             "&sensor_id=" + device->sensors.alcohol.storage.id.toString() +
-            "&firmware="  + String(device->firmware)
+            "&firmware="  + String(device->firmware) +
+            "&calib="     + (device->sensors.alcohol.storage.has_coefs ? "true" : "false")
         );
 
-        lastUpdate = Time::get();
-        first_time = false;
+        lastCheck = Time::get();
+        pending   = false;
+        synced    = !response.equals("-1");
 
         if(!response.contains("true"))
             return;
 
-        if(device->in_setup || device->display.interface.menu.active)
+        if(!connecting && (device->in_setup || device->display.interface.menu.active))
             requestUpdate();
 
         needed = true;
     }
 
+    // NO MENU A TELA APAGA AO RECUSAR OU QUANDO A ATUALIZAÇÃO VOLTA SEM REINICIAR (FALHA OU SAIR)
     void requestUpdate(){
         auto& display = device->display;
         needed = (bool) display.interface.inputs.boolean(lang.newVersionAvail.get(), lang.askUpdate.get());
 
-        if(!needed && display.interface.menu.active)
-            return display.turnOFF();
-        
         if(needed)
-            return start();  
+            start();
+
+        if(display.interface.menu.active)
+            display.turnOFF();
     }
 
     bool config(){
-        device->display.interface.alert(lang.remoteConfig.get(), lang.ensureInternet.get(), MSG_WHITE, 2000);
+        device->display.interface.alert(lang.remoteConfig.get(), lang.checkingStr.get(), MSG_BLACK, 0);
         Text<512> request = "{\"esp_id\": \"" + device->id.toString() + "\"}";
 
         const String response = device->server.post("checkSettings/", request.toString(), 10000);
@@ -98,7 +141,7 @@ template <typename Parent> class Updater{
         }
 
         if(settings.data["data"].as<String>().indexOf("doesnt") != -1){
-            device->display.interface.alert(lang.verified.get(), lang.noConfigNeeded.get(), MSG_WHITE);
+            device->display.interface.alert(lang.verified.get(), lang.noConfigNeeded.get(), MSG_BLACK);
             return false;
         }
 
@@ -108,29 +151,41 @@ template <typename Parent> class Updater{
         }
 
         if(settings.data["data"].as<String>() == "None"){
-            device->display.interface.alert(lang.verified.get(), lang.noConfigNeeded.get(), MSG_WHITE);
+            device->display.interface.alert(lang.verified.get(), lang.noConfigNeeded.get(), MSG_BLACK);
             return false;
         }
 
-        request = settings.data["data"].as<String>();
-        settings.parse(request.get());
-
-        for(JsonPair data: settings.data.as<JsonObject>())
-            device->settings.params.data[data.key()] = data.value().as<String>();
+        if(!apply(settings.data["data"].as<String>())){   // lido pela metade não grava nada
+            device->display.interface.alert(lang.configError.get(), lang.invalidKeys.get());
+            return false;
+        }
 
         device->settings.save();
-        device->display.interface.alert(lang.deviceConfigured.get(), "", MSG_WHITE);
+        device->display.interface.alert(lang.deviceConfigured.get(), "", MSG_BLACK);
         device->telemetry.event("$ETEV07!");
+        return true;
+    }
+
+    // GUARDADA EM "REMOTE" PARA VOLTAR POR CIMA DO CONFIGPARAMS QUANDO O FIRMWARE NOVO É DE OUTRA EMPRESA
+    bool apply(const String& received){
+        Json<512> remote;
+
+        if(!remote.parse(received) || !remote.data.template is<JsonObject>())
+            return false;
+
+        for(JsonPair data: remote.data.template as<JsonObject>())
+            device->settings.params.data[data.key()] = data.value().as<String>();
+
+        device->settings.params.data["remote"] = received;
         return true;
     }
 
     void download(){
         auto& display = device->display;
-        display.interface.msg(MSG_WHITE, lang.firmwareUpdate.get());
-        display.interface.centeredText(device->id.toString(), TFT_BLACK, display.height*0.65);  
+        display.interface.msg(MSG_BLACK, lang.firmwareUpdate.get());
+        display.interface.centeredText(device->id.toString(), TFT_WHITE, display.height*0.65);
         device->await(2000);
-        percent = 0;
-        
+
         if(!device->server.connected())
             return;
         
@@ -157,19 +212,10 @@ template <typename Parent> class Updater{
         bool canBegin = Update.begin(contentLength);
 
         if(canBegin){
-            display.interface.msg(MSG_WHITE, lang.updatingDevice.get());
-            display.interface.centeredText(lang.progress0.get(), TFT_BLACK, display.height*0.70);     
+            display.interface.loading.start(lang.updatingDevice.get(), lang.keepPowered.get());
 
             Update.onProgress([this](size_t progress, size_t total){
-                auto& display = device->display;
-                int newPercent = (progress * 100) / total;    
-
-                if(newPercent - percent < 5)
-                    return;
-
-                percent = newPercent;
-                display.lcd.fillRect(0, display.height*0.7, display.width, display.height, TFT_WHITE);
-                display.interface.centeredText(lang.progressPrefix.get() + String(percent) + "%", TFT_BLACK, display.height*0.7);
+                device->display.interface.loading.step(progress * 100 / total, false);
             });
 
             if(Update.writeStream(*client) != contentLength)
@@ -189,95 +235,111 @@ template <typename Parent> class Updater{
             success = false;
         }
 
-        if(success){
-            display.interface.msg(MSG_GREEN, lang.completed.get());
-            display.interface.centeredText(lang.restartingDevice.get(), TFT_WHITE, display.height*0.70);     
-            device->telemetry.event("$ETEV10!");
-            display.sound.goodBeep();
-            device->reset();
-        }
-        
-        display.interface.msg(MSG_RED, lang.updateFailed.get());
-        display.sound.badBeep();
         http.end();
+        finish(success);
     }
 
+    // ATUALIZAÇÃO PELO SERIAL (SIGHIRTESTER): "__updt__<TAMANHO>" E DEPOIS OS BLOCOS EM BASE64
     void local(){
-        const unsigned long startTime = Time::get();
-        static const int CHUNK_SIZE   = (1.4)*2048;
-        
-        Serial.println("Iniciando Update Local");
-        device->telemetry.serial.send("_STARTING_UPDATE_", true);
-        finished(true);
+        const char* command = device->telemetry.serial.command.get();
+        const size_t size   = strtoul(command + strcspn(command, "0123456789"), nullptr, 10);
+        const size_t total  = (size > 0) ? size : ESP.getSketchSize();   // TESTER ANTIGO NÃO MANDA O TAMANHO: A BARRA ESTIMA PELO FIRMWARE ATUAL
 
-        if(!Update.begin(UPDATE_SIZE_UNKNOWN)){
-            Serial.println("deu ruim update size");
-            return;
-        }
+        device->display.interface.loading.start(lang.updatingDevice.get(), lang.keepPowered.get());
+        Update.onProgress([this, total](size_t progress, size_t){
+            device->display.interface.loading.step(std::min<size_t>(99, progress * 100 / total), false);
+        });
 
-        while(!device->telemetry.serial.uart->available()){
-            if(Time::get() - startTime < 35000)
-                continue;
-
-            Serial.println("Erro ao atualizar");
-            return;
-        }
-
-        char chunk[CHUNK_SIZE];
-        bool start = false;
-        int index  = 0;
-
-        while(!finished(false)){
-            if(!device->telemetry.serial.uart->available())
-                continue;
-            
-            char newChar = device->telemetry.serial.uart->read();
-            
-            if(!start){ // ESPERA O CHAR DE INICIALIZAÇÃO
-                if(newChar != '$')
-                    continue;
-                
-                start = true;
-                index = 0;
-            }
-
-            if(newChar != '!'){ // PREENCHE O VETOR COM UPDATE
-                chunk[index] = newChar;
-                index++;
-                continue;
-            }
-
-            const int length = index;
-            uint8_t decoded[CHUNK_SIZE];
-            size_t size = base64Decode(chunk, decoded, length);
-
-            size_t written = Update.write(decoded, size);
-            device->telemetry.serial.send("written", true);
-
-            if(size == 0 || written != size){
-                Serial.println("Erro ao escrever | size: " + String(size));
-                return;
-            }
-
-            start = false;
-            index = 0;
-        }
-
-        if(Update.end(true)){
-            Serial.println("concluido! reiniciando");
-            device->reset();
-        }
-        
-        Serial.println("Erro ao atualizar");
+        const bool success = Update.begin(size > 0 ? size : UPDATE_SIZE_UNKNOWN) && receive(size) && Update.end(size == 0);   // SEM TAMANHO, O FIM É O SILÊNCIO
+        device->telemetry.serial.send(success ? "_UPDATE_OK_" : "_UPDATE_FAIL_");
+        finish(success);
     }
 
-    bool finished(bool reset){
-        static unsigned long lastUpdate;
+    // BLOCOS "$BASE64=#OFFSET:CRC32!" (CRC DO TEXTO ATÉ O ':') RESPONDIDOS COM "written" OU "resend"; O TESTER ANTIGO MANDA SÓ "$BASE64!"
+    bool receive(const size_t size){
+        static char chunk[CHUNK_SIZE];        // FORA DA PILHA: O LOOP TEM 8 KB
+        static uint8_t decoded[CHUNK_SIZE];
+        auto& serial = device->telemetry.serial;
 
-        if(device->telemetry.serial.uart->available() || reset)
-            lastUpdate = Time::get();
+        unsigned long lastData = Time::get();
+        size_t received = 0;
+        int invalid     = 0;
+        int index       = -1;
+        serial.send("_STARTING_UPDATE_");
 
-        return (Time::get() - lastUpdate > 10000);
+        while(Time::get() - lastData < (received > 0 ? SILENCE : FIRST_DATA)){
+            if(!serial.uart->available())
+                continue;
+
+            const char c = serial.uart->read();
+            lastData = Time::get();
+
+            if(c == '$'){   // RECOMEÇA O BLOCO: É O REENVIO QUANDO O '!' SE PERDEU
+                index = 0;
+                continue;
+            }
+
+            if(index < 0)
+                continue;
+
+            if(c != '!' && index < CHUNK_SIZE-1){
+                chunk[index++] = c;
+                continue;
+            }
+
+            chunk[index] = '\0';
+            index = -1;
+
+            char* hash          = strchr(chunk, '#');
+            char* colon         = strchr(chunk, ':');
+            const bool framed   = (hash && colon && colon > hash);
+            const size_t offset = framed ? strtoul(hash + 1, nullptr, 10) : received;
+            const uint32_t crc  = framed ? strtoul(colon + 1, nullptr, 16) : 0;
+            const size_t length = base64Decode(chunk, decoded, hash ? hash - chunk : strlen(chunk));
+
+            const bool valid = (c == '!') && (length > 0) && (size == 0 || (framed && crc == crc32((uint8_t*) chunk, colon - chunk)));   // COM TAMANHO, SÓ COM CRC: O "$ETKA!" DE UM TESTER REABERTO NÃO É GRAVADO
+
+            if(!valid && ++invalid >= MAX_INVALID)   // O TESTER DESISTIU OU NÃO É ATUALIZAÇÃO
+                return false;
+
+            if(!valid){
+                serial.send("resend");
+                continue;
+            }
+
+            invalid = 0;
+
+            if(offset > received)   // FALTOU UM BLOCO
+                return false;
+
+            if(offset == received && Update.write(decoded, length) != length)
+                return false;
+
+            received = std::max(received, offset + length);   // OFFSET JÁ GRAVADO: O "written" ANTERIOR SE PERDEU
+            serial.send("written");
+
+            if(size > 0 && received >= size)
+                return true;
+        }
+
+        return (size == 0 && received > 0);
+    }
+
+    // FIM DA ATUALIZAÇÃO PELA INTERNET OU PELO SERIAL: VERDE E REINICIA, OU VERMELHO E SEGUE NA VERSÃO ATUAL
+    void finish(const bool success){
+        auto& display = device->display;
+
+        if(!success){
+            Update.abort();
+            display.interface.msg(MSG_RED, lang.updateFailed.get());
+            return display.sound.badBeep();
+        }
+
+        display.interface.msg(MSG_GREEN, lang.completed.get());
+        display.interface.centeredText(lang.restartingDevice.get(), TFT_WHITE, display.height*0.70);
+        device->telemetry.event("$ETEV10!");
+        display.sound.goodBeep();
+        device->reset();
     }
 };
 

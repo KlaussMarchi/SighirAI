@@ -29,12 +29,12 @@ template <typename Parent> class Pressure{
     void setup(){
         blowProb  = device->settings.template get<float>("blowProb");
         streaming = device->settings.isEnabled("presstream"); 
+        
+        if(!debug)
+            scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN, true);  // FASTPROCESSOR: 1US POR PULSO DE CLOCK
 
         if(blowProb == 0.0)
             blowProb = 0.10;
-        
-        if(!debug)
-            scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
         
         blower.setTolerance(blowProb);
         tare();
@@ -121,9 +121,6 @@ template <typename Parent> class Pressure{
         const unsigned long startTime = Time::get();
         const bool blowing = blower.state;
         blower.reset();
-        
-        if(debug || !blowing)
-            return warm(400);
 
         if(show)
             device->display.interface.msg(MSG_BLACK, lang.calibratingPressure.get());
@@ -131,7 +128,7 @@ template <typename Parent> class Pressure{
         while(Time::get() - startTime < 1500)
             device->sensors.warm();
 
-        if(blower.state)
+        if(!debug && blower.state)
             return tare();
     }
 

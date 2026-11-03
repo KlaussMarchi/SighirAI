@@ -8,13 +8,20 @@
 template <typename Parent> class ServerRoutes{
   private:
     Parent* device;
+    bool registered = false;
 
   public:
     ServerRoutes(Parent* dev):
         device(dev){}
-    
+
     void setup(){
-        device->server.network.on("/CHECK", HTTP_GET, [this](){ 
+        // enable() roda de novo a cada volta do sleeper/troca de canal; cada on() aloca um handler
+        if(registered)
+            return;
+
+        registered = true;
+
+        device->server.network.on("/CHECK", HTTP_GET, [this](){
             this->onCheck(); 
         });
 
@@ -36,6 +43,14 @@ template <typename Parent> class ServerRoutes{
 
         device->server.network.on("/SENSOR", HTTP_GET, [this](){
             this->onSensor();
+        });
+
+        device->server.network.on("/CF_SENSOR", HTTP_POST, [this](){
+            this->onConfigSensor();
+        });
+
+        device->server.network.on("/validateData", HTTP_GET, [this](){
+            this->onValidateData();
         });
 
         device->server.network.on("/RESET", HTTP_GET, [this](){
@@ -113,8 +128,8 @@ template <typename Parent> class ServerRoutes{
             return device->server.send("error");
 
         String request = device->server.network.arg("plain");
-        Text<30> ssid   = request.substring(request.indexOf("$")+1, request.indexOf(":"));
-        Text<30> passwd = request.substring(request.indexOf(":")+1, request.indexOf("!"));
+        Text<33> ssid   = request.substring(request.indexOf("$")+1, request.indexOf(":"));
+        Text<65> passwd = request.substring(request.indexOf(":")+1, request.lastIndexOf("!"));   // senha pode ter "!"
 
         device->settings.params.set("ssid", ssid.get());
         device->settings.params.set("passwd", passwd.get());
@@ -125,13 +140,7 @@ template <typename Parent> class ServerRoutes{
     }
 
     void onCheck(){
-        Json<128> info;
-        info.data["temperature"] = device->sensors.dht.temperature.value;
-        info.data["humidity"]    = device->sensors.dht.humidity.value;
-        info.data["analog"]      = device->sensors.alcohol.get();
-        info.data["filtered"]    = device->sensors.alcohol.smooth();
-        info.data["pressure"]    = device->sensors.pressure.get();
-        device->server.send(info.toString().c_str());
+        device->server.send(device->info().c_str());
     }
 
     void onCommand(){
@@ -170,6 +179,7 @@ template <typename Parent> class ServerRoutes{
         }
 
         device->settings.save();
+        device->vehicle.valet.refresh();
         device->server.send(lang.ok.get());
     }
 
@@ -203,6 +213,34 @@ template <typename Parent> class ServerRoutes{
         device->sensors.alcohol.storage.update();
         auto response = device->sensors.alcohol.storage.id;
         device->server.send(response.get());
+    }
+
+    // "$<ID ETL><JSON>;!" da tela Gerar ID do app. Erro volta com 400: o app só olha o response.ok
+    void onConfigSensor(){
+        if(!device->server.network.hasArg("plain"))
+            return device->server.send("sem dados", 400);
+
+        const char* error = device->sensors.alcohol.storage.configure(device->server.network.arg("plain"));
+
+        if(error != nullptr)
+            return device->server.send(error, 400);
+
+        device->server.send(lang.ok.get());
+    }
+
+    // Validar Sensor do app. "stored" é o esp_id desde a primeira versão: o app e o servidor contam com isso
+    void onValidateData(){
+        auto& storage = device->sensors.alcohol.storage;
+        storage.update();
+
+        String deadline = storage.calibration_date.toString();
+        deadline.replace(' ', 'T');   // o new Date() do app lê "AAAA-MM-DDTHH:MM:SS" em qualquer celular
+
+        Json<256> info;
+        info.data["current"]  = storage.id.get();
+        info.data["stored"]   = device->settings.template get<String>("esp_id");
+        info.data["deadline"] = (deadline == "null") ? String() : deadline;
+        device->server.send(info.toString().c_str());
     }
 
     void getAll(){

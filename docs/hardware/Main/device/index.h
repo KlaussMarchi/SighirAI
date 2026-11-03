@@ -61,13 +61,16 @@ class Device{
         in_setup = true;
 
         tasks.checkSystem(true);      
-        sensors.dht.debug = settings.isEnabled("temp_debug");
+        sensors.dht.debug = (sensors.dht.debug || settings.isEnabled("temp_debug"));
         id = settings.template get<const char*>("esp_id");
         
         Serial.print("Device Started: ");
         Serial.println(id.get());
         
         display.setup();
+        display.interface.msg(MSG_BLACK, lang.deviceRestarted.get());
+        await(2000);
+
         company.sighir();
         await(1000);
         
@@ -108,11 +111,27 @@ class Device{
     void reset(){
         display.interface.msg(MSG_ORANGE, lang.restartingDevice.get());
         display.sound.set(BUZZER_GOOD_SOUND, 1500);
-        await(1000);
+        delay(500);
         
         sensors.alcohol.heater.set(false);
         delay(500);
         ESP.restart();
+    }
+
+    // LEITURAS AO VIVO PARA A ROTA /CHECK E O COMANDO SERIAL /get-data
+    String info(){
+        const float filtered = sensors.alcohol.smooth();
+
+        Json<256> info;
+        info.data["temperature"]     = sensors.dht.temperature.value;
+        info.data["humidity"]        = sensors.dht.humidity.value;
+        info.data["analog"]          = sensors.alcohol.get();
+        info.data["filtered"]        = filtered;
+        info.data["filtered_analog"] = filtered;   // filtered_analog, motor e chave: gráfico do app
+        info.data["pressure"]        = sensors.pressure.get();
+        info.data["driving"]         = vehicle.driving ? 1 : 0;
+        info.data["chave"]           = vehicle.ignition.on ? 1 : 0;
+        return info.toString();
     }
 };
 

@@ -96,8 +96,8 @@ Pede teste mas não bloqueia depois do tempo de manobra = mesma investigação (
   4. Por último, trocar o módulo.
 - **Suntech**:
   1. CONFIG 2 → Autodiagnóstico → **Teste de Relé**: o relé deve atracar repetidamente.
-  2. Conferir se o relé é da **tensão do veículo** (12 ou 24 V).
-  3. Conferir a fiação GND → VCC → pino 30 → 87a.
+  2. Conferir se o relé é da **tensão do veículo** (12 V carro, 24 V caminhão — vale também ao trocar o relé).
+  3. Conferir a fiação GND → VCC → pino 30 → 87a e **mal contato no chicote**.
   4. Trocar, nesta ordem: relé → placa embutida → módulo Suntech → chicote Sighir → kit completo.
 
 ## S4. Bloqueia sozinho (em viagem ou logo depois de liberar)
@@ -244,7 +244,8 @@ Não é defeito: é conduta (anomalia `burla_bloqueio`). Orientar o gestor; revi
 7. Do checklist da equipe:
    - aparelho **habilitado para atualização** (`need_update`, com Klauss ou Jean);
    - CONFIG 2 → **Reinício de Emergência** e tentar de novo;
-   - conectado e ainda falha → pedir vídeo do processo;
+   - conectado e ainda falha → provavelmente o sinal na região é fraco demais para o download (Notion,
+     11/2026; antes pedia vídeo do processo) — leve para uma rede melhor ou atualize pela USB (Tester `flash`);
    - versões antigas: SSID e senha pelo app, conectado ao Wi-Fi do aparelho (`Sighir - MIC…`).
 
 ## S15. Contrassenha não aceita

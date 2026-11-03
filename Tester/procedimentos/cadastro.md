@@ -4,7 +4,8 @@
 
 ## 6. Procedimento de Cadastro
 
-> Pré-requisito: firmware `ok` (`procedimentos/firmware.md` §5). Se `below_min`/`old`, atualize antes.
+> Pré-requisito: firmware `ok` (≥ v6.5.3, `procedimentos/firmware.md` §5). Antes de cadastrar, siga o pipeline
+> de `procedimentos/qualidade.md`: pergunte se atualiza e se faz os testes de qualidade, e só depois cadastre.
 
 1. **`esp_id` nativo**: o cadastro exige `esp_id` começando com `MIC`. Se vier
    `admin_sighir` (ou outro valor de config sobrescrita), é preciso **erase** para
@@ -43,11 +44,13 @@
 
 Exemplo (Suntech **ou** Entrack — mesmo campo):
 ```
-python tools/sighir.py register --company logika --series auto --modulo 1700023879 --chip N/A
+python tools/sighir.py register --company logika --series auto --modulo 1700023879 --chip N/A --tecnico "Fulano"
 ```
 (rode sem `--company` para listar os valores de empresa disponíveis.)
 
-Após cadastrar: **cole a etiqueta** com o número de série no aparelho.
+O `register` exige `--tecnico "<nome>"` e grava junto o `default_settings` (configuração do aparelho + relatório de
+ensaio, `procedimentos/qualidade.md` §4); o servidor gera o PDF no portal. Após cadastrar: **cole a etiqueta** com o
+número de série no aparelho.
 
 ### 6.1 Aparelho que voltou / troca de cliente (editar, não cadastrar de novo)
 

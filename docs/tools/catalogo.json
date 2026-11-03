@@ -3,15 +3,15 @@
   "arquivo": "comandos_config.md",
   "descricao": "Comandos seriais, parser, configurações (NVS) e padrões, Wi-Fi, rotas HTTP, OTA",
   "quando": "configurar/consultar o aparelho",
-  "revisado": "2026-09-23",
-  "sha1": "0796428e17f6f681be87fff1667a5f96a8e20abb"
+  "revisado": "2026-11-03",
+  "sha1": "140b69dce5e64d120fa7d722b90b3a9cd14cdf73"
  },
  "diagnostico.md": {
   "arquivo": "diagnostico.md",
   "descricao": "Playbook por sintoma: hipóteses, testes, soluções, casos, categorias de anomalias",
   "quando": "qualquer problema de campo",
-  "revisado": "2026-10-07",
-  "sha1": "9e916b85ddb1218c9a9698d1e85eb4fd50a5d6ed"
+  "revisado": "2026-11-03",
+  "sha1": "959021f3b796d851b24fea25be62095317f734ec"
  },
  "eletrica_instalacao.md": {
   "arquivo": "eletrica_instalacao.md",
@@ -24,8 +24,8 @@
   "arquivo": "firmware_reference.md",
   "descricao": "Eventos $ETEVnn! com linha do firmware, fluxos e o que cada telemetria repassa (medido no banco)",
   "quando": "interpretar eventos e logs",
-  "revisado": "2026-10-07",
-  "sha1": "b73ab90329cc363fc28cf213be3f3ab2fb4e6ff9"
+  "revisado": "2026-11-03",
+  "sha1": "ef5a0b7314cd97b35f2ac0510b97567b86565b2c"
  },
  "hardware/firmware_etilometro.md": {
   "arquivo": "hardware/FIRMWARE_ETILOMETRO.md",
@@ -45,8 +45,8 @@
   "arquivo": "migracao_servidor.md",
   "descricao": "Roteiro quando o servidor muda: contrato.py diferenca (rotas/campos/tabelas/migrações × referência, com quem usa), medir no snapshot, onde mexer em cada IA, testar, histórico das migrações",
   "quando": "servidor/tabelas/API mudaram, erro 404/400 novo numa IA, aviso 'O CONTRATO MUDOU'",
-  "revisado": "2026-10-07",
-  "sha1": "90056b18a851625e399db39d5569c738ed904a72"
+  "revisado": "2026-11-03",
+  "sha1": "c285631e8caf2556d94b7dd03f3e7baecd37bda5"
  },
  "notion/api-logs.pdf": {
   "arquivo": "Notion/api-logs.pdf",
@@ -213,8 +213,8 @@
   "arquivo": "operacao_telas.md",
   "descricao": "Telas (texto exato), cores, sons, fluxo do teste e menu ID/INFO/CONFIG",
   "quando": "o que o motorista/técnico vê",
-  "revisado": "2026-09-23",
-  "sha1": "140536fe63a209efa5a4bcdc4c4fac0c04fc4609"
+  "revisado": "2026-11-03",
+  "sha1": "65bcb4ec033f8bb4c14c802737e97afb5e1b824c"
  },
  "portal_app.md": {
   "arquivo": "portal_app.md",
@@ -234,8 +234,8 @@
   "arquivo": "server_reference.md",
   "descricao": "Schema do servidor Django, sincronização, instalar/editar/deletar, rotas",
   "quando": "operar no banco/servidor",
-  "revisado": "2026-10-07",
-  "sha1": "8e8a5578fafa64491b622f68aa8d7a06276da3ad"
+  "revisado": "2026-11-03",
+  "sha1": "26919e3238b388c6e73ccb8676cbadc1995333a8"
  },
  "sincronizar.md": {
   "arquivo": "sincronizar.md",
@@ -262,14 +262,14 @@
   "arquivo": "testes.md",
   "descricao": "Bateria de testes das 3 IAs (testar.py: offline, --api só leitura, --completo, --bancada) e roteiro manual de bancada/gravação com o esperado de cada passo",
   "quando": "depois de mudar código ou migrar o servidor; antes de entregar",
-  "revisado": "2026-10-07",
-  "sha1": "f1a08799060f9fe6bd62b25c023dc133e4bdd9a9"
+  "revisado": "2026-11-03",
+  "sha1": "b9e94d7d88f1f555dd2530ed45ab9ac377d38f30"
  },
  "troubleshooting.md": {
   "arquivo": "troubleshooting.md",
   "descricao": "Checklists de campo da equipe por problema (requisição de teste, atualização, bloqueio, app, reinícios, álcool, sopro, comunicação) — gerado do Notion (Suporte → Troubleshooting)",
   "quando": "roteiro de campo; o porquê e as evidências ficam no diagnostico.md",
-  "revisado": "2026-10-07",
-  "sha1": "435e7d56878870546275ed4da81bfb318b27535e"
+  "revisado": "2026-11-03",
+  "sha1": "8ded984f919f31b035195b151a959b1e1a5443ac"
  }
 }

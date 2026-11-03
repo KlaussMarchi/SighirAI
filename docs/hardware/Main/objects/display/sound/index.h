@@ -8,6 +8,18 @@
 #define MIN_VOLUME 25
 #define MAX_VOLUME 255
 
+// ledcWriteTone() deixa o canal em 10 bits (duty 0..1023). O volume máximo vai a 50% de duty, o som
+// mais forte de uma onda quadrada (acima disso cai de novo); antes parava em 25%
+#define TONE_MAX_DUTY 512
+
+// core 3.x: ledc* recebe o pino e o canal/timer é alocado sozinho (canal 0 fixo cairia no
+// mesmo canal do backlight do LovyanGFX, que é anexado antes). core 2.x: ledc* recebe o canal.
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+#define BUZZER_LEDC BUZZER_PIN
+#else
+#define BUZZER_LEDC 0
+#endif
+
 
 template <typename Parent> class Sound{
   private:
@@ -21,8 +33,12 @@ template <typename Parent> class Sound{
         device(dev){}
 
     void setup(){
-        ledcSetup(0, 4000, 8);
-        ledcAttachPin(BUZZER_PIN, 0);
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+        ledcAttach(BUZZER_PIN, 4000, 8);
+#else
+        ledcSetup(BUZZER_LEDC, 4000, 8);
+        ledcAttachPin(BUZZER_PIN, BUZZER_LEDC);
+#endif
         volume = device->settings.template get<int>("volume");
         
         if(volume == 0)
@@ -41,16 +57,16 @@ template <typename Parent> class Sound{
 
     void set(int value, int wait=0){
         frequency = value;
-        ledcWriteTone(0, frequency);
+        ledcWriteTone(BUZZER_LEDC, frequency);
 
         if(frequency != BUZZER_NO_SOUND)
-            ledcWrite(0, volume);
+            ledcWrite(BUZZER_LEDC, map(volume, 0, MAX_VOLUME, 0, TONE_MAX_DUTY));
         
         if(wait == 0)
             return;
 
         device->await(wait);
-        ledcWriteTone(0, 0);
+        ledcWriteTone(BUZZER_LEDC, 0);
     }
 
     void setVolume(const int newValue){
@@ -104,7 +120,7 @@ template <typename Parent> class Sound{
     void reset(){
         volume    = device->settings.template get<int>("volume");
         frequency = BUZZER_NO_SOUND;
-        ledcWriteTone(0, 0);
+        ledcWriteTone(BUZZER_LEDC, 0);
     }
 
     String toString(){

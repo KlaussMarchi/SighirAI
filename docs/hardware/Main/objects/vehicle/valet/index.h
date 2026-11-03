@@ -13,10 +13,19 @@ template<typename Parent> class Valet{
     bool active  = false;
 
     Valet(Parent* dev):
-        device(dev){}
+        device(dev),
+        lastUpdate(0){}
 
     void setup(){
-        enabled = device->settings.isEnabled("valet");
+        refresh();
+    }
+
+    // modo maleta ("suitcase"): o etilômetro não está num veículo, então não existe manobrista
+    void refresh(){
+        enabled = device->settings.isEnabled("valet") && !device->settings.isEnabled("suitcase");
+
+        if(!enabled && active)
+            set(false);
     }
 
     void set(const bool state){
@@ -27,7 +36,7 @@ template<typename Parent> class Valet{
     void start(){
         set(!active);
         device->display.interface.msg(MSG_BLACK, active ? lang.valetEnabled.get() : lang.valetDisabled.get());
-        device->telemetry.event(active ? "$ETEV22!" : "!ETEV23$");
+        device->telemetry.event(active ? "$ETEV22!" : "$ETEV23!");
         device->await(3000);
 
         if(active)

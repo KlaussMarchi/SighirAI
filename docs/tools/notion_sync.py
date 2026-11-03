@@ -31,6 +31,7 @@ import csv
 import json
 import time
 import hashlib
+import html
 import argparse
 import unicodedata
 import urllib.error
@@ -570,6 +571,8 @@ class RestSync:
             return [f"{pad}- [{'x' if data.get('checked') else ' '}] {text}"] + self.kids(b, ctx, toggle, indent + 1)
         if kind == 'quote':
             return [f'{pad}> {text}'] + [pad + '> ' + l for l in self.kids(b, ctx, toggle, 0) if l.strip()]
+        if kind == 'callout' and b.get('has_children') and text.strip():    # CALLOUT COM CONTEÚDO = SEÇÃO (scrub OMITE "Credenciais")
+            return ['', f"## {(data.get('icon') or {}).get('emoji', '')} {text}".replace('##  ', '## '), ''] + self.kids(b, ctx, toggle, 0)
         if kind == 'callout':
             icon = (data.get('icon') or {}).get('emoji', '')
             return [f'{pad}> {icon} {text}'.rstrip()] + [pad + '> ' + l for l in self.kids(b, ctx, toggle, 0) if l.strip()]
@@ -669,23 +672,54 @@ def fileName(src):
 
 
 def flavored(content, ctx, files):
-    """markdown do Notion (MCP: <details>, <columns>, tabs) → markdown simples, no mesmo estilo que a
-    API produz: toggle vira título (### no 1º nível), lista mantém o recuo relativo."""
-    out, stack, table = [], [], None
-    for raw in content.split('\n'):
+    """markdown do Notion (MCP: <details>/<summary> com tabs, ou <toggle> com o título na 1ª linha, desde 11/2026;
+    <columns>, <callout>) → markdown simples, no mesmo estilo que a API produz: toggle vira título (### no 1º
+    nível), callout com conteúdo vira seção (##), lista mantém o recuo relativo."""
+    lines = content.split('\n')
+    out, stack, table, title, lists = [], [], None, None, []
+    for i, raw in enumerate(lines):
         tabs = len(raw) - len(raw.lstrip('\t'))
         s = raw.strip()
         base = stack[-1][1] + 1 if stack else 0
-        pad = '  ' * max(0, tabs - base)
+        pad = '  ' * max(0, tabs - base) if tabs else raw[:len(raw) - len(raw.lstrip(' '))]
         quote = '> ' if any(k == 'callout' for k, _ in stack) else ''
-        if s in ('<details>', '<columns>') or s.startswith(('<column', '<callout', '<details ')) \
-                and not s.startswith('</'):
-            kind = 'callout' if s.startswith('<callout') else s.strip('<>').split()[0]
-            stack.append((kind, tabs))
+        if title and not STRUCTURAL.match(s):
+            text = re.sub(r'^\*\*(.+)\*\*$', r'\1', clean(s).strip())
+            out += HEADS[title](text, sum(1 for k, _ in stack if k == 'details') - 1)
+            title = None
             continue
-        if s in ('</details>', '</columns>', '</column>', '</callout>'):
+        title = None
+        opened = re.match(r'^<(details|toggle|columns|column|callout)\b', s)
+        if opened:
+            tag = opened.group(1)
+            section = tag == 'callout' and calloutLines(lines, i) > 1
+            stack.append(('section' if section else 'details' if tag == 'toggle' else tag, tabs))
+            title = 'section' if section else 'toggle' if tag == 'toggle' else None
+            continue
+        if re.match(r'^</(details|toggle|columns|column|callout)>$', s):
             if stack:
                 stack.pop()
+            continue
+        if s in ('<p>', '</p>', '<p />', '<p/>', '</li>', '</page>', '</database>'):
+            continue
+        if s in ('<ol>', '<ul>'):
+            lists.append([s[1:3], 0, None])
+            continue
+        if s in ('</ol>', '</ul>'):
+            lists = lists[:-1]
+            continue
+        if s == '<li>' and lists:
+            lists[-1][1] += 1
+            lists[-1][2] = f'{lists[-1][1]}. ' if lists[-1][0] == 'ol' else '- '
+            continue
+        m = re.match(r'^<(page|database) url="[^"]*"[^>]*>$', s)
+        if m:
+            title = m.group(1)
+            continue
+        m = re.match(r'^<bookmark source="([^"]*)"', s)
+        if m:
+            url = html.unescape(m.group(1))
+            out.append(f'{pad}{quote}[{url}]({url})')
             continue
         m = re.match(r'^<summary>(.*)</summary>$', s)
         if m:
@@ -708,7 +742,7 @@ def flavored(content, ctx, files):
         if s in ('<empty-block/>', '---'):
             out.append('' if s != '---' else '---')
             continue
-        m = re.match(r'^<(pdf|file|video|audio|image)\s+src="([^"]*)"', s)
+        m = re.match(r'^<(pdf|file|video|audio|image)\s+(?:src|source)="([^"]*)"', s)
         if m:
             name, key = fileName(m.group(2)) if m.group(2) else (None, None)
             if m.group(2).startswith('http') and m.group(1) == 'image':
@@ -743,12 +777,58 @@ def flavored(content, ctx, files):
             continue
         s = re.sub(r'!\[([^\]]*)\]\((https?://[^)]+)\)', lambda im: image(im, ctx, files), s)
         s = re.sub(r'!\[([^\]]*)\]\((notion-file-block://[^)]+)\)', lambda im: blockImage(im, ctx, files), s)
+        item = ('  ' * (len(lists) - 1) + (lists[-1][2] or '   ')) if lists and s else ''
+        if lists and s:
+            lists[-1][2] = None
         for part in clean(s).split('\n'):
             if part.startswith('#'):
                 out += ['', part, '']
             else:
-                out.append(f'{pad}{quote}{part}' if part else '')
+                out.append(f'{pad}{quote}{item}{part}' if part else '')
+                item = '  ' * (len(lists) - 1) + '   ' if item else ''
     return re.sub(r'\n{3,}', '\n\n', '\n'.join(out)).strip()
+
+
+STRUCTURAL = re.compile(r'^</?(toggle|details|summary|callout|columns?|pdf|file|video|audio|image|page|database|bookmark|'
+                        r'unknown|table|tr|td|p|ol|ul|li|empty-block)\b')
+
+# TÍTULO NA LINHA SEGUINTE À TAG (FORMATO DO CONECTOR DESDE 11/2026)
+HEADS = {
+    'toggle': lambda text, depth: toggleHead(text, depth, ''),
+    'section': lambda text, depth: ['', '## ' + text, ''] if text else [],
+    'page': lambda text, depth: [f'[{text or "Sem título"}] (subpágina)'],
+    'database': lambda text, depth: [f'[Banco: {text or "sem título"}]']
+}
+
+
+# A VARREDURA DOS FILHOS LÊ O CONTEÚDO CRU: O TÍTULO DE CADA CALLOUT-SEÇÃO VIRA "##" PARA O scrub ACHAR "Credenciais"
+def headed(content):
+    lines = content.split('\n')
+    out   = []
+
+    for i, line in enumerate(lines):
+        if line.strip().startswith('<callout') and i + 1 < len(lines) and calloutLines(lines, i) > 1:
+            out.append('## ' + re.sub(r'^\*\*(.+)\*\*$', r'\1', clean(lines[i + 1]).strip()))
+
+        out.append(line)
+
+    return '\n'.join(out)
+
+
+# CALLOUT COM MAIS DE UMA LINHA É SEÇÃO (O "Credenciais e Acessos" DA RAIZ); A DE UMA LINHA SÓ (CÓDIGO STT) É CITAÇÃO
+def calloutLines(lines, start):
+    depth, count = 0, 0
+
+    for line in lines[start:]:
+        s = line.strip()
+        depth += s.startswith('<callout') - (s == '</callout>')
+
+        if depth == 0:
+            return count
+
+        count += bool(s) and not s.startswith('<callout')
+
+    return count
 
 
 def clean(s):
@@ -757,7 +837,11 @@ def clean(s):
     s = re.sub(r'<mention-[a-z-]+ url="([^"]*)"[^>]*/>', r'\1', s)
     s = re.sub(r'</?(span|u|color|mark|s|sub|sup)\b[^>]*>', '', s)
     s = re.sub(r'\s*\{(toggle|color)="[^"]*"\}', '', s)
-    return re.sub(r'\\([$_~#<>|\-\[\]()!])', r'\1', s)     # escapes do markdown do Notion (\$, \>)
+    s = re.sub(r'<a href="([^"]*)"[^>]*>(.*?)</a>', r'[\2](\1)', s)
+    s = re.sub(r'</?b>', '**', s)
+    s = re.sub(r'</?(i|em)>', '*', s)
+    s = re.sub(r'</?code>', '`', s)
+    return html.unescape(re.sub(r'\\([$_~#<>|\-\[\]()!])', r'\1', s))     # escapes do markdown do Notion (\$, \>)
 
 
 def image(m, ctx, files):
@@ -978,8 +1062,8 @@ def mcpSource(args, cfg, state):
     return 0
 
 
-CHILD_PAGE = re.compile(r'<page url="([^"]+)"[^>]*>(.*?)</page>')
-CHILD_DB = re.compile(r'<database url="([^"]+)"([^>]*)>(.*?)</database>')
+CHILD_PAGE = re.compile(r'<page url="([^"]+)"[^>]*>(.*?)</page>', re.S)              # O TÍTULO PODE VIR NA LINHA DE BAIXO
+CHILD_DB = re.compile(r'<database url="([^"]+)"([^>]*)>(.*?)</database>', re.S)
 
 
 def mcpPage(args, cfg, state):
@@ -1028,7 +1112,7 @@ def mcpPage(args, cfg, state):
         done(state, nid)
         # filhos: subpáginas e bancos citados no conteúdo entram na fila da varredura
         kids = 0
-        scrubbed = scrub(content, cfg.get('omitir_secoes', []))
+        scrubbed = scrub(headed(content), cfg.get('omitir_secoes', []))
         for url, name in CHILD_PAGE.findall(scrubbed):
             cid = hexid(url)
             if cid and cid != nid and cid not in state.data.get('feitos', []):

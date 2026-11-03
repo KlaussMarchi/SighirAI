@@ -47,8 +47,11 @@ Tester/
 ├── .claude/settings.json    # Claude: Sonnet 5, esforço alto, bypass, hook de sessão
 ├── .agents/hooks.json       # AGY: hook de sessão
 ├── tools/                   # CLI + camada robusta (USAR PRIMEIRO)
-│   ├── sighir.py            # CLI: init/status/firmware/settings/telemetry/erase/recover/register/test/flash
-│   ├── core.py              # ops robustas (retry/backoff, classificação de firmware)
+│   ├── sighir.py            # CLI: init/status/firmware/settings/telemetry/erase/recover/register/test/flash/qualidade/monitor
+│   ├── core.py              # ops robustas (retry/backoff, classificação de firmware, MIN_FIRMWARE)
+│   ├── quality.py           # testes de qualidade (/get-data, TST_*, autodiagnóstico, sopros, teste real com/sem álcool)
+│   ├── session.py           # sessão da bancada (.sighir/bancada/<MIC>.json): o que cada comando fez e mediu
+│   ├── report.py            # relatório de ensaio como dados (default_settings.report) e veredito de liberação
 │   ├── preflight.py         # checagem rápida de dependências
 │   ├── boot.py + ai.json    # bootstrap cross-platform (venv, deps, agente, base docs)
 │   ├── _venv.py             # re-executa as CLIs no .venv

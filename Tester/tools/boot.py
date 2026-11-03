@@ -590,7 +590,8 @@ def trustAgy(out):
 
 
 def agyModel(agy, out):
-    """escolhe o Gemini Pro (High) mais novo que o `agy models` oferecer. Devolve (id, rótulo)."""
+    """escolhe o Gemini mais novo da família pedida em ai.json (`auto-<família>-<nível>`, ex.: auto-flash-high →
+    gemini-3.8-flash-high) que o `agy models` oferecer. Devolve (id, rótulo)."""
     wanted = (CFG.get('gemini') or {}).get('model', 'auto-pro-high')
     fallback = (CFG.get('gemini') or {}).get('fallback', 'gemini-3.1-pro-high')
     if not wanted.startswith('auto'):
@@ -604,8 +605,9 @@ def agyModel(agy, out):
         if models:
             saveJson(cache, {'ts': time.time(), 'models': models})
     best = None
+    family = re.escape(wanted[len('auto-'):] or 'pro-high')
     for model, label in models or []:
-        m = re.match(r'^gemini-(\d+(?:\.\d+)*)-pro-high$', model)
+        m = re.match(rf'^gemini-(\d+(?:\.\d+)*)-{family}$', model)
         if m:
             version = tuple(int(x) for x in m.group(1).split('.'))
             if best is None or version > best[0]:

@@ -33,21 +33,22 @@ template <typename Parent> class Sensors{
     void handle(){
         dht.handle();
         alcohol.handle();
+        pressure.blower.handle();  // LINHA DE BASE PARADA ENTRE TESTES: O DRIFT ACUMULADO VIRA SOPRO NO INÍCIO DO TESTE
     }
 
     void warm(int timeout=0){
         const unsigned long startTime = Time::get();
-        const bool heater = alcohol.heater.active;
-
+        alcohol.heater.set(true);
+ 
         do{
             alcohol.calibration.handle();
-            alcohol.heater.set(true);
             pressure.blower.handle();
             alcohol.smooth();
             device->server.handle();
         }
         while(Time::get() - startTime < timeout);
-        alcohol.heater.set(heater);
+        
+        alcohol.heater.handle();
     }
 }; 
 

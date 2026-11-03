@@ -8,7 +8,7 @@
 - **Valide o formato** da resposta (ex: `$firmware!` deve casar `vX.Y.Z`; `esp_id` deve conter `MIC`).
 - **Retry com backoff**: lixo assíncrono (`port changed to 1`, `SttReq`, `$ETACK!`, `AT+QACC?`, `CMD;...;04;0x`) — descarte, limpe e reenvie. A lista completa está em `utils/noise.py` (§8.1).
 - **`$ETEVxx!` NUNCA é lixo.** Todo `$ETEVxx!` é resultado ou evento do device e precisa chegar íntegro:
-  - `$ETEV17!` é a **segunda linha da resposta do `$ETKA!`** (o device responde `$ETKAACK!` **e** `$ETEV17!` — `protocol/index.h:67-71`), não ruído.
+  - `$ETEV17!` é a **segunda linha da resposta do `$ETKA!`** (o device responde `$ETKAACK!` **e** `$ETEV17!` — `protocol/index.h:70-72`), não ruído.
   - `$ETEV20!` é o **resultado OK do `TST_SENS`**; `$ETEV24!` é a falha. Descartar isso = jogar fora o resultado do teste.
 - **Nunca** interprete resposta de formato inesperado como dado válido. Lembre: para `$firmware!`, formato inesperado após retries = **firmware antigo** (Seção 5.1).
 
@@ -45,7 +45,8 @@ Parser: `../docs/hardware/Main/objects/telemetry/protocol/index.h` (`Protocol::c
 | Comando | Descrição | Resposta esperada |
 |---------|-----------|-------------------|
 | `$ETKA!` | Sincronização (keep-alive) | `$ETKAACK!` **e depois** `$ETEV17!` (duas linhas) |
-| `$firmware!` | Versão do firmware | `v6.4.0` — string crua, **sem `$`/`!`** (vazio/estranho = antigo) |
+| `$firmware!` | Versão do firmware | `v6.5.3` — string crua, **sem `$`/`!`** (vazio/estranho = antigo) |
+| `/get-data` | (v6.5+) Leitura ao vivo dos sensores, **não vai para o log** | `{"temperature","humidity","analog","filtered","filtered_analog","pressure","driving","chave"}` (comando `monitor`) |
 | `$ETRS!` | Reiniciar device | (reinicia, ~6 s até voltar) |
 | `$erase!` | Reset **de fábrica** das settings + reinicia | (ver ⚠️ em §11.2 — apaga telemetria/wifi/empresa) |
 | `CF:key$value!` | Grava setting (qualquer chave) + salva | `OK` (ou `NONE` se faltar `:`/`$`/`!`) |
@@ -57,10 +58,16 @@ Parser: `../docs/hardware/Main/objects/telemetry/protocol/index.h` (`Protocol::c
 | `$ETBL01!` / `$ETBL02!` | Desbloqueia / **bloqueia** o veículo | `$ETBL0x0000!` + `$ETEV01!`/`$ETEV02!` (**sem `$ETKAACK!`** — ver nota) |
 | `endTravel` | Encerra viagem: `driving=false` + **`blocked=true`** | `OFF` |
 | `$ETAT01!` | (MIX/MIX2) Liga a ignição — **só dispara teste se bloqueado** (§11.3) | `$ETATACK!` |
-| `TST_PRESS` / `TST_TEMP` / `TST_SENS` | Diagnóstico de pressão/temp/sensor | `pressworking` / `tempworking` / `$ETEV20!` |
+| `TST_PRESS` / `TST_TEMP` / `TST_SENS` | Diagnóstico de pressão/temp/sensor | `pressworking` / `tempworking` / `$ETEV20!` (falhas: `$ERROR!` / `ERROR` / `$ETEV24!`) |
+| `CF:presstream$1!` + `$ETRS!` | (lido só no boot) a pressão vira stream `{"time","pressure","blow"}` a 10 Hz | **suja todas as respostas** até voltar `presstream$0` + `$ETRS!` — o Tester usa o `/get-data` |
 
-> **Timeout dos `TST_*`**: o diagnóstico dá `await(2500)` antes de responder e o `TST_TEMP` varre
-> até 7 s → a resposta pode levar **~10 s**. Use timeout ≥ 15 s (é o que o `protocol.json` faz).
+> **Timeout dos `TST_*`**: na v6.5.3 o `TST_TEMP`/`TST_SENS`/`TST_PRESS` observam o sensor por 10 s na tela, com o
+> valor ao vivo (duas leituras ruins reprovam na hora; a pressão exige o HX711 pronto a cada leitura) → resposta em
+> **~12 s**. Use timeout ≥ 15 s (é o que o
+> `protocol.json` e o `qualidade` fazem). Na build de debug (`alcohol.debug`) o `TST_SENS` sempre dá `$ETEV24!`.
+
+> **Linhas coladas viram um comando só**: o `NextSerial` lê a cada 100 ms e junta tudo o que chegou sem pausa
+> (tira os `\r\n`). Para mandar amostras repetidas (ex.: 5× `+QACC:high` do Entrack) espace ≥ 0,3 s.
 
 > **`$ETBL01!`/`$ETBL02!` não devolvem `$ETKAACK!`** (verificado no device, firmware v6.4.4): o parser
 > faz `response.set("$ETKAACK!")` e logo chama `vehicle.unblock()/block()`, mas todo `telemetry.event()`
@@ -82,7 +89,9 @@ Parser: `../docs/hardware/Main/objects/telemetry/protocol/index.h` (`Protocol::c
 ### 11.1 Semântica dos Testes (`protocol.json` — verificado no firmware)
 - **Flags de debug** (via `CF:`): `press$1` = **simula sopro** (pula `getFirstBreath`/blower); `press$0` = **sopro real** exigido. `testalc$1` = **força álcool** (→ `$ETEV30`); `testalc$0` = leitura real (limpo → `$ETEV29!`).
 - **Diagnósticos de sensor** (não exigem sopro): `TST_PRESS` → `pressworking`/`$ERROR!` (checa **comunicação** do load-cell HX711, **não** um sopro), `TST_TEMP` → `tempworking`/`ERROR`, `TST_SENS` → `$ETEV20!`/`$ETEV24!`. O teste de sopro **real** (`Diagnostic::blow()`) é **só pela tela touch**, não há comando serial.
-- **Eventos do resultado**: `$ETEV05!` = analisando (~20 s); **sem álcool** → `$ETEV29!` → desbloqueia (`$ETEV01!`); **com álcool** → `$ETEV30<mgL>!` → bloqueia (`$ETEV02!`) + contrassenha.
+- **Eventos do resultado**: `$ETEV05!` = analisando (~20 s); **sem álcool** → `$ETEV29!` → desbloqueia (`$ETEV01!`); **com álcool** → `$ETEV30<mgL>!` (mg/L sem o ponto: `0123` = 0,123) → bloqueia (`$ETEV02!`) + tela "Contrassenha / Realizar Outro Teste / Desligar Display" (não lê comandos até o toque ou 120 s).
+- **Sopro**: `$ETEV11!` = ninguém soprou em 25 s (tela "Tentar novamente?", 5 min); `$NOBLOW!` = sopro cortado antes de 1,8 s (o aparelho pede de novo). Depois do sopro sai também a curva do teste (`[a,b,c,…]`).
+- **Teste real** (sopro de verdade, sem forçar álcool) = `qualidade sem-alcool|com-alcool` (`procedimentos/qualidade.md` §3): dispara pela ignição de **qualquer** telemetria, inclusive Entrack.
 - Telemetria no tester (`utils/variables.py`): `mix`→**5 (MIX 2.0)**, `suntech`→**2**, `entrak`→**6**. As variantes de teste completo cobrem `mix`/`suntech`; em `entrak` os testes completos são **pulados com aviso** (o gatilho serial exigiria um burst de 4×`+QACC:high` que o runner não emite) — `entrak` roda os testes `any` (sopro/temp/sensor) normalmente.
 
 ### 11.2 Armadilhas do Parser (leia antes de inventar comando)
@@ -104,7 +113,7 @@ Parser: `../docs/hardware/Main/objects/telemetry/protocol/index.h` (`Protocol::c
 - **`sensor_id` ≠ `ID:sensor_id$`**: `sensor_id` **relê a EEPROM do cartucho** (valor real);
   `ID:sensor_id$` devolve o que está salvo no NVS (pode estar defasado ou `None`). Para cadastro, use `sensor_id`.
 - ⚠️ **`$erase!` é reset de fábrica, não "só o esp_id"**: ele reescreve *todos* os defaults
-  (`device/settings/index.h:43-71`) → **`telemetry` volta para `2` (Suntech)**, `wifi=false`,
+  (`device/settings/index.h:48-70`) → **`telemetry` volta para `2` (Suntech)**, `wifi=false`,
   `vehicle_type=0`, `ssid/passwd` de fábrica. Como o `register` faz erase automático
   quando o `esp_id` não é nativo, **um device MIX/Entrack vira Suntech no processo**: depois do erase,
   **reconfigure a telemetria** (`CF:telemetry$5!` MIX 2.0, `$6!` Entrack, `$0!` MIX legado) e o resto do que foi apagado.

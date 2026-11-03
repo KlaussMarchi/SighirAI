@@ -53,11 +53,12 @@ template <typename Parent> class Inputs{
         return false;
     }
 
-    int trichoices(const char* txt0, const char* txt1, const char* txt2, uint32_t timeout=120000, int standard=2){
+    int trichoices(const char* txt0, const char* txt1, const char* txt2, int standard=0, uint32_t timeout=120000){
         auto& display = device->display;
         auto& lcd = display.lcd; 
 
         int txt_x, txt_y;
+        const int band = display.height/3;   // INTEIRO: AS TRÊS FAIXAS COBREM A TELA SEM FRESTA DA TELA ANTERIOR
         display.brightness.update();
         lcd.setFont(&Roboto_Bold12pt8b);
         lcd.setTextSize(1);
@@ -65,21 +66,21 @@ template <typename Parent> class Inputs{
         lcd.setTextColor(DARK_GREY);
         txt_x = (display.width - lcd.textWidth(txt0))/2;
         txt_y = (display.height/6 - lcd.fontHeight());
-        lcd.fillRect(0, 0, display.width, display.height*0.333, YELLOW);
+        lcd.fillRect(0, 0, display.width, band, YELLOW);
         lcd.setCursor(txt_x, txt_y);
         lcd.print(txt0);
         
         lcd.setTextColor(YELLOW);
         txt_x = (display.width - lcd.textWidth(txt1)) / 2;
         txt_y = (display.height/3 + display.height/6 - lcd.fontHeight());
-        lcd.fillRect(0, display.height*0.333, display.width, display.height*0.333, DARK_GREY);
+        lcd.fillRect(0, band, display.width, band, DARK_GREY);
         lcd.setCursor(txt_x, txt_y);
         lcd.print(txt1);
 
         lcd.setTextColor(TFT_BLACK);
         txt_x = (display.width - lcd.textWidth(txt2))/2;
         txt_y = (display.height - display.height/6 - lcd.fontHeight());
-        lcd.fillRect(0, display.height*0.666, display.width, display.height*0.333, TFT_WHITE);
+        lcd.fillRect(0, 2*band, display.width, display.height - 2*band, TFT_WHITE);
         lcd.setCursor(txt_x, txt_y);
         lcd.print(txt2);
 
@@ -89,14 +90,17 @@ template <typename Parent> class Inputs{
 
         while(!display.touch.click() && Time::get() - startTime < timeout)
             continue;
-        
+
+        if(Time::get() - startTime >= timeout)   // O RESET DEIXA O TOQUE EM (0,0), DENTRO DA PRIMEIRA FAIXA
+            return standard;
+
         if(display.touch.areaClick(0, 0, display.width, display.height*.333))
             return 0;
 
         if(display.touch.areaClick(0, display.height*.333, display.width, display.height*.333))
             return 1;
-        
-        return (Time::get() - startTime < timeout) ? 2 : standard;
+
+        return 2;
     }
     
     bool boolean(const char* label, const char* subtitle=nullptr, int timeout = 5*60*1000){

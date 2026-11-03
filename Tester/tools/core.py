@@ -14,20 +14,24 @@ Convenções:
 import os
 import sys
 import re
-from time import sleep
+from time import sleep, monotonic
 
 # garante que a raiz do projeto está no sys.path (tools/ é subpasta)
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+import serial
+import serial.tools.list_ports
 from objects.Device.index import device
 from objects.Server.index import server      # noqa: F401 — reexportado (sighir.py usa core.server)
 from objects.Updater.index import updater    # noqa: F401 — reexportado (sighir.py usa core.updater)
 from utils.api import post_req
 
-MIN_FIRMWARE = (6, 4, 0)
-VERSION_RE   = re.compile(r'v?(\d+)\.(\d+)\.(\d+)')
+MIN_FIRMWARE  = (6, 5, 3)
+VERSION_RE    = re.compile(r'v?(\d+)\.(\d+)\.(\d+)')
+DEBUG_SENSORS = ('ETL2608402025435219', 'ETL3550904305917103')   # sensor_id FALSO DA BUILD DE DEBUG
+BOOT_TIME     = 30.0    # s, A v6.5 LEVA ~45 S PARA SINCRONIZAR DEPOIS DO RESET (O robustSync COBRE O RESTO)
 
 
 def log(tag, msg):
@@ -38,6 +42,49 @@ def log(tag, msg):
 
 
 _everConnected = False
+BRIDGES    = ('10c4', '1a86', '0403')    # CONVERSORES USB-SERIAL DO ETILÔMETRO: CP210x (WT32-SC01) PRIMEIRO, CH340, FTDI
+PROBE_TIME = 1.5                         # s POR PORTA: O APARELHO VIVO RESPONDE O $ETKA! EM ~0,4 S
+
+
+def candidates():
+    ports = [p for p in serial.tools.list_ports.comports() if p.vid and 'bluetooth' not in (p.description or '').lower()]
+    return sorted(ports, key=lambda p: BRIDGES.index(f'{p.vid:04x}') if f'{p.vid:04x}' in BRIDGES else len(BRIDGES))
+
+
+def probe(port):
+    try:
+        link = serial.Serial()
+        link.port, link.baudrate, link.timeout = port, 115200, 0.2
+        link.dtr = link.rts = False    # SOLTOS: NÃO REINICIA O ESP32 PELO CIRCUITO DE AUTO-RESET
+        link.open()
+    except serial.SerialException:
+        return False
+
+    answer, startTime = b'', monotonic()
+
+    while monotonic() - startTime < PROBE_TIME and b'ETKAACK' not in answer:
+        link.write(b'$ETKA!\r\n')
+        sleep(0.4)
+        answer += link.read(link.in_waiting or 1)
+
+    link.close()
+    return b'ETKAACK' in answer
+
+
+# COM MAIS DE UMA PLACA USB-SERIAL NA BANCADA, FICA COM A QUE RESPONDE $ETKAACK! (O ETILÔMETRO)
+def findPort():
+    ports = candidates()
+
+    if len(ports) <= 1:
+        return ports[0].device if ports else device.scan()
+
+    answering = next((p.device for p in ports if probe(p.device)), None)
+
+    if answering is None:
+        log('warn', f"nenhuma das portas USB respondeu ao $ETKA! ({', '.join(p.device for p in ports)}): tentando "
+                    f"{ports[0].device} — confira qual é o etilômetro")
+
+    return answering or ports[0].device
 
 
 def robustConnect(retries=6, backoff=2.0):
@@ -47,7 +94,7 @@ def robustConnect(retries=6, backoff=2.0):
         # plugado — duas olhadas e desiste (~2 s em vez de ~24 s). A insistência longa abaixo é para a
         # porta que some e volta depois de reset/erase/flash, quando já houve conexão.
         if not _everConnected and device.port is None:
-            port = device.scan()
+            port = findPort()
             if port is None:
                 if attempt >= 2:
                     log('err', 'nenhuma porta USB do etilômetro: confira o cabo (de dados) e o driver')
@@ -62,7 +109,7 @@ def robustConnect(retries=6, backoff=2.0):
             return True
         # a porta pode ter re-enumerado (ex: pós reset/erase com outro nome):
         # força re-scan na próxima tentativa
-        device.port = None
+        device.port = findPort()
         log('warn', f'falha ao abrir porta, tentativa {attempt}/{retries}')
         sleep(backoff)
     return False
@@ -190,11 +237,16 @@ def isNativeId(espId):
     return bool(espId) and espId.startswith('MIC')
 
 
-SETTING_KEYS = ['esp_id', 'sensor_id', 'telemetry', 'vehicle_type', 'server', 'wifi',
-                'ssid', 'passwd', 'lang', 'brightness', 'volume', 'camera', 'bypass', 'blowProb',
-                'enable_random', 'max_postpone', 'postpone_time', 'maneuver_time', 'time_of_travel',
-                'number_of_tests', 'rand_ppn_time', 'rand_min_time', 'last_alcohol', 'last_analog',
-                'temp_debug', 'press', 'testalc', 'reset']
+# CONFIGURAÇÃO DE OPERAÇÃO DO APARELHO (VAI PARA O default_settings.settings NO CADASTRO); O RESTO É IDENTIDADE OU DIAGNÓSTICO
+DEVICE_SETTINGS = ['company', 'telemetry', 'vehicle_type', 'maneuver_time', 'postpone_time', 'max_postpone',
+                   'time_of_travel', 'number_of_tests', 'rand_ppn_time', 'rand_min_time', 'enable_random', 'camera',
+                   'bypass', 'blowProb', 'valet', 'suitcase', 'blockinv', 'lang', 'brightness', 'volume', 'wifi',
+                   'ssid', 'passwd', 'server']
+
+TEXT_SETTINGS = ('company', 'lang', 'ssid', 'passwd', 'server')    # TEXTO MESMO QUANDO SÓ TEM DÍGITOS (SENHA 12345678)
+
+SETTING_KEYS = ['esp_id', 'sensor_id', *DEVICE_SETTINGS, 'last_alcohol', 'last_analog', 'temp_debug', 'presstream',
+                'press', 'testalc', 'reset']
 
 TELEMETRIES = {'mix': 0, 'suntech': 2, 'mix2': 5, 'entrack': 6}
 
@@ -202,15 +254,22 @@ TELEMETRIES = {'mix': 0, 'suntech': 2, 'mix2': 5, 'entrack': 6}
 def readSetting(key, timeout=6.0, retries=3):
     """Lê uma setting do NVS (`ID:<key>$` -> `$<value>!`).
 
-    Usa extractValue() (não `request()`): settings curtas como `$6!` são válidas,
-    e a resposta pode vir grudada num `$ETEV17!` remanescente da sync."""
+    Só vale o formato `$valor!` (fora os `$ETEVxx!`): linha de debug do firmware que chegue antes ("heater OFF")
+    não é a resposta — segue lendo até o fim do timeout. A resposta pode vir grudada num `$ETEV17!` da sync."""
     for attempt in range(1, retries + 1):
         device.clear()
         device.send(f'ID:{key}$')
-        value = extractValue(device.get(timeout=timeout))
+        deadline = monotonic() + timeout
 
-        if value:
-            return value
+        while monotonic() < deadline:
+            raw    = device.get(timeout=deadline - monotonic()) or ''
+            tokens = [token.strip() for token in TOKEN_RE.findall(raw) if token.strip() and not EVENT_RE.match(token.strip())]
+
+            if tokens:
+                return tokens[-1]
+
+            if 'ERROR' in raw:
+                return 'ERROR'
 
         log('warn', f'sem resposta para ID:{key}$, tentativa {attempt}/{retries}')
         sleep(0.3)
@@ -220,6 +279,28 @@ def readSetting(key, timeout=6.0, retries=3):
 
 def readSettings(keys=None):
     return {key: readSetting(key) for key in (keys or SETTING_KEYS)}
+
+
+# AS SETTINGS VOLTAM COMO TEXTO DO NVS ('5', '0.1', 'false', 'null' = CHAVE AUSENTE): NO JSON VIRAM NÚMERO, BOOLEANO OU None
+def typedValue(text):
+    if text in (None, 'null', 'ERROR'):
+        return None
+
+    if text in ('true', 'false'):
+        return text == 'true'
+
+    for kind in (int, float):
+        try:
+            return kind(text)
+        except ValueError:
+            continue
+
+    return text
+
+
+def readConfig():
+    values = readSettings(DEVICE_SETTINGS)
+    return {key: value if key in TEXT_SETTINGS and value not in (None, 'null', 'ERROR') else typedValue(value) for key, value in values.items()}
 
 
 def writeSetting(key, value, timeout=8.0):
@@ -334,7 +415,26 @@ def recover():
         device.send('$ETRS!')
     device.disconnect()
     sleep(6.0)
-    return robustSync()
+
+    if robustSync(retries=3):
+        return True
+
+    log('warn', 'o $ETRS! não foi lido (tela que não lê a serial, ex.: contrassenha): reset pelo pino RTS')
+    return hardReset() and robustSync()
+
+
+# EN DO ESP32 PELO RTS DO CONVERSOR USB, COM O DTR SOLTO (BOOT NORMAL), COMO O "Hard resetting via RTS pin" DO ESPTOOL
+def hardReset():
+    if not robustConnect(retries=2):
+        return False
+
+    device.device.dtr = False
+    device.device.rts = True
+    sleep(0.2)
+    device.device.rts = False
+    device.disconnect()
+    sleep(BOOT_TIME)
+    return True
 
 
 def rearmUpdate(espId):

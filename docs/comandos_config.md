@@ -1,6 +1,6 @@
 # Comandos, configurações e rotas do etilômetro
 
-> Fontes: firmware v6.4.8 (`objects/telemetry/protocol/index.h`, `device/settings/index.h`,
+> Fontes: firmware v6.5.3, com o que mudou desde a v6.4.8 marcado "(v6.5)" (`objects/telemetry/protocol/index.h`, `device/settings/index.h`,
 > `device/company/index.h`, `objects/server/*`), PPTC 0001-01 §2, `Notion/PROTOCOL.pdf` (protocolo antigo, 2025),
 > `Tester/AGENTS.md` (comportamento medido na bancada). Para operar pela USB use o **Sighir Tester AI**
 > (`Tester/tools/sighir.py`) — ele já trata ruído, retentativas e as armadilhas abaixo.
@@ -15,7 +15,7 @@
 
 `Protocol::check()` usa `contains()` e para no primeiro que casar:
 
-`D:` → `F:` → `updt` → `ETRS` → `firmware` → `ETBL02` → `ETBL01` → `erase_sensor` → `erase` → `ETACK` →
+`D:` → `F:` → `updt` → `ETRS` → `firmware` → `/get-data` (v6.5+) → `ETBL02` → `ETBL01` → `erase_sensor` → `erase` → `ETACK` →
 `ETKA` → `TST_TEMP` → `TST_SENS` → `TST_PRESS` → `endTravel` → `last_analog` → `analog` → `sensor_id` →
 `cf_coefs` → `coefs` → `calibrate`
 
@@ -49,18 +49,19 @@ Consequências:
 |---|---|---|
 | `D:chave$` (ou `ID:chave$`) | lê uma configuração do NVS | `$valor!` ou `ERROR` |
 | `F:chave$valor!` (ou `CF:…`) | grava configuração e salva (a maioria só vale após reiniciar) | `OK` |
-| `firmware` (ou `$firmware!`) | versão | `v6.4.8` (texto cru) — sem resposta válida = firmware muito antigo |
+| `firmware` (ou `$firmware!`) | versão | `v6.5.3` (texto cru) — sem resposta válida = firmware muito antigo |
+| `/get-data` | (v6.5+) leitura ao vivo, fora do log | `{"temperature","humidity","analog","filtered","filtered_analog","pressure","driving","chave"}` |
 | `sensor_id` | relê o ID na EEPROM do sensor | `ETL…` |
 | `analog` / `last_analog` | leitura bruta atual / do último teste | inteiro |
 | `coefs` / `cf_coefs$…!` | lê / grava coeficientes (metrologia) | JSON / `success`/`error` |
 | `erase_sensor` | **apaga a EEPROM do sensor** (irreversível) | `success`/`error` |
 | `erase` (`$erase!`) | **reset de fábrica** das configurações + reinício (novo `esp_id`!) | — |
-| `TST_PRESS` / `TST_TEMP` / `TST_SENS` | diagnóstico (até ~10 s) | `pressworking` / `tempworking` / `$ETEV20!` (ou `$ERROR!`/`ERROR`/`$ETEV24!`) |
+| `TST_PRESS` / `TST_TEMP` / `TST_SENS` | diagnóstico (até ~13 s; v6.5 observa o sensor 10 s na tela) | `pressworking` / `tempworking` / `$ETEV20!` (ou `$ERROR!`/`ERROR`/`$ETEV24!`) |
 | `calibrate` | teste em modo coleta (não bloqueia, sem eventos) | dados |
-| `updt` (`__updt__`) | OTA pela serial (chunks base64 `$…!`) | `_STARTING_UPDATE_` … `written` |
+| `updt` (`__updt__<tamanho>`) | OTA pela serial: blocos `$base64=#offset:crc32!` (v6.5; o `$base64!` antigo ainda vale) | `_STARTING_UPDATE_` … `written`/`resend` … `_UPDATE_OK_`/`_UPDATE_FAIL_` |
 
 Flags de bancada (via `F:`): `press$1` simula sopro, `testalc$1` força álcool, `presstream$1` transmite a
-pressão a 10 Hz. **Desligue antes de devolver o aparelho.**
+pressão a 10 Hz (só lido no boot; suja todas as respostas da serial). **Desligue antes de devolver o aparelho.**
 
 ## 4. Configurações (NVS "preferences")
 
@@ -85,6 +86,8 @@ Padrões de `Settings::reset()` (reset de fábrica) e, entre parênteses, os de 
 | `bypass` | false | contrassenha aceita "5" (só bancada) |
 | `blowProb` | 0.1 | tolerância do detector de sopro (s) |
 | `valet` | (ausente) | habilita o botão de modo manobrista |
+| `suitcase` | false | maleta de demonstração (v6.5) |
+| `blockinv` | false | inverte bloqueio/desbloqueio para rastreador com relé normalmente aberto (v6.5) |
 | `wifi` | false | liga AP+Wi-Fi (necessário para OTA/check-update) |
 | `ssid` / `passwd` | `Etilometro` / `12345678` | rede Wi-Fi da base (cliente) |
 | `server` | `https://sighir.com:8000/` | servidor |

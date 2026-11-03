@@ -12,7 +12,8 @@ template <typename Parent> class Heater{
 
   public:
     unsigned long lastUpdate;
-    bool active = false;
+    bool active  = false;
+    bool started = false;
     
     Heater(Parent* dev):
         device(dev){}
@@ -21,6 +22,7 @@ template <typename Parent> class Heater{
         lastUpdate = Time::get();
         pinMode(pin, OUTPUT);
         set(true);
+        started = true;
     }
 
     void handle(){
@@ -50,19 +52,19 @@ template <typename Parent> class Heater{
     }
     
     void set(const bool value){
-        if(active == value)
+        if(active == value || !started)
             return;
 
         digitalWrite(pin, value ? LOW : HIGH);
         lastUpdate = Time::get();
 
-        Serial.println("heater "  + String(value ? "ON" : "OFF"));
+        Serial.println("heater " + String(value ? "ON" : "OFF"));
         active = value;
     }
 
     void setDuty(const int on, const int off){
-        const int onTime  = on  * (60*1000);
-        const int timeOff = off * (60*1000);
+        const unsigned long onTime  = (unsigned long) on  * (60*1000);
+        const unsigned long timeOff = (unsigned long) off * (60*1000);
         
         if(active && Time::get() - lastUpdate > onTime)
             return set(!active);

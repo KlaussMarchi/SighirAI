@@ -154,6 +154,16 @@ template <typename Parent> class Telemetry{
         return "None";
     }
 
+    const char* id(){
+        if(type == SUNTECH_TEL)
+            return suntech.id.get();
+
+        if(type == ENTRACK_TEL)
+            return entrack.id.get();
+
+        return "N/A";
+    }
+
     bool working(){
         return (Time::get() - serial.lastAckTime < 15000);
     }

@@ -53,7 +53,7 @@ Fora do git (grandes ou sensíveis): `Notion/` (136 MB, tem credenciais na `Hand
 
 <!-- KB:AUTO:BEGIN -->
 
-## Catálogo automático (gerado por `tools/kb.py atualizar` em 08/10/2026 10:03)
+## Catálogo automático (gerado por `tools/kb.py atualizar` em 03/11/2026 10:55)
 
 Não edite este bloco à mão: descrições vêm de `tools/catalogo.json` (registre com `kb.py revisado`). ⚠ = novo/alterado e ainda não revisado.
 
@@ -62,23 +62,23 @@ Não edite este bloco à mão: descrições vêm de `tools/catalogo.json` (regis
 | arquivo | conteúdo |
 |---|---|
 | `comandos_config.md` | Comandos seriais, parser, configurações (NVS) e padrões, Wi-Fi, rotas HTTP, OTA — *quando:* configurar/consultar o aparelho |
-| `diagnostico.md` | Playbook por sintoma: hipóteses, testes, soluções, casos, categorias de anomalias — *quando:* qualquer problema de campo |
+| `diagnostico.md` ⚠ | Playbook por sintoma: hipóteses, testes, soluções, casos, categorias de anomalias — *quando:* qualquer problema de campo |
 | `eletrica_instalacao.md` | Cabos, pinagens, relé, chicote Suntech, instalação, validação, bancada, lições de campo — *quando:* elétrica e instalação |
 | `firmware_reference.md` | Eventos $ETEVnn! com linha do firmware, fluxos e o que cada telemetria repassa (medido no banco) — *quando:* interpretar eventos e logs |
-| `migracao_servidor.md` ⚠ | Roteiro quando o servidor muda: contrato.py diferenca (rotas/campos/tabelas/migrações × referência, com quem usa), medir no snapshot, onde mexer em cada IA, testar, histórico das migrações — *quando:* servidor/tabelas/API mudaram, erro 404/400 novo numa IA, aviso 'O CONTRATO MUDOU' |
+| `migracao_servidor.md` | Roteiro quando o servidor muda: contrato.py diferenca (rotas/campos/tabelas/migrações × referência, com quem usa), medir no snapshot, onde mexer em cada IA, testar, histórico das migrações — *quando:* servidor/tabelas/API mudaram, erro 404/400 novo numa IA, aviso 'O CONTRATO MUDOU' |
 | `operacao_telas.md` | Telas (texto exato), cores, sons, fluxo do teste e menu ID/INFO/CONFIG — *quando:* o que o motorista/técnico vê |
 | `portal_app.md` ⚠ | Portal web, app Sighir Monitor, portais MiX/SystemSat/Movieit, API (rotas, filtros, armadilhas) — *quando:* portal, app e servidor |
 | `sensor_calibracao.md` | Sensor, sopro, estabilização, purga, vida útil, calibração, troca de sensor, falso positivo — *quando:* problemas de sensor/sopro/leitura |
-| `server_reference.md` ⚠ | Schema do servidor Django, sincronização, instalar/editar/deletar, rotas — *quando:* operar no banco/servidor |
+| `server_reference.md` | Schema do servidor Django, sincronização, instalar/editar/deletar, rotas — *quando:* operar no banco/servidor |
 | `sincronizar.md` | Procedimento "sincronizar os documentos": Notion inteiro (API ou conector) + resumo do servidor + índice, e o que revisar depois — *quando:* atualizar a base docs/ |
 | `sistema.md` | Visão geral: peças, identidades, fluxo de dados, ciclo de uso, perfis, glossário — *quando:* entender o sistema |
-| `telemetrias.md` | MiX/MIX 2.0/Suntech/Entrack: ignição, bloqueio, handshake, portais, o que chega ao servidor — *quando:* problemas de integração/telemetria |
+| `telemetrias.md` ⚠ | MiX/MIX 2.0/Suntech/Entrack: ignição, bloqueio, handshake, portais, o que chega ao servidor — *quando:* problemas de integração/telemetria |
 | `testes.md` | Bateria de testes das 3 IAs (testar.py: offline, --api só leitura, --completo, --bancada) e roteiro manual de bancada/gravação com o esperado de cada passo — *quando:* depois de mudar código ou migrar o servidor; antes de entregar |
 | `troubleshooting.md` | Checklists de campo da equipe por problema (requisição de teste, atualização, bloqueio, app, reinícios, álcool, sopro, comunicação) — gerado do Notion (Suporte → Troubleshooting) — *quando:* roteiro de campo; o porquê e as evidências ficam no diagnostico.md |
 
 ### Firmware (docs/hardware/)
 
-Código-fonte real do etilômetro em `hardware/Main/` (versão no `Main.ino`: **v6.4.8**). Busque no código com `kb.py busca termo --codigo`.
+Código-fonte real do etilômetro em `hardware/Main/` (versão no `Main.ino`: **v6.5.3**). Busque no código com `kb.py busca termo --codigo`.
 
 | arquivo | conteúdo |
 |---|---|
@@ -89,50 +89,15 @@ Código-fonte real do etilômetro em `hardware/Main/` (versão no `Main.ino`: **
 
 | arquivo | conteúdo |
 |---|---|
-| `Notion/ETIQUETA_SINAL_IGNIO_E_RELE.pdf` | Etiqueta do corte de ignição: pós-chave nos pinos 30/87a do relé, VCC e GND — *quando:* ligação do relé de bloqueio (3 p.) |
-| `Notion/Handover.pdf` | Handover (Letícia Reis): integrações MiX/SystemSat/Suntech/Movieit/Entrack, contatos, uso dos portais parceiros, AOVX/SyncTrak. CONTÉM CREDENCIAIS — não copiar — *quando:* operar portal da MiX/SystemSat/Movieit, contato das telemetrias (45 p.) |
-| `Notion/MANUAL_DE_INSTALAO_DAD01_(3).pdf` | Manual de instalação DAD01 v0.2 (dez/2024): componentes, cabo de força (cores), relé positivo/negativo, instalação autônoma/compartilhada, app, update, solução de problemas MiX/SystemSat/Movieit — *quando:* cores do chicote, relé, passo a passo com o app (35 p.) |
-| `Notion/Manual_do_usuario_ST4305-1.pdf` | Manual do fabricante do rastreador Suntech ST4305 (comandos, LEDs, entradas/saídas) — *quando:* detalhe do módulo Suntech (74 p.) |
-| `Notion/PROTOCOL.pdf` | Protocolo serial ANTIGO (ago/2025): comandos ID:/CF:, lista de variáveis, telemetrias 0–5 (inclui Infleet/Systemsat) — *quando:* aparelhos antigos; significado histórico de chaves (6 p.) |
-| `Notion/Passo_a_passo__cabo_suntech.pdf` | Montagem do chicote Suntech: derivações VCC/IGN/GND e relé 85/86/30/87a — *quando:* montar ou conferir chicote Suntech (5 p.) |
-| `Notion/Procedimento_Padro_Testes_funcionais__Sighir.pdf` | Testes funcionais de bancada das placas: pinagem 8 e 6 vias, continuidade do espiral, ajuste dos 3 reguladores, API de testes — *quando:* bancada, pinagem, reguladores (15 p.) |
-| `Notion/Procedimento_Padro_de_Instalao__Sighir.pdf` | INST 0001-02 — procedimento padrão de instalação: ferramentas, acomodação, RS232/microfit/DB9, S1/S2 MiX, verificação, app, testes de comunicação e solução de problemas (MiX, bloqueio, sensor) — *quando:* instalação e problemas de instalação (31 p.) |
-| `Notion/Procedimento_de_Calibrao_Tcnico.pdf` | PPTC 0001-02 — manual técnico de calibração: modelo a·b^(cx+d), ajuste LM, R²/RMSE/MAE, incerteza GUM (D'Quim/Guth/ACMA), validade 365 dias — *quando:* metrologia, incerteza, certificado (14 p.) |
-| `Notion/Procedimento_de_Calibrao___Sighir.pdf` | PPTC 0001-01 — procedimento de calibração (visão geral): bancada de gás, aquisição, filtro de outliers, regressão, certificação, validade 1 ano — *quando:* calibração de sensores (9 p.) |
-| `Notion/Procedimento_de_Instalao_Entrack.pdf` | Procedimento de instalação com Entrack: conexões, relé no fio de ignição, verificação de comunicação — *quando:* instalar Entrack (7 p.) |
-| `Notion/Procedimento_de_Instalao_MIX 1.pdf` | Procedimento de instalação com MiX (versão mais nova, com configuração remota): S1, bateria, pen drive, script de ativação, validação — *quando:* instalar MiX (6 p.) |
-| `Notion/Procedimento_de_Instalao_MIX.pdf` | Procedimento de instalação com MiX (versão anterior; prefira a "MIX 1") — *quando:* histórico (5 p.) |
-| `Notion/Procedimento_de_Instalao_Suntech 1.pdf` | Procedimento de instalação com Suntech (versão mais nova): 4 vias/6 vias, relé acoplado no fio de ignição, verificação, configuração remota — *quando:* instalar Suntech (7 p.) |
-| `Notion/Procedimento_de_Instalao_Suntech.pdf` | Procedimento de instalação com Suntech (versão anterior; prefira a "Suntech 1") — *quando:* histórico (6 p.) |
-| `Notion/api-logs.pdf` | Guia da API de logs: token JWT, /api/v2/logs/ e filtros (start, end, vehicle, event, telemetry), paginação, dash-data, alert-events, tabela de eventos — *quando:* consultar logs pela API (12 p.) |
-| `Notion/guia-integracao-camera.pdf` | Integração com provedores de câmera: publicação de ocorrências, janela de vídeo, correlação, /logs/video/, homologação — *quando:* câmeras/vídeo de eventos (14 p.) |
-| `Notion/main 1.pdf` | MUAM 0001-01 — manual do app Sighir Monitor: perfis, Wi-Fi do aparelho, configurações, monitoramento, desbloqueio manual, testes de protocolo — *quando:* dúvidas sobre o app (9 p.) |
-| `Notion/main 2.pdf` | MUWP 0001-01 — manual do Portal Web: Controle, bloqueio remoto, Mapa, Software (OTA/parâmetros), Monitoramento, Relatórios de calibração — *quando:* dúvidas sobre o portal (11 p.) |
-| `Notion/main.pdf` | PPTC 0001-01 — protocolo de comunicação DAD01 (atual): comandos, eventos $ETEVnn!, estágios do sensor, fluxos MIX 2.0 — *quando:* significado oficial de eventos/comandos (13 p.) |
-| `Notion/manual_de_treinamento.pdf` | Manual do motorista (DAD01): passo a passo do teste, adiamento, randômico, manobra, câmera, menu, troca de sensor, cuidados contra falso positivo — *quando:* orientar motorista/cliente (27 p.) |
 
 ### Notion — tabelas (bancos exportados)
 
 | arquivo | conteúdo |
 |---|---|
-| `Notion/Controle de entradas e saídas - ANO 2025 39d79b90eb7380888238f3166aafb544_all.csv` | IDENTIFICADOR: 00099 | ID ETILÔMETRO: MIC1712914554893427 | ID TELEMETRIA: MIX | RELAÇÃO DE ESTOQUE: ENTRADA | |
-| `Notion/Controle de entradas e saídas - ESTOQUE 2026 39d79b90eb7380bdb3c1000bb9ee8548_all.csv` | ID DO ETILÔMETRO: MIC7296153883531459 | ID TELEMETRIA: 1700008080 - SUNTECH | RELAÇÃO DE ESTOQUE: ENTRADA | DE |
-| `Notion/Estoque Sighir - Duque de Caxias/Estoque - Itens com defeito 3c079b90eb738087aa60000bd66c81de_all.csv` | Name: Espiral | Quantidade: 0 | Selecionar: Defeito |
-| `Notion/Estoque Sighir - Duque de Caxias/Estoque - Produtos 25679b90eb7381c5a519c82156cc9182_all.csv` | Item do estoque: Derivadores suntech | Parent item: Conjunto Suntech | Quantidade: 0 | Custo Unitário: 1.43 |  |
-| `Notion/Estoque Sighir - Duque de Caxias/Estoque - Produção 3c279b90eb7380ebb792000b606ee85d_all.csv` | Selecionar: Produção | Quantidade: 24 | Itens: Cabo suntech derivado | Número: 24/08/2026 |
-| `Notion/Fonecedores Sighir 29379b90eb738141875fe2dd070c7c63_all.csv` | APLICAÇÃO: Todas | OBSERVAÇÃO: Via contato da Lisi | FORNECEDOR: MTC Cabos | LINK/CONTATO: (51) 99335-4742 | P |
-| `Notion/Resolução de Problemas 25079b90eb7380048323ce9f5903d098_all.csv` | Tabela de chamados de campo (Notion, todas as linhas) — resumida em casos_notion.md — *quando:* chamados anteriores |
-| `Notion/Tarefas 2af79b90eb738010861cc785e4bcdae8_all.csv` | Nome: Preparar 5 equipamentos Geocargo - mesmo padrão predileto | Criado em: 31/08/2026 15:31 (BRT) | Status:  |
-| `Notion/Tarefas 31f79b90eb73812dae37c0f3638cd99c_all.csv` | Nome: Estabelecer API para mostrar nossos logs no portal da Systemsat, ver com eles no grupo e implementar | C |
-| `Notion/Tarefas fb479b90eb7383c398f781f4e7ba717c_all.csv` | Nome: Preparar 6 equipamentos Ricker Transportes | Criado em: 07/08/2026 08:32 (BRT) | Status: Concluído | Pes |
 
 ### Notion — páginas (.md) por pasta
 
-- **(raiz)**: 2 página(s)
-- **Resolução de Problemas**: 17 página(s)
-- **Tarefas**: 10 página(s)
-- **Tarefas 2af7-dae8**: 3 página(s)
-- **Tarefas fb47-717c**: 3 página(s)
+- **(raiz)**: 1 página(s)
 
 ### Outros
 
@@ -146,6 +111,6 @@ Código-fonte real do etilômetro em `hardware/Main/` (versão no `Main.ino`: **
 | `fluxograma_tester.pdf` ⚠ | Procedimento padrão · Bancada e produção do etilômetro · Rev. 1 — 07/10/2026 (4 MB) |
 | `servidor_contrato.json` | servidor_contrato.json (23 KB) |
 
-Imagens soltas indexadas por nome: 34. Chamados de campo resumidos em `casos_notion.md` (gerado).
+Imagens soltas indexadas por nome: 20. Chamados de campo resumidos em `casos_notion.md` (gerado).
 
 <!-- KB:AUTO:END -->

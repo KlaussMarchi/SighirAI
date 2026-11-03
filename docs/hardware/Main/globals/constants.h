@@ -17,6 +17,10 @@
 #define TEST_STARTED 4
 #define TEST_CALIBRATION_FAIL 5
 
+#define BLOW_NONE 0
+#define BLOW_CUT  1
+#define BLOW_DONE 2
+
 #define BUZZER_NO_SOUND   0
 #define BUZZER_BLOW       2600
 #define BUZZER_BAD_SOUND  500
@@ -54,5 +58,5 @@
 
 #define TEMP_ALERT  52
 #define TEMP_DANGER 60
-#define HUM_ALERT   95
+#define HUM_ALERT   97
 #endif

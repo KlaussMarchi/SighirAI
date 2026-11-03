@@ -79,13 +79,14 @@ Todos herdam de **`BaseSyncModel`** → adicionam: `srv_created_at` (auto), `upd
 | `value` | Char(30) | |
 | `data` | JSON | dados específicos |
 | `locations` | JSON (list) | locais/filiais |
+| `alerts`, `email` | JSON (list) / texto | desde 08/10/2026 (migração 0036); em 03/11/2026 `alerts` = `[]` e `email` vazio em todas |
 
 ### `Device`  (hardware físico — o ESP — **e a instalação**, desde 24/09/2026)
 | Campo | Tipo | Notas |
 |---|---|---|
 | `id` | Char(30) **PK** | **ESP ID** (ex.: `MIC...`) |
 | `company` | FK→Company **(obrigatório)** | dono/transportadora (`company_id`) |
-| `sensor_id` | Char(30) | cartucho `ETL...` |
+| `sensor_id` | Char(30), opcional desde 20/10/2026 | cartucho `ETL...`; sem índice único (26 IDs repetidos em 03/11/2026, os de debug inclusive) |
 | `series_num` | Char(30) | nº de série (etiqueta) |
 | `plate` | FK→Vehicle (nullable) | `plate_id` (inteiro); preenchido = **instalado** (148 em 07/10/2026; placa única por aparelho) |
 | `telemetry` | FK→Telemetry (nullable) | módulo: rastreador Suntech/Entrack ou, na MiX, `MIX-<MIC>` (desde 07/10/2026) |
@@ -98,7 +99,9 @@ Todos herdam de **`BaseSyncModel`** → adicionam: `srv_created_at` (auto), `upd
 | `nickname` | Char | |
 | `need_update` | Bool (default **True**) | dispara OTA |
 | `software_version` | Char (default `1.0.0`) | ver §4.2 |
-| `location`, `update_settings`, `default_settings`, `timestamp` | | |
+| `calibrated` | Bool (desde 20/10/2026) | 288 `true` e 1 `false` em 03/11/2026 — o `false` é o aparelho da bancada, que trocou de sensor em 16/10; o Tester não grava |
+| `default_settings` | Text | o Tester grava `{"settings": {...}, "report": {...}}` no `register`/`relatorio` (`Tester/procedimentos/qualidade.md` §4); em 03/11/2026 só o 00004 tinha valor, `{"lang": "PT"}` (gravado por outro caminho) |
+| `location`, `update_settings`, `timestamp` | | `update_settings` é o que o `checkSettings/` lê |
 > A coluna `chip` ainda existe no banco, mas a API de `devices/` não a expõe mais: o chip está em `telemetries/`.
 
 ### `Vehicle`  (placa)
@@ -119,7 +122,7 @@ Instalação antiga (UUID, `vehicle_plate`, `device`, `telemetry` = CNPJ, `is_ac
 (143 linhas) só como histórico; logs anteriores à migração têm `etilometro_id`, e o `device_id` foi
 preenchido a partir dele.
 
-### Outros: `Sensor` (PK id, `current_calibration`), `Solution`, `Calibration` (analog/mgl/timestamp), `Log` (event, `device_id`, `etilometro_id` legado, timestamp, `created_at` do aparelho, `lat`/`lon`), `Anomaly` (`vehicle_id`, `category`, `desc`, `solved`), `Firmware` (version/release_date), `SensorReplaceLog` (sem rota).
+### Outros: `Sensor` (PK id, `current_calibration`), `Solution`, `Calibration` (analog/mgl/timestamp), `Log` (event, `device_id`, `etilometro_id` legado, timestamp, `created_at` do aparelho, `lat`/`lon`), `Anomaly` (`vehicle_id`, `category`, `desc`, `solved`), `Firmware` (version/release_date), `DeviceChangeLog` (desde 28/10/2026, sem rota: `kind` `plate`/`sensor`/`company`/`telemetry`, `old_value`/`new_value`, `from_device`/`to_device`, `changed_at` — substituiu o `SensorReplaceLog`). `Log` ganhou `previous_company_id` e `previous_telemetry_brand` (14/10/2026).
 
 ---
 

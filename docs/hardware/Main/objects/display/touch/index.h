@@ -12,27 +12,37 @@ template <typename Parent> class Touch{
     Parent* device;
   
   public:
+    static const int POLL_TIME    = 20;   // ms, UM TOQUE CURTO DURA ~50 MS
+    static const int RELEASE_TIME = 60;   // ms SEM LEITURA = DEDO FORA; O CONTROLADOR PERDE LEITURAS NO MEIO DO TOQUE
     unsigned long lastClick;
+    unsigned long lastSeen = 0;
+    bool pressed = false;   // O DEDO DO ÚLTIMO CLIQUE AINDA NÃO SAIU DA TELA
     int x, y;
 
     Touch(Parent* dev):
         device(dev){}
 
+    // UM CLIQUE POR TOQUE, NA HORA QUE O DEDO ENCOSTA: SEGURAR NÃO REPETE E TOQUES RÁPIDOS NO MESMO LUGAR CONTAM
     bool click(){
-        static Listener timer = Listener(50);
+        static Listener timer = Listener(POLL_TIME);
         int x2, y2;
 
         if(!timer.ready())
             return false;
-        
-        if(!device->display.lcd.getTouch(&x2, &y2))
-            return false;
-        
-        const float distance = sqrt(sq(x - x2) + sq(y - y2));
 
-        if(distance < 50 && Time::get() - lastClick < 700)
+        if(!device->display.lcd.getTouch(&x2, &y2)){
+            if(Time::get() - lastSeen > RELEASE_TIME)
+                pressed = false;
+
             return false;
-        
+        }
+
+        lastSeen = Time::get();
+
+        if(pressed)
+            return false;
+
+        pressed   = true;
         lastClick = Time::get();
         x = x2; y = y2;
         return true;
@@ -99,8 +109,15 @@ template <typename Parent> class Touch{
         }
     }
 
+    // TELA NOVA: O DEDO QUE AINDA ESTÁ NELA PRECISA SAIR ANTES DO PRÓXIMO CLIQUE
     void reset(){
+        int x2, y2;
+
+        if(device->display.lcd.getTouch(&x2, &y2))
+            lastSeen = Time::get();
+
         lastClick = Time::get();
+        pressed   = (Time::get() - lastSeen < RELEASE_TIME);
         x = 0;
         y = 0;
     }

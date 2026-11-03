@@ -6,3 +6,5 @@
   `../docs`. O hook `SessionStart` roda `tools/boot.py hook claude` e injeta o estado do ambiente
   (inclusive as portas seriais vistas agora).
 - `flash` e outras operações longas: rode com `run_in_background` e acompanhe o `flash.log`.
+- `qualidade` com operador (`autodiagnostico`, `sopro-*`, `sem-alcool`, `com-alcool`) e `configurar --yes`
+  (reinicia): Bash com `timeout: 600000` — o padrão de 2 min corta o `sopro-completo` (3 testes ≈ 3 min).

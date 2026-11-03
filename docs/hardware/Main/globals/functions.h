@@ -59,6 +59,18 @@ String generateID(){
     return id + String(contrassenha);
 }
 
+// "ETL" + 15 ou 16 dígitos: mesma regra do isSensorID do app desktop (os de 15 são legados)
+bool isSensorID(const String& id){
+    if(!id.startsWith("ETL") || id.length() < 18 || id.length() > 19)
+        return false;
+
+    for(int x=3; x<id.length(); x++)
+        if(!isDigit(id.charAt(x)))
+            return false;
+
+    return true;
+}
+
 String jsonToString(const JsonDocument& jsonObj){
     String jsonString;
     serializeJson(jsonObj, jsonString); 
@@ -70,6 +82,39 @@ bool stringToJson(String &jsonString, JsonDocument& doc){
 
     if(error)
         return false;
+
+    return true;
+}
+
+// número do JSON ou texto numérico (o app manda "0,0123" como string)
+bool jsonToNumber(JsonVariantConst value, double& number){
+    if(value.is<double>()){
+        number = value.as<double>();
+        return isfinite(number);
+    }
+
+    if(!value.is<const char*>())
+        return false;
+
+    String text = value.as<const char*>();
+    text.trim();
+    text.replace(',', '.');
+
+    char* end;
+    number = strtod(text.c_str(), &end);
+    return (end != text.c_str() && *end == '\0' && isfinite(number));
+}
+
+// "AAAA-MM-DD HH:MM:SS" do app e do desktop (o 'T' do ISO também vale)
+bool isTimestamp(const char* text){
+    const int length = strlen(text);
+
+    if(length < 10 || length > 25)
+        return false;
+
+    for(int x=0; x<length; x++)
+        if(!isDigit(text[x]) && !strchr("-: T", text[x]))
+            return false;
 
     return true;
 }
@@ -111,6 +156,20 @@ size_t base64Decode(const char* input, uint8_t* output, const int size){
     }
 
     return outputIndex;
+}
+
+// O MESMO CRC-32 DO zlib.crc32 DO PYTHON (SIGHIRTESTER): CONFERE CADA BLOCO DA ATUALIZAÇÃO PELO SERIAL
+uint32_t crc32(const uint8_t* data, const size_t length){
+    uint32_t crc = 0xFFFFFFFF;
+
+    for(size_t i=0; i<length; i++){
+        crc ^= data[i];
+
+        for(int bit=0; bit<8; bit++)
+            crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+    }
+
+    return ~crc;
 }
 
 String formatTimeString(unsigned long timeMs){
