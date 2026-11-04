@@ -41,8 +41,8 @@ pasta-como-módulo (`index.py`).
 | `install <esp_id> --placa P --telemetria mix2\|mix\|suntech\|entrack [--modulo ID --chip N] [--tipo carro] [--maleta] [--instalador N] [--yes]` | **instala** = associa o aparelho à placa (`PATCH /devices`: `plate`, telemetria, módulo); sem `--yes` só valida e mostra; `--forcar` em troca |
 | `edit <esp_id> [--company X] [--modulo ID\|none] [--chip N] [--sensor ETL…\|usb] [--series N] [--desinstalar] [--rearmar] [--yes]` | **edita** aparelho já cadastrado (ex.: voltou de um cliente e vai para outro): muda só o que foi pedido, mostra antes → depois, grava com `--yes` e confere |
 | `server-device <esp_id>` / `server-delete <esp_id> --yes` | consulta / **deleta de verdade** no servidor |
-| `flash [--forcar]` | baixa e grava pela serial (~5 min — **em background**): cadastrado = build da empresa (re-arma `need_update`); novo = build genérica Sighir; já atualizado = não grava |
-| `qualidade [etapas] [--vezes N] [--forca F]` | sem etapas = `serial temperatura sensor calibracao pressao` (~40 s); com operador: `autodiagnostico`, `sopro-nenhum`, `sopro-incompleto`/`sopro-completo --forca fraco\|medio\|forte` (3×), `sem-alcool`, `com-alcool` |
+| `flash [--forcar] [--arquivo BIN]` | baixa e grava pela serial (~2 min; firmware antigo ~6 — **em background**): cadastrado = build da empresa (re-arma `need_update`); novo = build genérica Sighir; já atualizado = não grava; `--arquivo` = .bin local, sem servidor |
+| `qualidade [etapas] [--vezes N] [--blowprob X]` | sem etapas = `serial temperatura sensor calibracao pressao` (~40 s); com operador: `autodiagnostico`, `sopro` (protocolo na tela, `blowProb` 0,3–1,5; v6.5.4+), `sem-alcool`, `com-alcool` |
 | `relatorio --tecnico NOME [--obs T] [--yes]` | reenvia o `default_settings` de aparelho cadastrado (PATCH); o servidor gera o PDF no portal |
 | `monitor [--segundos S]` | `/get-data` ao vivo: temperatura, umidade, analog, pressão, chave (debug dos sensores) |
 | `progresso` | porcentagem do flash em andamento (espera até 20 s); **mostre ao usuário a cada 20 s** |
@@ -55,8 +55,8 @@ Script só em `scratch/` quando a CLI não cobrir; operação que se repete vira
 - **Cadastrar = pipeline** (`procedimentos/qualidade.md`): `init` → **pergunte primeiro, numa mensagem: o padrão é
   atualizar e fazer todos os testes — segue assim, só atualizar, só testar ou nenhum? E o nome dele** → `flash` →
   `qualidade` + as etapas com operador (avise **antes** o que fazer na tela) → `configurar --company X` (mostre e
-  **pergunte se muda alguma configuração**) → `register … --tecnico "<nome>"` (grava o `default_settings`).
-  Repetir testes (`--vezes N`) só se ele pedir. Reprovou → pergunte antes de cadastrar.
+  **pergunte se muda alguma configuração**) → `register … --tecnico "<nome>"` (grava o `default_settings`) → repasse
+  o aviso que ele imprime: cadastro certo, mas telemetria, pedir teste, bloqueio e relé ficam com a instalação. Repetir testes (`--vezes N`) só se ele pedir. Reprovou → pergunte antes de cadastrar.
   Etapas com operador levam até ~6 min: rode com timeout de 10 min (ou em background e acompanhe), nunca o padrão.
 - **Firmware** (`procedimentos/firmware.md`): mínimo **v6.5.3**. `below_min`/`old` = qualidade e cadastro
   bloqueados (código 2) → atualize; `old` = `$firmware!` sem resposta válida → atualização pelo Wi-Fi (§7.2).

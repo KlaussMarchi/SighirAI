@@ -42,7 +42,7 @@ Use um aparelho **da Sighir** na bancada (não de cliente). Anote o `esp_id` e o
 | 3 | Telemetria ida e volta | `telemetry suntech` → `telemetry` → `telemetry <original>` | grava, reinicia e confere o modo; volta ao original |
 | 4 | Bloqueio | `block` → `unblock` | confirma por `$ETEV02!` e `$ETEV01!` |
 | 5 | Testes do protocolo | `test sensor`, `test temp`, `test blow` (e `test alcohol` com solução) | cada um conclui com o evento esperado do `protocol.json` |
-| 5b | Qualidade (`Tester/procedimentos/qualidade.md`) | `qualidade` → `qualidade autodiagnostico` → `qualidade sem-alcool` → `qualidade com-alcool` (avise o operador antes de cada um) | automáticas (com `calibracao`) OK em ~40 s; autodiagnóstico da tela com as 4 etapas OK; `sopro-nenhum`/`sopro-incompleto`/`sopro-completo --forca …` 3/3; `$ETEV29!`; `$ETEV30<mg/L>!`. Build de debug: `sensor` reprova (bypass) |
+| 5b | Qualidade (`Tester/procedimentos/qualidade.md`) | `qualidade` → `qualidade autodiagnostico` → `qualidade sopro --blowprob X` → `qualidade sem-alcool` → `qualidade com-alcool` (avise o operador antes de cada um; `autodiagnostico`/`sopro` na v6.5.4+) | automáticas (com `calibracao`) OK em ~40 s; autodiagnóstico com serial, temperatura, álcool, memória, pressão e os 3 sopros OK (relé OK ou ignorado: sem módulo na bancada toque "Não"); protocolo de sopro com as 7 etapas 3/3; `$ETEV29!`; `$ETEV30<mg/L>!`. Build de debug: `sensor` reprova (bypass) |
 | 5c | Sensores ao vivo | `monitor --segundos 5` | tabela do `/get-data` com temperatura, umidade, analog e pressão coerentes |
 | 6 | Recuperação | `recover` | reinicia e ressincroniza |
 | 7 | Servidor: consulta | `server-device <MIC>` e `python ../Helper/tools/helper.py device <MIC>` | mesmo cadastro nos dois (empresa, módulo, placa) |
@@ -50,7 +50,7 @@ Use um aparelho **da Sighir** na bancada (não de cliente). Anote o `esp_id` e o
 | 9 | Servidor: instalação | `install <MIC> --placa <placa de teste> --telemetria <t> [--modulo …] --observacao "teste de bancada"` (prévia) → mesmo comando com `--yes` | prévia sem bloqueio; com `--yes`: "gravada e conferida" (placa, telemetria, módulo e `etilometers/`) |
 | 9b | Servidor: edição | `edit <MIC> --company <outra> --desinstalar --modulo <ID>` (prévia) → com `--yes` | prévia só com os campos pedidos; com `--yes`: "alterado e conferido" |
 | 10 | Conferência cruzada | `python ../Helper/tools/helper.py veiculo <placa>` | a instalação aparece com telemetria e módulo |
-| 11 | Firmware (quando for o caso) | `flash` em background com `flash.log` + `progresso` a cada 20 s | uma porcentagem nova a cada ~20 s mostrada ao usuário; no fim `flash concluído` e a versão nova (`firmware`) |
+| 11 | Firmware (quando for o caso) | `flash` em background com `flash.log` + `progresso` a cada 20 s | `update iniciado: 921600 baud, blocos de 4096` no firmware novo (~2 min) ou `115200 … (firmware antigo)` (~6 min); uma porcentagem nova a cada ~20 s mostrada ao usuário; no fim `flash concluído` e a versão nova (`firmware`) |
 | 11b | Duplicidade | `register` de um aparelho já cadastrado (ou `onde <MIC>`) | código 4, onde está (empresa, placa, série, módulo) e as opções numeradas; nada gravado |
 | 12 | Devolver | desfazer o passo 9 (instalação de teste: combine com o usuário — `Helper patch devices <MIC> is_operating=false` ou reinstalar na placa original com `--forcar`) e conferir o estado anotado | igual ao início |
 

@@ -29,6 +29,7 @@ from objects.Updater.index import updater    # noqa: F401 — reexportado (sighi
 from utils.api import post_req
 
 MIN_FIRMWARE  = (6, 5, 3)
+DIAG_FIRMWARE = (6, 5, 4)   # TST_BLOW, PROTOCOLO DE SOPRO NA TELA E AS LINHAS JSON DO AUTODIAGNÓSTICO
 VERSION_RE    = re.compile(r'v?(\d+)\.(\d+)\.(\d+)')
 DEBUG_SENSORS = ('ETL2608402025435219', 'ETL3550904305917103')   # sensor_id FALSO DA BUILD DE DEBUG
 BOOT_TIME     = 30.0    # s, A v6.5 LEVA ~45 S PARA SINCRONIZAR DEPOIS DO RESET (O robustSync COBRE O RESTO)

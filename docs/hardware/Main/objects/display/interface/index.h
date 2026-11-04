@@ -42,6 +42,20 @@ template <typename Parent> class Interface{
         device->display.lcd.print(text);
     }
 
+    // ETIQUETA ARREDONDADA NO CENTRO DA LINHA, COMO A "TESTE DE COMPONENTES" DO AUTODIAGNÓSTICO
+    void pill(const String& text, const int y, const int color){
+        auto& lcd = device->display.lcd;
+        font.setStyle(&Roboto_Bold10pt8b, TFT_WHITE);
+
+        const int height = lcd.fontHeight() + 10;
+        const int width  = lcd.textWidth(text) + 2*height;
+        const int x      = (device->display.width - width)/2;
+
+        lcd.fillRoundRect(x, y, width, height, height/2, color);
+        lcd.setCursor(x + height, y + 5);
+        lcd.print(text);
+    }
+
     void msg(int type, const String& text){
         if(!device->display.on)
             device->display.turnON();

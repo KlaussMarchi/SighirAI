@@ -10,20 +10,27 @@ dentro de `Tester/`, `Server/` ou `Helper/`, siga o `AGENTS.md` daquela pasta e 
 Três IAs independentes (`Tester/` bancada USB, `Server/` auditoria da tabela `anomalies`, `Helper/`
 suporte técnico) + base comum `docs/`. Visão geral e uso: `README.md`. Mapa da base: `docs/INDEX.md`.
 
-- Cada IA: `AGENTS.md` (manual único, ≤ 12 mil caracteres — limite de regras do Antigravity),
+- Cada IA: `AGENTS.md` (manual único, ≤ 12 mil caracteres — limite de regras do Antigravity; o do Tester já
+  está em ~11,95 mil: acrescentar lá exige enxugar ou mover detalhe para `procedimentos/`),
   `CLAUDE.md` (`@AGENTS.md` + notas), `procedimentos/`, `tools/ai.json`, `.claude/settings.json`
   (Sonnet 5, effort high, bypass, hook `SessionStart`), `.agents/hooks.json` (hook `PreInvocation` do AGY),
   `<Pasta>_Claude.exe`/`<Pasta>_Gemini.exe`, `start.sh`.
 - **Arquivos idênticos nas três pastas**: `tools/boot.py`, `tools/_venv.py`, `tools/launcher/*`,
-  `start.sh`. Mudou um → copie para as outras e recompile os `.exe` (`tools/launcher/build.ps1`).
+  `start.sh`. Mudou um → copie para as outras e recompile os `.exe` (`tools/launcher/build.ps1` no Windows,
+  `bash tools/launcher/build.sh` no Linux, com o `mcs` do mono).
 - **Sem código compartilhado entre IAs** (independência): cada uma tem o seu cliente da API de produção
   (`https://sighir.com:8000/api/v2`, JWT `token/` + `token/refresh/`) — `Tester/utils/api.py`,
   `Server/scanner/api.py`, `Helper/tools/api.py`. Mudança de rota/campo se replica nas três.
 - Tester: `tools/sighir.py` (CLI não interativa usada pelos agentes; subcomandos na docstring) →
-  `tools/core.py` (`MIN_FIRMWARE` = v6.5.3) + `tools/quality.py` (ensaios e critérios) + `tools/report.py`
+  `tools/core.py` (`MIN_FIRMWARE` = v6.5.3; `autodiagnostico`/`sopro` exigem `DIAG_FIRMWARE` = v6.5.4) + `tools/quality.py` (ensaios e critérios) + `tools/report.py`
   (relatório de ensaio → `Device.default_settings`; o PDF é do servidor; especificação entregue ao Jean em 30/10/2026) → `objects/`
-  (`Device`, `Serial`, `Server`, `Updater`) + `protocol.json` (comandos/eventos `$ETEV…!` do firmware). `main.py` é
-  o programa interativo antigo da bancada.
+  (`Device`, `Serial`, `Server`, `Updater`) + `protocol.json` (comandos/eventos `$ETEV…!` do firmware, lido por
+  `objects/Tester/protocol.py`). Cada subcomando registra o que fez (`tools/session.py` → `.sighir/bancada/<MIC>.json`,
+  vale 24 h) e é daí que o `report.py` monta o relatório. `main.py` (+ `objects/Tester`) é o programa interativo
+  antigo da bancada.
+- `docs/hardware/Main/`: código do firmware do etilômetro (ESP32 WT32-SC01, Arduino, entrada `Main.ino`; não se
+  compila aqui), mantido pelo usuário. Todo `$ETEVnn` que ele emite precisa estar no `EVENTS` de
+  `Helper/tools/helper.py` (`testFirmwareEventsCovered` reprova se faltar); comando serial novo → `Tester/protocol.json`.
 - `docs/tools/kb.py`: indexa `docs/` (PDF via pdftotext/pypdf), gera o bloco automático do `INDEX.md` e
   o `casos_notion.md` e o `troubleshooting.md`; catálogo curado em `docs/tools/catalogo.json`.
 - **"Sincronizar os documentos"** (ou "sincronize com o notion") → siga `docs/sincronizar.md`, sem perguntar:
@@ -57,16 +64,20 @@ python Tester/tools/test_cli.py                 # register/install/edit/onde/pro
 python Tester/tools/sighir.py onde <MIC|ETL|módulo|placa|série>      # onde já está cadastrado
 python <IA>/tools/boot.py setup | status | start claude|gemini --dry-run
 cd Server/scanner && python test_scan.py        # testes do scanner (sem rede)
+cd Server/scanner && python scan.py [--show PLACA]   # check seco; só --write grava (na tabela anomalies)
+python docs/tools/fluxograma/render.py          # refaz docs/fluxograma_tester.pdf (Chrome headless; fotos de docs/Notion/)
 python Helper/tools/test_helper.py              # testes do Helper (sem rede; inclui cobertura dos eventos do firmware)
 python Tester/tools/sighir.py install MIC… --placa X --telemetria mix2   # prévia de instalação (grava só com --yes)
-python Tester/tools/sighir.py qualidade [autodiagnostico|sopro-*|sem-alcool|com-alcool]  # testes de qualidade (Tester/procedimentos/qualidade.md)
+python Tester/tools/sighir.py flash [--arquivo BIN]   # firmware novo: sessão a 921600 (~2 min); --arquivo grava .bin local sem servidor
+python Tester/tools/sighir.py qualidade [autodiagnostico|sopro --blowprob X|sem-alcool|com-alcool]  # testes de qualidade (Tester/procedimentos/qualidade.md)
 python Tester/tools/sighir.py relatorio --tecnico NOME [--yes]   # reenvia o default_settings (configuração + relatório) ao servidor
 python Helper/tools/helper.py veiculo PLACA      # leitura da produção
 ```
 
 As suítes `test_*.py` não usam unittest/pytest: cada uma roda todas as funções `test*` do próprio arquivo e
-sai com código 1 se alguma falhar (`test_scan.py` para na primeira falha com traceback). Não há seleção de um
-teste só — rode a suíte inteira.
+sai com código 1 se alguma falhar (`test_scan.py` para na primeira falha com traceback). Um teste só: importe
+e chame a função, da pasta da suíte (`cd Helper/tools && python -c "import test_helper as t; t.testDecode()"`).
 
-Nesta máquina é `python` (não `python3`); no Bash use `PYTHONIOENCODING=utf-8`. AGY só carrega
+Os comandos acima usam `python` (Windows); no Linux só existe `python3` — as CLIs se re-executam sozinhas no
+`.venv` da pasta (`tools/_venv.py`). No Bash use `PYTHONIOENCODING=utf-8`. AGY só carrega
 `AGENTS.md`/hooks em modo **interativo** e em pasta confiável (o `boot.py` marca); `agy -p` ignora ambos.

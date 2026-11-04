@@ -24,8 +24,8 @@ Subcomandos:
   edit <esp_id> ...      edita um aparelho já cadastrado (empresa, módulo/chip, sensor, série, desinstalar; exige --yes)
   server-delete <id>     DELETA o device do servidor (hard delete, exige --yes)
   test [nome]            roda um teste do protocol.json (alcohol/blow/temp/sensor)
-  flash [--forcar]       re-arma + baixa + flasha firmware via serial (longo; aparelho novo = build genérica)
-  qualidade [etapas]     testes de qualidade (serial, temperatura, sensor, pressao, autodiagnostico, sem-alcool, com-alcool)
+  flash [--forcar]       re-arma + baixa + flasha firmware via serial (longo; aparelho novo = build genérica; --arquivo BIN grava um .bin local)
+  qualidade [etapas]     testes de qualidade (serial, temperatura, sensor, calibracao, pressao, autodiagnostico, sopro, sem-alcool, com-alcool)
   monitor                leituras ao vivo do /get-data (debug dos sensores)
   configurar --company X configuração padrão da empresa no aparelho (+ --set chave=valor; grava com --yes)
   relatorio --tecnico N  reenvia o default_settings (configuração + relatório de ensaio) do aparelho cadastrado
@@ -355,6 +355,12 @@ def cmdOnde(args):
     return 0
 
 
+# A BANCADA NÃO TESTA A TELEMETRIA: O FECHAMENTO DO CADASTRO (register / relatorio) LEMBRA O QUE FICA COM A INSTALAÇÃO
+FIELD_NOTE = ('cadastro conferido no servidor. Os testes da bancada validam o etilômetro e a comunicação serial; o '
+              'funcionamento com a telemetria é com a instalação: ligar no módulo, pedir um teste pela telemetria, '
+              'bloquear e desbloquear pelo módulo e conferir se o relé comuta (corta e devolve a ignição)')
+
+
 def cmdRegister(args):
     if not args.company:
         _, companies = resolveCompany('')
@@ -453,6 +459,7 @@ def cmdRegister(args):
     record(espId, 'cadastro', ok=True, detalhe=f"Cadastrado: empresa {args.company}, série {series}"
                                                f"{', módulo ' + module if module else ', sem módulo'}{', chip ' + chip if chip else ''}")
     log('warn', f'lembrete: cole a etiqueta {series} no aparelho.')
+    log('warn', FIELD_NOTE)
 
     if build != args.company:
         log('warn', f"o aparelho roda a build {build!r}, não a da {args.company}: rode flash agora para gravar a build "
@@ -594,6 +601,36 @@ def companyValue(dev):
     return next((c.get('value') for c in companies if c.get('id') == dev.get('company')), None)
 
 
+# A BUILD LOCAL (--arquivo, SEM SERVIDOR) OU A DO SERVIDOR: A DA EMPRESA DO APARELHO CADASTRADO OU A GENÉRICA; None = SEM FIRMWARE
+def fetchBuild(args, espId):
+    if args.arquivo:
+        try:
+            with open(args.arquivo, 'rb') as f:
+                core.server.firmware.file = {'bytes': f.read(), 'filename': os.path.basename(args.arquivo)}
+        except OSError as error:
+            log('err', f'não foi possível ler {args.arquivo}: {error}')
+            return None
+        return f'arquivo {os.path.basename(args.arquivo)}'
+
+    dev     = serverDevice(espId)
+    company = companyValue(dev) if dev else 'sighir'
+
+    # /update é one-shot — re-arma para garantir que o servidor sirva o firmware
+    if dev and not core.rearmUpdate(espId):
+        return None
+
+    if not dev:
+        log('info', f'{espId} ainda não está no servidor: build genérica da Sighir. Depois do register, flash de novo '
+                    'grava a build da empresa (logo e parâmetros)')
+
+    log('info', f'baixando firmware da {company} (one-shot)...')
+    if not core.server.firmware.download(espId if dev else GENERIC_BUILD):
+        log('err', 'download falhou')
+        return None
+
+    return company
+
+
 def cmdFlash(args):
     started = time.time()
     flashState('preparando', None, started)
@@ -610,23 +647,11 @@ def cmdFlash(args):
 
     fw      = core.readFirmware()
     current = core.readSetting('company')
-    dev     = serverDevice(espId)
-    company = companyValue(dev) if dev else 'sighir'
+    company = fetchBuild(args, espId)
 
-    # /update é one-shot — re-arma para garantir que o servidor sirva o firmware
-    if dev and not core.rearmUpdate(espId):
+    if company is None:
         core.device.disconnect()
-        return 1
-
-    if not dev:
-        log('info', f'{espId} ainda não está no servidor: build genérica da Sighir. Depois do register, flash de novo '
-                    'grava a build da empresa (logo e parâmetros)')
-
-    log('info', f'baixando firmware da {company} (one-shot)...')
-    if not core.server.firmware.download(espId if dev else GENERIC_BUILD):
-        log('err', 'download falhou')
-        core.device.disconnect()
-        flashState('erro', None, started, detalhe='download do firmware falhou')
+        flashState('erro', None, started, detalhe='firmware não obtido (arquivo ou servidor)')
         return 1
 
     build = buildVersion(core.server.firmware.file['bytes'])
@@ -642,7 +667,7 @@ def cmdFlash(args):
                detalhe='não gravado: build do servidor abaixo do mínimo')
         return 2
 
-    if build == fw['version'] and current == company and not args.forcar:
+    if build == fw['version'] and current == company and not args.forcar and not args.arquivo:
         log('ok', f'já atualizado: {core.versionStr(build)} com a build da {company} — nada a gravar (--forcar grava de novo)')
         core.device.disconnect()
         flashState('concluído', 100, started, detalhe=f'já atualizado em {core.versionStr(build)}')
@@ -650,7 +675,7 @@ def cmdFlash(args):
                detalhe='já estava atualizado: nada gravado')
         return 0
 
-    log('info', f'iniciando flash serial (pode levar ~5 min; progresso a cada {PROGRESS_EVERY} s)...')
+    log('info', f'iniciando flash serial (~1 min no firmware novo, ~5 min no antigo; progresso a cada {PROGRESS_EVERY} s)...')
     core.updater.percentage = -1
     stop = threading.Event()
     flashState('sincronizando', 0, started)
@@ -678,14 +703,20 @@ def cmdFlash(args):
     log('ok', 'flash concluído — verificando...')
 
     before = core.versionStr(fw['version'])
-    core.recover()
-    fw = core.readFirmware()
-    log('ok' if fw['status'] == 'ok' else 'err', f"pós-flash: firmware {core.versionStr(fw['version'])} [{fw['status']}]")
-    record(espId, 'flash', ok=fw['status'] == 'ok', antes=before, depois=core.versionStr(fw['version']),
+
+    if not core.robustSync(retries=10):    # O APARELHO REINICIA SOZINHO NA VERSÃO NOVA (A v6.5 LEVA ~45 S): $ETRS! E RTS SÓ SE NÃO VOLTAR
+        core.recover()
+
+    fw     = core.readFirmware()
+    landed = build is None or fw['version'] == build
+    ok     = fw['status'] == 'ok' and landed
+    missed = '' if landed else f' — a build gravada é {core.versionStr(build)}: o aparelho não ficou nela'
+    log('ok' if ok else 'err', f"pós-flash: firmware {core.versionStr(fw['version'])} [{fw['status']}]{missed}")
+    record(espId, 'flash', ok=ok, antes=before, depois=core.versionStr(fw['version']),
            build=core.versionStr(build), empresa=company, detalhe=f"gravado e conferido no aparelho [{fw['status']}]")
-    flashState('concluído', 100, started, detalhe=f"firmware {core.versionStr(fw['version'])} [{fw['status']}]")
+    flashState('concluído' if ok else 'erro', 100, started, detalhe=f"firmware {core.versionStr(fw['version'])} [{fw['status']}]")
     core.device.disconnect()
-    return 0 if fw['status'] == 'ok' else 2
+    return 0 if ok else 2
 
 
 def cmdSettings(args):
@@ -1052,9 +1083,8 @@ def cmdServerDelete(args):
 
 
 AUTO_STEPS    = ['serial', 'temperatura', 'sensor', 'calibracao', 'pressao']
-MANUAL_STEPS  = ['autodiagnostico', 'sopro-nenhum', 'sopro-incompleto', 'sopro-completo', 'sem-alcool', 'com-alcool']    # O OPERADOR NA TELA, SOPRANDO
-FORCED_STEPS  = ('sopro-incompleto', 'sopro-completo')    # EXIGEM --forca
-BLOW_TIMES    = 3                                       # PROTOCOLO DOS TESTES DE SOPRO: 3 DE CADA
+MANUAL_STEPS  = ['autodiagnostico', 'sopro', 'sem-alcool', 'com-alcool']    # O OPERADOR NA TELA, SOPRANDO
+DIAG_STEPS    = ('autodiagnostico', 'sopro')                               # LEEM AS LINHAS JSON DO DIAGNÓSTICO (core.DIAG_FIRMWARE)
 
 
 def cmdQuality(args):
@@ -1064,10 +1094,6 @@ def cmdQuality(args):
     wrong = [name for name in names if name not in AUTO_STEPS + MANUAL_STEPS]
     if wrong:
         log('err', f"etapa desconhecida: {', '.join(wrong)} (use {', '.join(AUTO_STEPS + MANUAL_STEPS)})")
-        return 1
-
-    if any(name in FORCED_STEPS for name in names) and not args.forca:
-        log('err', 'sopro-incompleto/sopro-completo exigem --forca fraco|medio|forte')
         return 1
 
     if not core.robustSync():
@@ -1080,6 +1106,13 @@ def cmdQuality(args):
         core.device.disconnect()
         return 2
 
+    if any(name in DIAG_STEPS for name in names) and fw['version'] < core.DIAG_FIRMWARE:
+        log('err', f"{'/'.join(DIAG_STEPS)} exigem o firmware {core.versionStr(core.DIAG_FIRMWARE)} (protocolo de sopro na tela); "
+                   f"este está na {core.versionStr(fw['version'])}: atualize (flash) antes; se o flash disser 'já atualizado', "
+                   f"a {core.versionStr(core.DIAG_FIRMWARE)} ainda não foi publicada no servidor (Etilometro/auxiliary/FirmwareBuilder)")
+        core.device.disconnect()
+        return 2
+
     quality = Quality(fw, core.readEspId(), core.readSensorId())
 
     if not core.isNativeId(quality.espId):
@@ -1087,7 +1120,6 @@ def cmdQuality(args):
         core.device.disconnect()
         return 2
 
-    blows   = args.vezes or BLOW_TIMES
     mode    = {str(code): name for name, code in core.TELEMETRIES.items()}.get(str(core.readSetting('telemetry')))
     record(quality.espId, 'aparelho', firmware=core.versionStr(fw['version']), status=fw['status'], minimo=core.versionStr(core.MIN_FIRMWARE),
            sensor_id=quality.sensorId, debug=quality.debug(), telemetria=f'{mode} (configurada no aparelho)' if mode else None)
@@ -1098,9 +1130,7 @@ def cmdQuality(args):
         'calibracao': quality.calibration,
         'pressao': quality.pressure,
         'autodiagnostico': quality.selfDiagnostic,
-        'sopro-nenhum': lambda: quality.noBlow(blows),
-        'sopro-incompleto': lambda: quality.shortBlows(blows, args.forca),
-        'sopro-completo': lambda: quality.fullBlows(blows, args.forca),
+        'sopro': lambda: quality.blows(args.blowprob),
         'sem-alcool': lambda: quality.alcohol(False, args.vezes or 1),
         'com-alcool': lambda: quality.alcohol(True, args.vezes or 1)
     }
@@ -1147,6 +1177,10 @@ def cmdReport(args):
     saved = (serverDevice(esp) or {}).get('default_settings')
     ok    = saved == payload['default_settings']
     log('ok' if ok else 'err', f'{esp}: default_settings ' + ('gravado e conferido' if ok else f'NÃO conferiu — devolveu {str(saved)[:200]}'))
+
+    if ok:
+        log('warn', FIELD_NOTE)
+
     return 0 if ok else 1
 
 
@@ -1365,8 +1399,8 @@ def build():
 
     qua = sub.add_parser('qualidade', help='testes de qualidade (sem etapas: serial, temperatura, sensor, pressao)')
     qua.add_argument('etapas', nargs='*', help=f"{', '.join(AUTO_STEPS)} (automáticas) e {', '.join(MANUAL_STEPS)} (operador soprando)")
-    qua.add_argument('--vezes', type=int, help=f'repetições (padrão: sopro-* {BLOW_TIMES}, sem/com-alcool 1)')
-    qua.add_argument('--forca', choices=['fraco', 'medio', 'forte'], help='força do sopro em sopro-incompleto/sopro-completo')
+    qua.add_argument('--vezes', type=int, help='repetições de sem-alcool/com-alcool (padrão 1)')
+    qua.add_argument('--blowprob', type=float, help='sopro: tolerância do protocolo (0.3 a 1.5 s), gravada antes pelo CF:blowProb$X!')
 
     rel = sub.add_parser('relatorio', help='reenvia o default_settings (configuração + relatório de ensaio) de aparelho cadastrado')
     rel.add_argument('--tecnico', required=True, help='nome de quem fez o ensaio')
@@ -1388,6 +1422,7 @@ def build():
 
     fl = sub.add_parser('flash', help='re-arma + baixa + flasha (aparelho novo: build genérica da Sighir)')
     fl.add_argument('--forcar', action='store_true', help='grava mesmo já atualizado ou com a build do servidor abaixo do mínimo')
+    fl.add_argument('--arquivo', help='grava este .bin local (ex.: a build do Config/index.py compile) sem tocar no servidor')
     fl.set_defaults(func=cmdFlash)
     return p
 

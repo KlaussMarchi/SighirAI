@@ -4,7 +4,7 @@ from tools import session
 from tools.quality import STEPS
 
 ROOT    = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VERSION = 1    # VERSÃO DO FORMATO DO default_settings.report QUE O SERVIDOR RENDERIZA (ESPECIFICAÇÃO COM O JEAN)
+VERSION = 3    # VERSÃO DO FORMATO DO default_settings.report QUE O SERVIDOR RENDERIZA (ESPECIFICAÇÃO COM O JEAN; 3 = AUTODIAGNÓSTICO EM 7 ETAPAS)
 STATUS  = {True: 'aprovado', False: 'reprovado', None: 'nao_realizado'}
 
 

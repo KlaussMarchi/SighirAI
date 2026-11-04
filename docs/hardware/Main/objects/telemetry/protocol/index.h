@@ -100,6 +100,11 @@ template <typename Parent> class Protocol{
             return;
         }
 
+        if(device->telemetry.serial.command.contains("TST_BLOW")){
+            device->diagnostic.blow();
+            return;
+        }
+
         if(device->telemetry.serial.command.contains("endTravel")){
             device->vehicle.forceDriving(false);
             return;
@@ -179,6 +184,9 @@ template <typename Parent> class Protocol{
 
         if(key.equals("testalc"))
             device->test.alcohol_debug = (bool) value.toInt();
+
+        if(key.equals("blowProb"))   // SEM REINICIAR: O PROTOCOLO DE SOPRO AJUSTA A TOLERÂNCIA ANTES DE CADA RODADA
+            device->sensors.pressure.setBlowProb(atof(value.get()));
 
         // ID novo (tela Gerar ID do app) vale já para /INFO e updater; o nome da rede do AP só
         // muda quando o Wi-Fi reinicia, para não derrubar o celular conectado nele

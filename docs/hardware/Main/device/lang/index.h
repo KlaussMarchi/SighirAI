@@ -435,12 +435,6 @@ struct Languages {
         "Actualizando Dispositivo"
     );
 
-    Lang checkingSerial = Lang(
-        "Verificando Serial",
-        "Checking Serials",
-        "Verificando Serial"
-    );
-
     Lang blow = Lang(
         "Assopre",
         "Blow   ",
@@ -529,12 +523,6 @@ struct Languages {
         "Calibração Congelada",
         "Calibration Frozen",
         "Calibración Congelada"
-    );
-
-    Lang testingRelay = Lang(
-        "Testando Comutação\r\ndo Relé",
-        "Testing the Relay\r\nSwitching Mode ",
-        "Probando Cambio\r\ndel Relé"
     );
 
     Lang incorrectPassword = Lang(
@@ -915,6 +903,30 @@ struct Languages {
         "Soplo"
     );
 
+    Lang blowTest = Lang(
+        "Teste de Sopro",
+        "Blow Test",
+        "Prueba de Soplo"
+    );
+
+    Lang pressureSensor = Lang(
+        "Sensor de Pressão",
+        "Pressure Sensor",
+        "Sensor de Presión"
+    );
+
+    Lang temperatureSensor = Lang(
+        "Sensor de Temperatura",
+        "Temperature Sensor",
+        "Sensor de Temperatura"
+    );
+
+    Lang alcoholSensor = Lang(
+        "Sensor de Álcool",
+        "Alcohol Sensor",
+        "Sensor de Alcohol"
+    );
+
     Lang pressureStr = Lang(
         "Pressão",
         "Pressure",
@@ -939,28 +951,202 @@ struct Languages {
         "Falla"
     );
 
-    Lang testingPressure = Lang(
-        "Testando Sensor\r\nde Pressão",
-        "Testing Pressure\r\nSensor",
-        "Probando Sensor\r\nde Presión"
-    );
-
-    Lang testingTemp = Lang(
-        "Testando Sensor\r\nde Temperatura",
-        "Testing Temperature\r\nSensor",
-        "Probando Sensor\r\nde Temperatura"
-    );
-
-    Lang testingAlcohol = Lang(
-        "Testando Sensor\r\nde Álcool",
-        "Testing Alcohol\r\nSensor",
-        "Probando Sensor\r\nde Alcohol"
-    );
-
     Lang readFailed = Lang(
         "Leitura Falhou",
         "Reading Failed",
         "Lectura Fallida"
+    );
+
+    Lang dontBlow = Lang(
+        "Não Sopre",
+        "Do Not Blow",
+        "No Sople"
+    );
+
+    Lang dontBlowHint = Lang(
+        "Espere sem soprar\r\npor",
+        "Wait without blowing\r\nfor",
+        "Espere sin soplar\r\ndurante"
+    );
+
+    Lang shortBlowHint = Lang(
+        "Sopre e pare assim\r\nque o bipe começar",
+        "Blow and stop as soon\r\nas the beep starts",
+        "Sople y pare en cuanto\r\nempiece el pitido"
+    );
+
+    Lang longBlowHint = Lang(
+        "Sopre sem parar\r\naté o bipe acabar",
+        "Keep blowing until\r\nthe beep stops",
+        "Sople sin parar hasta\r\nque acabe el pitido"
+    );
+
+    Lang incompleteBlow = Lang(
+        "Sopro Incompleto",
+        "Incomplete Blow",
+        "Soplo Incompleto"
+    );
+
+    Lang completeBlow = Lang(
+        "Sopro Completo",
+        "Complete Blow",
+        "Soplo Completo"
+    );
+
+    Lang incompleteStr = Lang(
+        "Incompleto",
+        "Incomplete",
+        "Incompleto"
+    );
+
+    Lang completeStr = Lang(
+        "Completo",
+        "Complete",
+        "Completo"
+    );
+
+    Lang weakStr = Lang(
+        "Fraco",
+        "Weak",
+        "Débil"
+    );
+
+    Lang mediumStr = Lang(
+        "Médio",
+        "Medium",
+        "Medio"
+    );
+
+    Lang strongStr = Lang(
+        "Forte",
+        "Strong",
+        "Fuerte"
+    );
+
+    Lang peakStr = Lang(
+        "Pico",
+        "Peak",
+        "Pico"
+    );
+
+    Lang componentTest = Lang(
+        "Teste de Componentes",
+        "Component Test",
+        "Prueba de Componentes"
+    );
+
+    Lang serialComm = Lang(
+        "Comunicação Serial",
+        "Serial Communication",
+        "Comunicación Serial"
+    );
+
+    Lang sensorMemory = Lang(
+        "Memória do Sensor",
+        "Sensor Memory",
+        "Memoria del Sensor"
+    );
+
+    Lang serialStr = Lang(
+        "Serial",
+        "Serial",
+        "Serial"
+    );
+
+    Lang memoryStr = Lang(
+        "Memória",
+        "Memory",
+        "Memoria"
+    );
+
+    Lang relayStr = Lang(
+        "Relé",
+        "Relay",
+        "Relé"
+    );
+
+    Lang telemetryStr = Lang(
+        "Telemetria",
+        "Telemetry",
+        "Telemetría"
+    );
+
+    Lang portStr = Lang(
+        "Porta",
+        "Port",
+        "Puerto"
+    );
+
+    Lang lastCommand = Lang(
+        "Último Comando",
+        "Last Command",
+        "Último Comando"
+    );
+
+    Lang waitingCommand = Lang(
+        "Aguardando Comando...",
+        "Waiting for Command...",
+        "Esperando Comando..."
+    );
+
+    Lang noCommand = Lang(
+        "Nenhum Comando Recebido",
+        "No Command Received",
+        "Ningún Comando Recibido"
+    );
+
+    Lang currentReading = Lang(
+        "Leitura Atual",
+        "Current Reading",
+        "Lectura Actual"
+    );
+
+    Lang invalidSensorId = Lang(
+        "ID do Sensor Inválido",
+        "Invalid Sensor ID",
+        "ID del Sensor Inválido"
+    );
+
+    Lang calibratedOn = Lang(
+        "Calibrado em",
+        "Calibrated on",
+        "Calibrado el"
+    );
+
+    Lang noCoefs = Lang(
+        "Sem Coeficientes de Calibração",
+        "No Calibration Coefficients",
+        "Sin Coeficientes de Calibración"
+    );
+
+    Lang relaySwitched = Lang(
+        "O Relé Comutou?",
+        "Did the Relay Switch?",
+        "¿El Relé Conmutó?"
+    );
+
+    Lang relayByModule = Lang(
+        "Relé Comutado\r\npelo Módulo MIX",
+        "Relay Driven by\r\nthe MIX Module",
+        "Relé Conmutado\r\npor el Módulo MIX"
+    );
+
+    Lang ignoredStr = Lang(
+        "Ignorado",
+        "Ignored",
+        "Ignorado"
+    );
+
+    Lang approvedStr = Lang(
+        "Aprovado",
+        "Passed",
+        "Aprobado"
+    );
+
+    Lang reprovedStr = Lang(
+        "Reprovado",
+        "Failed",
+        "Reprobado"
     );
 
     Lang performAnotherTest = Lang(

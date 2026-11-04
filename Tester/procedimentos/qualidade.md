@@ -14,10 +14,12 @@
    > Seguimos assim, ou prefere só atualizar, só testar ou nenhum? E qual o seu **nome** para o relatório?"
 
    Firmware abaixo de v6.5.3 (`below_min`/`old`): a atualização é **obrigatória** — qualidade e cadastro ficam
-   bloqueados (código 2) até o aparelho estar na v6.5.3.
+   bloqueados (código 2) até o aparelho estar na v6.5.3. `autodiagnostico` e `sopro` exigem a **v6.5.4**
+   (`core.DIAG_FIRMWARE`): abaixo dela saem com código 2 e o relatório fica incompleto até atualizar.
 3. **Atualizar** — §2.
-4. **Testes de qualidade** — §3, todos. Reprovou em algo → mostre a tabela e pergunte se segue; não cadastre
-   aparelho reprovado sem o "sim" dele.
+4. **Testes de qualidade** — §3, todos, nesta ordem: `qualidade` → `autodiagnostico` → `sopro` → `sem-alcool` →
+   `com-alcool`. Antes do `sopro`, confirme com o usuário o `blowProb` do protocolo (0,3 a 1,5 s). Reprovou em algo →
+   mostre a tabela e pergunte se segue; não cadastre aparelho reprovado sem o "sim" dele.
 5. **Configuração da empresa** — pergunte a empresa (liste no chat as opções que o `register` sem `--company`
    mostra) e rode `configurar --company X`: mostra cada configuração do aparelho → padrão da empresa
    (`companies/<empresa>.data.settings`) e não grava. **Pergunte se ele quer mudar alguma** (manobra, adiamento,
@@ -30,7 +32,9 @@
    a build de outra empresa: `flash` (build da empresa) e depois `relatorio --tecnico "<nome>" --yes` para reenviar
    o `default_settings` com o aparelho já na build final.
 7. **Relatório**: o servidor gera o PDF a partir do `default_settings` e ele sai no portal (rota e botão com o Jean, time do servidor).
-   Diga ao usuário o veredito que o `register`/`relatorio` imprimiu.
+   Diga ao usuário o veredito que o `register`/`relatorio` imprimiu e o **aviso de campo** que vem logo depois: o cadastro
+   está certo e os testes da bancada valem para o etilômetro e a serial, mas o funcionamento com a telemetria é com a
+   instalação (ligar no módulo, pedir um teste pela telemetria, bloquear e desbloquear, conferir se o relé comuta).
 
 Aparelho já cadastrado (`edit`): passos 1–5, o `edit` que for preciso e `relatorio --tecnico "<nome>"` (mostra) →
 `--yes` (PATCH do `default_settings`).
@@ -60,22 +64,34 @@ a saída da CLI, só a tela do aparelho).
 | Etapa | Comando | Operador | Passa quando |
 |---|---|---|---|
 | automáticas (~40 s) | `qualidade` | nada | **serial**: `$ETKA!`→`$ETKAACK!` (latência), `$firmware!` e `/get-data`; **temperatura**: `TST_TEMP`→`tempworking` e 4 s de leituras entre -10 e 70 ºC, umidade 1–100 % (mín/média/máx); **sensor** (álcool): `TST_SENS`→`$ETEV20!`, `analog` válido (nem -1 nem 23000 fixo) e ≥ 5.000 (aquecido); **calibracao**: `coefs` do cartucho com c1–c4 > 0, calibração com até 365 dias e a curva `a·b^(cx+d)` lendo < 0,020 mg/L no ar limpo; **pressao**: `TST_PRESS`→`pressworking` e variação em repouso < 0,5 |
-| autodiagnóstico | `qualidade autodiagnostico` | "Na tela: Menu → Configurações (pág. 2) → **Autodiagnóstico** → **Diagnóstico Completo**; sopre quando ela pedir" — até 4 min | a CLI escuta os vereditos da própria tela: pressão `pressworking`, sopro `pressworking`, temperatura `tempworking`, sensor `$ETEV20!` (falhas `$ERROR!`/`ERROR`/`$ETEV24!`; sem sensor de pressão a tela pula o sopro) |
+| autodiagnóstico (v6.5.4+) | `qualidade autodiagnostico` | "Na tela: Menu → Configurações (pág. 2) → **Autodiagnóstico** → **Diagnóstico Completo** (o botão verde). Ele roda serial, temperatura, álcool, memória e pressão sozinho (~1 min); depois pede **não sopre** (25 s), um sopro **curto** (pare quando o bipe começar) e um **contínuo até o bipe parar**; no fim, o **relé**: sem módulo na bancada toque **Não** em "Deseja Mesmo Continuar?" (fica Ignorado); com o módulo ligado toque Sim, veja se o relé comuta e responda "O Relé Comutou?". A tabela fica 6 s" — ~3 min | a linha final do aparelho (`{"diagnostic":"full",…}`): serial, temperatura, álcool, memória (EEPROM: ID `ETL` + coeficientes), pressão e sopro aprovados, com os 3 sopros classificados certo; relé aprovado **ou ignorado** (`null`: MIX, "Não" ou 20 s sem toque). O teste serial da tela passa com qualquer comando em 10 s: a CLI responde o `$ETKA!` que ele manda. Sem sensor de pressão a tela pula os sopros. Build v6.5.4 anterior a 04/11/2026 (só 4 etapas) ainda é lida: entram só as etapas que vierem |
 | sem álcool | `qualidade sem-alcool [--vezes N]` | "Quando a tela pedir, sopre **sem álcool**, contínuo até o bipe parar" | `$ETEV29!` em todos |
 | com álcool | `qualidade com-alcool [--vezes N]` | "Quando a tela pedir, sopre **com o álcool**; no resultado, toque em **Desligar Display**" | `$ETEV30<mg/L>!` em todos |
 
-- **Testes de sopro (sensor de pressão)** — protocolo da Sighir, 3 de cada, sempre pelo teste real (a tela pede o
-  sopro e a CLI escuta os eventos). Antes, ajuste a tolerância se o usuário pedir: `settings --set blowProb=X
-  --restart` (X entre **0,3 e 1,5 s**: quanto maior, mais fácil o sopro; o firmware só lê no boot). O relatório
-  anota o `blowProb` usado.
+- **Testes de sopro** — `qualidade sopro [--blowprob X]` (firmware **v6.5.4+**). O protocolo da Sighir roda **no
+  aparelho** (`TST_BLOW`), guiado pela tela, com a mesma detecção do teste real (25 s para começar; caiu antes de
+  1,8 s = incompleto; 3 s de bipe = completo). A CLI grava o `blowProb` com `CF:blowProb$X!` (a v6.5.4 aplica **sem
+  reiniciar**), põe `press$0` e escuta uma linha por sopro. O `blowProb` tem que estar entre **0,3 e 1,5 s** (maior =
+  mais fácil): sem `--blowprob` vale o do aparelho, e fora da faixa a CLI não roda. Leva ~5 min: rode em background e
+  leia a saída no fim.
 
-  | Comando | Operador (avise antes) | Passa quando |
+  | Etapa na tela | Operador (avise antes) | Passa quando |
   |---|---|---|
-  | `qualidade sopro-nenhum` | **não** sopra; em cada "Tentar novamente?" toca **Não** (3 testes, ~40 s cada) | os 3 terminam em sem sopro (`$ETEV11!`) e nenhum aceita sopro |
-  | `qualidade sopro-incompleto --forca fraco` (depois `medio`, `forte`) | sopra **curto** (< 1 s) 3 vezes na força pedida; depois para e toca **Não** | 3 sopros cortados (`$NOBLOW!`) e nenhum aceito (`$ETEV05!`) |
-  | `qualidade sopro-completo --forca fraco` (depois `medio`, `forte`) | sopra **contínuo até o bipe parar**, sem álcool, em 3 testes | os 3 aceitos e sem álcool (`$ETEV05!` → `$ETEV29!`) |
+  | Sem Sopro (3×) | **não** sopra durante os 25 s de cada | os 3 terminam sem sopro |
+  | Sopro Incompleto Fraco, Médio e Forte (3× cada) | sopra na força pedida e **para assim que o bipe começa** | os 3 classificados como incompletos (recusados) |
+  | Sopro Completo Fraco, Médio e Forte (3× cada) | sopra na força pedida, **contínuo até o bipe parar** | os 3 classificados como completos (aceitos) |
 
-  Protocolo confirmado pelo usuário em 29/10/2026: por força, 3 sopros incompletos (recusados) e 3 completos (aceitos).
+  - Cada etapa abre com a instrução e a suavização em uso (um toque começa antes dos 8 s). Cada sopro mostra o
+    resultado (verde = o esperado, vermelho = não) com o **pico** e a duração. Etapa com erro pergunta "Tentar
+    Novamente?" (10 s): **Sim** refaz só aquela etapa e o relatório anota `refeita N vez(es)`. No fim, a tabela
+    `n/3` por etapa.
+  - Cada etapa vira um ensaio (`sopro-nenhum`, `sopro-incompleto-<força>`, `sopro-completo-<força>`) com os 3 sopros
+    (resultado, pico, duração em ms). Pico = maior degrau acima da linha de base do detector, na escala do `pressure`
+    do `/get-data` (na bancada, um sopro subia de +12 fraco a +110 forte): confere se a força pedida foi a soprada.
+  - O mesmo protocolo está no menu (Autodiagnóstico → **Teste de Sopro**) para testar sem o Tester. Sem o sensor de
+    pressão (HX711) ele não roda: as 7 etapas reprovam.
+  - Protocolo confirmado pelo usuário em 29/10/2026 e 03/11/2026: ajuste do `blowProb`, 3 sem soprar, 3 incompletos e
+    3 completos em cada força (fraco, médio, forte).
 - **Repetições só quando o usuário pedir** ("faz 3 testes sem álcool") → `--vezes 3`. Cada teste sai com
   resultado, mg/L, `analog` do teste (`last_analog`) e duração; valide com ele (ex.: os 3 com `$ETEV29!` e analog
   parecido).
@@ -123,6 +139,22 @@ umidade, `analog`, `filtered`, `pressure`, `driving`, `chave`) e o resumo mín/m
   código foram entregues ao Jean (time do servidor) em 30/10/2026 (`README.md`, `default_settings_exemplo.json`,
   `relatorio.html`, `relatorio_exemplo.pdf`). Mudou o formato do `report`: suba `VERSION` em `tools/report.py` e
   avise o Jean com o JSON novo.
+- **Formato 2** (03/11/2026, protocolo de sopro no firmware) — o que muda para o Jean:
+  - Os 7 ensaios de sopro têm os mesmos `id`, com `dados` = `forca` (`fraco`/`medio`/`forte` ou `null`), `esperado`
+    (`nenhum`/`incompleto`/`completo`), `esperados`, `aprovados`, `repeticoes`, `blowProb` (número) e `sopros`: lista
+    de `{resultado, pico, duracao_ms, ok}`. Saíram `testes`, `cortados` e `aceito`.
+  - O sopro completo não passa mais pela análise de álcool: `sopro-completo-*` não tem `testes`/`curva` (as curvas
+    ficam no `sem-alcool` e no `com-alcool`), e o "esperado" dele é **aceito**, não "aceito e analisado".
+  - `autodiagnostico.dados.etapas` mantém `pressao`, `sopro`, `temperatura` e `sensor`; o `sopro` agora é "um sopro de
+    cada tipo classificado certo". Entrou `sopros` (`{tipo, resultado, pico, duracao_ms, ok}`).
+  - `sem-alcool`/`com-alcool` perderam `forca` (era sempre `null`).
+- **Formato 3** (04/11/2026, autodiagnóstico em 7 etapas no firmware) — o que muda para o Jean:
+  - `autodiagnostico.dados.etapas` passa a ter, na ordem da tela, `serial`, `temperatura`, `sensor`, `memoria`,
+    `pressao`, `sopro` e `rele`. Cada valor é `true`/`false` ou **`null` = ignorado** (só o `rele`: MIX, ou o técnico
+    pulou na bancada sem módulo) — mostrar "Ignorado", não "Reprovado". Firmware v6.5.4 anterior manda só
+    `temperatura`, `sensor`, `pressao` e `sopro`: as outras chaves não vêm.
+  - O critério do ensaio `autodiagnostico` mudou (texto em `quality.py` `STEPS`); `medido` = `N/M aprovados na tela`, com os
+    ignorados fora da conta.
 
 ## 5. Validado na bancada (29/10/2026, aparelho de debug com build v6.5.3)
 
@@ -132,6 +164,19 @@ debug) → `autodiagnostico` (pressão, sopro, temperatura OK pela tela; sensor 
 lido, tela da contrassenha) → `register` de aparelho já cadastrado (código 4, nada gravado) → `recover`/reset
 pelo RTS. Flash pela USB com o protocolo novo: 1090 blocos, 0 reenvios, `_UPDATE_OK_`, ~290 s.
 Não validado com cartucho real: `com-alcool` com álcool de verdade (a build de debug fixa o analog em 23000).
+
+**v6.5.4 (03/11/2026, sem aparelho)**: protocolo de sopro (`TST_BLOW`), lista de testes do Autodiagnóstico e
+Diagnóstico Completo com os 3 sopros — compilado e telas conferidas com as fontes do firmware nos 3 idiomas (nenhum
+texto estoura a linha nem encosta em outro); a CLI testada com as linhas simuladas (`test_cli.py`).
+**v6.5.4 (04/11/2026, telas refeitas)**: Diagnóstico Completo em 7 etapas na ordem deste procedimento (serial,
+temperatura, álcool, memória, pressão, sopros, relé), teste serial de 10 s com a barra até 100 %, cartão de resultado
+no lugar da tela verde cheia, tabela por 6 s; as telas foram renderizadas com o código real do firmware (LovyanGFX no
+Linux) nos 3 idiomas e a CLI testada com as linhas novas (`test_cli.py`).
+**Bancada 04/11/2026** (MIC2702031054375407, cartucho real ETL2534221559775071, Suntech, pelo DB9): `flash --arquivo`
+da build Sighir publicada (md5 igual ao do servidor) a 921600 em 1 min 52 s → `qualidade` 5/5 (serial 87 ms, temperatura,
+sensor `$ETEV20!`, calibração, pressão) → `qualidade autodiagnostico` 7/7 pela tela (o teste serial passou com o `$ETKA!`
+que a CLI devolve; sopros nenhum/incompleto/completo classificados certo; relé com "Sim" no "O Relé Comutou?").
+**Falta**: `qualidade sopro --blowprob X` (protocolo completo) com a build nova e o relé com um módulo ligado.
 
 ## 6. Armadilhas vistas na bancada (29/10/2026)
 

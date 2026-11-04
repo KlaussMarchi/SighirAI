@@ -1,6 +1,6 @@
 #include "device/index.h"
 #include "device/lang/index.h"
-Device device{"v6.5.3"};
+Device device{"v6.5.4"};
 
 const char* getLang(){
     return device.settings.params.template get<const char*>("lang");

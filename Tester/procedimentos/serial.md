@@ -54,11 +54,13 @@ Parser: `../docs/hardware/Main/objects/telemetry/protocol/index.h` (`Protocol::c
 | `sensor_id` | Lê o ID do cartucho **da EEPROM** (releitura real) | `ETL...` |
 | `analog` / `last_analog` | Leitura atual / última leitura do teste | inteiro |
 | `coefs` / `cf_coefs$<json>!` | Lê / grava coeficientes de calibração | JSON / `success`\|`error` |
-| `__updt__` | Entrar em modo update USB | `_STARTING_UPDATE_` (com underscores) |
+| `__updt__` | Entrar em modo update (`__updt__<tamanho>,<md5>,921600` no Tester novo; `firmware.md` §7.1) | `_STARTING_UPDATE_` (firmware antigo) ou `_STARTING_UPDATE_<velocidade>_` (firmware novo) |
 | `$ETBL01!` / `$ETBL02!` | Desbloqueia / **bloqueia** o veículo | `$ETBL0x0000!` + `$ETEV01!`/`$ETEV02!` (**sem `$ETKAACK!`** — ver nota) |
 | `endTravel` | Encerra viagem: `driving=false` + **`blocked=true`** | `OFF` |
 | `$ETAT01!` | (MIX/MIX2) Liga a ignição — **só dispara teste se bloqueado** (§11.3) | `$ETATACK!` |
 | `TST_PRESS` / `TST_TEMP` / `TST_SENS` | Diagnóstico de pressão/temp/sensor | `pressworking` / `tempworking` / `$ETEV20!` (falhas: `$ERROR!` / `ERROR` / `$ETEV24!`) |
+| `TST_BLOW` | (v6.5.4) Protocolo de sopro na tela, com o operador (~5 min; `qualidade sopro`) | uma linha JSON por sopro (`{"blow":"cut","force":"weak","result":"none\|cut\|full","peak":…,"ms":…}`) e a final `{"diagnostic":"blow","pressure":…,"blow":…}` |
+| (menu) Diagnóstico Completo | (v6.5.4) roda na tela; o teste Serial dele manda `$ETKA!` e passa com **qualquer** comando em 10 s (a CLI responde com `$ETKA!`) | `serialworking`, `tempworking`, `$ETEV20!`, `eepromworking`, `pressworking`, as linhas dos 3 sopros e a final `{"diagnostic":"full","serial","temperature","alcohol","eeprom","pressure","blow","relay"}` (`relay` `null` = ignorado) |
 | `CF:presstream$1!` + `$ETRS!` | (lido só no boot) a pressão vira stream `{"time","pressure","blow"}` a 10 Hz | **suja todas as respostas** até voltar `presstream$0` + `$ETRS!` — o Tester usa o `/get-data` |
 
 > **Timeout dos `TST_*`**: na v6.5.3 o `TST_TEMP`/`TST_SENS`/`TST_PRESS` observam o sensor por 10 s na tela, com o
@@ -88,7 +90,7 @@ Parser: `../docs/hardware/Main/objects/telemetry/protocol/index.h` (`Protocol::c
 
 ### 11.1 Semântica dos Testes (`protocol.json` — verificado no firmware)
 - **Flags de debug** (via `CF:`): `press$1` = **simula sopro** (pula `getFirstBreath`/blower); `press$0` = **sopro real** exigido. `testalc$1` = **força álcool** (→ `$ETEV30`); `testalc$0` = leitura real (limpo → `$ETEV29!`).
-- **Diagnósticos de sensor** (não exigem sopro): `TST_PRESS` → `pressworking`/`$ERROR!` (checa **comunicação** do load-cell HX711, **não** um sopro), `TST_TEMP` → `tempworking`/`ERROR`, `TST_SENS` → `$ETEV20!`/`$ETEV24!`. O teste de sopro **real** (`Diagnostic::blow()`) é **só pela tela touch**, não há comando serial.
+- **Diagnósticos de sensor** (não exigem sopro): `TST_PRESS` → `pressworking`/`$ERROR!` (checa **comunicação** do load-cell HX711, **não** um sopro), `TST_TEMP` → `tempworking`/`ERROR`, `TST_SENS` → `$ETEV20!`/`$ETEV24!`. O sopro **real** do autodiagnóstico é pela tela; na v6.5.4 o `TST_BLOW` dispara pela serial o protocolo de sopro (mesma detecção do teste) e devolve uma linha JSON por sopro.
 - **Eventos do resultado**: `$ETEV05!` = analisando (~20 s); **sem álcool** → `$ETEV29!` → desbloqueia (`$ETEV01!`); **com álcool** → `$ETEV30<mgL>!` (mg/L sem o ponto: `0123` = 0,123) → bloqueia (`$ETEV02!`) + tela "Contrassenha / Realizar Outro Teste / Desligar Display" (não lê comandos até o toque ou 120 s).
 - **Sopro**: `$ETEV11!` = ninguém soprou em 25 s (tela "Tentar novamente?", 5 min); `$NOBLOW!` = sopro cortado antes de 1,8 s (o aparelho pede de novo). Depois do sopro sai também a curva do teste (`[a,b,c,…]`).
 - **Teste real** (sopro de verdade, sem forçar álcool) = `qualidade sem-alcool|com-alcool` (`procedimentos/qualidade.md` §3): dispara pela ignição de **qualquer** telemetria, inclusive Entrack.
@@ -156,7 +158,8 @@ Daí as três condições, todas obrigatórias:
 - **O device é RÁPIDO; a lentidão costuma ser nossa.** Medido: `$firmware!` responde em **0,10 s** e o
   `$ETKA!` em 0,28 s. Se algo demora, o gargalo é sleep no tester, não o aparelho. Duas exceções
   **legítimas** (são do firmware, não tente "otimizar"): o `sensor_id` leva **~2 s** (lê 170 bytes da EEPROM
-  a `await(10)` por byte) e os `TST_*` levam até **~10 s** (`await(2500)` + varredura).
+  a `await(10)` por byte) e os `TST_*` respondem em **~10 s** (observam o sensor 10 s na tela; desde 04/11/2026 o
+  cartão do resultado fica ~1,5 s depois da resposta, ~2,5 s na falha — o próximo comando espera na fila da UART).
 - **Nunca "conserte" latência com sleep fixo.** `Device.clear()` drena até o silêncio (~0,2 s) e
   `Device.connect()` espera o `$ETKAACK!` em vez de dormir 2,5 s — foi o que levou o `status` de **9 s → 3,7 s**.
   ⚠️ `connect(delay=0)` **não sonda** de propósito: é o reconnect do meio do flash, e um `$ETKA!` no meio

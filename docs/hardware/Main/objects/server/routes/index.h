@@ -180,6 +180,7 @@ template <typename Parent> class ServerRoutes{
 
         device->settings.save();
         device->vehicle.valet.refresh();
+        device->sensors.pressure.setBlowProb(device->settings.template get<float>("blowProb"));
         device->server.send(lang.ok.get());
     }
 

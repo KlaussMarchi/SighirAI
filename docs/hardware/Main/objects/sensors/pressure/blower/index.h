@@ -21,6 +21,7 @@ template <typename Parent> class Blower{
     int tolerance = BlowerModel::TOLERANCE;
     int confirm   = BlowerModel::CONFIRM;
     int counter   = 0;
+    float peak    = 0;   // MAIOR DEGRAU SOBRE A LINHA DE BASE DESDE O reset(): A FORÇA DO SOPRO
 
     Blower(Parent* press):
         pressure(press){}
@@ -41,6 +42,7 @@ template <typename Parent> class Blower{
             states[i] = states[i-1];
 
         states[0] = value - tare.update(value);
+        peak      = max(peak, states[0]);
         return model.get(states);
     }
 
@@ -77,6 +79,7 @@ template <typename Parent> class Blower{
         startBlow = Time::get();
         counter = 0;
         state = false;
+        peak  = 0;
     }
 };
 

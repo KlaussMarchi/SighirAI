@@ -11,7 +11,7 @@ STT_KEY = 'STT;0360000001;3FFFFF;36;1.0.14;1;20161117;08:37:39;0000004F;450;0;00
 IGNITION = {
     '0': {'on': ['$ETAT01!'], 'off': ['$ETEV04!']},
     '5': {'on': ['$ETAT01!'], 'off': ['$ETEV04!']},
-    '2': {'on': [STT_KEY.format(1)], 'off': [STT_KEY.format(0)]},          # PELA USB (PORTA 1) UM PACOTE BASTA
+    '2': {'on': [STT_KEY.format(1)]*5, 'off': [STT_KEY.format(0)]*5},      # PELO DB9 (PORTA 2) VALE A MÉDIA DAS 4 ÚLTIMAS > 0,90
     '6': {'on': ['+QACC:high']*5, 'off': ['+QACC:low']*5}                 # MÉDIA DAS 4 ÚLTIMAS AMOSTRAS > 0,75 LIGA
 }
 
@@ -22,9 +22,12 @@ DIAGNOSTICS = {
     'pressao': ('TST_PRESS', 'pressworking', '$ERROR!')
 }
 
+RESULTS    = {'none': 'nenhum', 'cut': 'incompleto', 'full': 'completo'}    # TIPO DO SOPRO NA LINHA DO FIRMWARE
+FORCES     = {'weak': ('fraco', 'fraco'), 'medium': ('medio', 'médio'), 'strong': ('forte', 'forte')}    # FORÇA NA LINHA → ID E NOME NO ENSAIO
+OUTCOMES   = {'none': 'sem sopro', 'cut': 'recusados como incompletos', 'full': 'aceitos como completos'}
+DIAGNOSTIC = {'serial': 'serial', 'temperature': 'temperatura', 'alcohol': 'sensor', 'eeprom': 'memoria', 'pressure': 'pressao', 'blow': 'sopro', 'relay': 'rele'}    # LINHA FINAL DO DIAGNÓSTICO COMPLETO, NA ORDEM DA TELA
+VERDICTS   = {True: 'OK', False: 'FALHOU', None: 'IGNORADO'}    # ETAPA NA LINHA FINAL DO DIAGNÓSTICO COMPLETO
 RESULT_RE  = re.compile(r'\$ETEV(29|30(\d*))!')
-VERDICT_RE = re.compile(r'pressworking|tempworking|\$ETEV20!|\$ETEV24!|\$ERROR!|\$NOBLOW!|\bERROR\b')
-PASSED     = ('pressworking', 'tempworking', '$ETEV20!')
 JSON_RE    = re.compile(r'\{[^{}]*\}')
 CURVE_RE   = re.compile(r'\[\s*(\d+(?:\s*,\s*\d+)*)\s*,?\s*\]')    # CURVA DO TESTE QUE O FIRMWARE MANDA ANTES DO RESULTADO
 DATE_FORMATS = ('%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d', '%d/%m/%Y %H:%M:%S', '%d/%m/%Y')
@@ -104,30 +107,36 @@ def curveMgl(coefs, x):
     return 2.5 if mgl > 2.5 else 0.0 if mgl < 0.010 else mgl
 
 
-# VEREDITOS DO AUTODIAGNÓSTICO COMPLETO NA ORDEM DA TELA; SEM O SENSOR DE PRESSÃO A TELA NÃO PEDE O SOPRO
-def parseDiagnostic(tokens):
-    tokens  = [token for token in tokens if token != '$NOBLOW!']
-    steps   = ['pressao', 'sopro', 'temperatura', 'sensor']
-    results = {}
+# OBJETOS JSON COMPLETOS DO TEXTO E O RESTO A PARTIR DO ÚLTIMO "{" (LINHA QUE CHEGOU PELA METADE)
+def readLines(text):
+    lines, end = [], 0
 
-    for token in tokens:
-        step = steps.pop(0) if steps else None
+    for match in JSON_RE.finditer(text):
+        end = match.end()
 
-        if step is None:
-            break
+        try:
+            lines.append(json.loads(match.group()))
+        except ValueError:
+            continue
 
-        results[step] = token in PASSED
+    rest = text[end:]
+    return lines, rest[rest.rfind('{'):] if '{' in rest else ''
 
-        if step == 'pressao' and not results[step]:
-            results['sopro'] = False
-            steps.remove('sopro')
 
-    return results
+# ENSAIO DE UMA LINHA DE SOPRO: sopro-<tipo pedido>[-<força>], E A FORÇA
+def blowTest(line):
+    force = FORCES.get(line.get('force'), (None,))[0]
+    return '-'.join(['sopro', RESULTS[line['blow']]] + ([force] if force else [])), force
+
+
+def blowText(attempt):
+    seconds = f", {br(attempt['duracao_ms']/1000, 1)} s" if attempt['resultado'] != 'nenhum' else ''
+    return f"{attempt['resultado']} (pico {br(attempt['pico'], 1)}{seconds})"
 
 
 # BATERIA DE QUALIDADE NA BANCADA: CADA ETAPA GUARDA O RESULTADO E AS MEDIDAS, E O print() FECHA COM A TABELA
 class Quality:
-    DIAG_TIMEOUT    = 15.0        # s, TST_* RESPONDE EM ~13 S (10 S OBSERVANDO + TELAS)
+    DIAG_TIMEOUT    = 15.0        # s, TST_* RESPONDE EM ~10 S (OBSERVA 10 S; O CARTÃO DO RESULTADO VEM DEPOIS DA RESPOSTA)
     TEMP_RANGE      = (-10, 70)   # ºC
     HUMIDITY_RANGE  = (1, 100)    # %
     TEMP_WINDOW     = 4.0         # s DE LEITURAS: O DHT22 SÓ MEDE DE NOVO A CADA 2 S
@@ -140,7 +149,9 @@ class Quality:
     REST_SAMPLES    = 10
     REST_NOISE      = 0.5         # VARIAÇÃO MÁXIMA DA PRESSÃO PARADA: DERIVA ~0,1, SOPRO SOBE 12 A 110 (BANCADA 29/10/2026)
     SAMPLE_DT       = 0.15        # s ENTRE LEITURAS DO /get-data
-    DIAGNOSTIC_TIMEOUT = 240      # s PARA ABRIR O MENU E FAZER AS 4 ETAPAS DA TELA, COM NOVAS TENTATIVAS DE SOPRO
+    DIAGNOSTIC_TIMEOUT = 240      # s ATÉ A PRIMEIRA LINHA: ABRIR O MENU, SERIAL E SENSORES (~60 S) E O PRIMEIRO SOPRO (~40 S)
+    BLOW_FIRST      = 90          # s ATÉ A PRIMEIRA LINHA DO TST_BLOW: INSTRUÇÃO 8 + CALIBRAÇÃO 1,5 + 25 SEM SOPRAR + RESULTADO
+    BLOW_IDLE       = 120         # s SEM LINHA ENCERRAM: A MAIOR ESPERA ENTRE DUAS É O "TENTAR NOVAMENTE?" + UMA ETAPA SEM SOPRO
     IGNITION_DT     = 0.3         # s ENTRE LINHAS: O FIRMWARE JUNTA O QUE CHEGA EM MENOS DE 100 MS
     START_TIMEOUT   = 150         # s ATÉ O $ETEV05!: LOGOS, CÂMERA, AQUECIMENTO, 25 S POR SOPRO E O "TENTAR NOVAMENTE?"
     RESULT_TIMEOUT  = 60          # s DO $ETEV05! (ANALISANDO ~20 S) AO RESULTADO
@@ -247,29 +258,59 @@ class Quality:
         return self.add('pressao', diag and stable, detail, f"repouso {br(rest['media'], 2)} (Δ {br(noise, 3)})" if rest else 'sem leitura',
                         repouso=rest, variacao=noise, limite_variacao=self.REST_NOISE, tst=answer)
 
-    # O OPERADOR RODA MENU → AUTODIAGNÓSTICO → DIAGNÓSTICO COMPLETO NA TELA (SOPRA QUANDO ELA PEDE); A CLI SÓ ESCUTA
+    # LINHAS JSON DO DIAGNÓSTICO NO FIRMWARE ATÉ A FINAL ({"diagnostic": name}): first S PELA PRIMEIRA, DEPOIS idle S MUDO ENCERRAM;
+    # O TESTE SERIAL DO DIAGNÓSTICO COMPLETO MANDA $ETKA! E PASSA COM QUALQUER COMANDO EM 10 S: A CLI RESPONDE COM OUTRO
+    def lines(self, name, first, idle):
+        text, lastTime, limit = '', time(), first
+
+        while time() - lastTime < limit:
+            chunk = device.get(timeout=1.0) or ''
+
+            if '$ETKA!' in chunk:
+                device.send('$ETKA!')
+
+            found, text = readLines(text + chunk)
+
+            for line in found:
+                lastTime, limit = time(), idle
+                yield line
+
+                if line.get('diagnostic') == name:
+                    return
+
+    # UM SOPRO QUE O FIRMWARE CLASSIFICOU: CERTO QUANDO O RESULTADO É O TIPO PEDIDO
+    def attempt(self, line):
+        attempt = {'resultado': RESULTS.get(line.get('result'), line.get('result')), 'pico': round(line.get('peak', 0), 1),
+                   'duracao_ms': line.get('ms', 0), 'ok': line.get('result') == line['blow']}
+        log('ok' if attempt['ok'] else 'err', f"{blowTest(line)[0]} {line.get('attempt')}/{line.get('of')}: {blowText(attempt)}"
+                                                + ('' if attempt['ok'] else f" — esperado {RESULTS[line['blow']]}"))
+        return attempt
+
+    # O OPERADOR RODA MENU → AUTODIAGNÓSTICO → DIAGNÓSTICO COMPLETO NA TELA; A CLI ESCUTA OS SOPROS E A LINHA FINAL DO FIRMWARE
+    # (null = IGNORADO: RELÉ NO MIX OU PULADO; ETAPA QUE O FIRMWARE NÃO MANDA, DE ANTES DAS 7, FICA DE FORA)
     def selfDiagnostic(self):
-        tokens   = []
-        deadline = time() + self.DIAGNOSTIC_TIMEOUT
+        blows, end = [], None
         device.clear()
-        log('info', 'aguardando o autodiagnóstico na tela: Menu → Configurações (pág. 2) → Autodiagnóstico → Diagnóstico Completo')
+        log('info', 'aguardando o autodiagnóstico na tela: Menu → Configurações (pág. 2) → Autodiagnóstico → Diagnóstico Completo '
+                    '(serial e sensores ~1 min, depois NÃO sopre, sopro incompleto, sopro completo e o relé: sem módulo na bancada '
+                    'toque Não em "Deseja Mesmo Continuar?" e ele fica ignorado)')
 
-        while time() < deadline and len(parseDiagnostic(tokens)) < 4:
-            found = VERDICT_RE.findall(device.get(timeout=1.0) or '')
-            tokens.extend(found)
+        for line in self.lines('full', self.DIAGNOSTIC_TIMEOUT, self.BLOW_IDLE):
+            if line.get('blow') in RESULTS:
+                blows.append({'tipo': RESULTS[line['blow']], **self.attempt(line)})
 
-            if '$NOBLOW!' in found:
-                log('warn', 'sopro interrompido: na tela, "Sim" em "Tentar novamente?" e sopre contínuo')
+            if line.get('diagnostic') == 'full':
+                end = line
 
-        results = parseDiagnostic(tokens)
+        if end is None:
+            return self.add('autodiagnostico', False, f'sem o resultado do aparelho em {self.DIAGNOSTIC_TIMEOUT} s: o diagnóstico não foi '
+                            'iniciado na tela ou não terminou', 'não concluído na tela', etapas={}, sopros=blows)
 
-        if not results:
-            return self.add('autodiagnostico', False, f'nenhum resultado em {self.DIAGNOSTIC_TIMEOUT} s: o diagnóstico não foi iniciado na tela',
-                            'não iniciado na tela', etapas={})
-
-        text = ', '.join(f"{step} {'OK' if ok else 'FALHOU'}" for step, ok in results.items())
-        return self.add('autodiagnostico', len(results) == 4 and all(results.values()), text + ('' if len(results) == 4 else ' (incompleto)'),
-                        f'{sum(results.values())}/4 aprovados na tela', etapas=results)
+        steps   = {name: end[key] for key, name in DIAGNOSTIC.items() if key in end}
+        counted = [ok for ok in steps.values() if ok is not None]
+        text    = ', '.join(f"{step} {VERDICTS[ok]}" for step, ok in steps.items())
+        text   += (' — sopros: ' + '; '.join(f"{b['tipo']} → {blowText(b)}" for b in blows)) if blows else ' — sem sopros (sensor de pressão reprovado)'
+        return self.add('autodiagnostico', all(counted), text, f'{sum(counted)}/{len(counted)} aprovados na tela', etapas=steps, sopros=blows)
 
     def send(self, commands):
         for command in commands:
@@ -285,13 +326,13 @@ class Quality:
 
         return core.writeSetting('press', 0) and core.writeSetting('testalc', 0)
 
-    # ESCUTA O TESTE DISPARADO PELA IGNIÇÃO ATÉ O RESULTADO $ETEV29!/$ETEV30<mg/L>! OU ATÉ stop(events)
-    def listen(self, stop=None):
+    # ESCUTA O TESTE DISPARADO PELA IGNIÇÃO ATÉ O RESULTADO $ETEV29!/$ETEV30<mg/L>!
+    def listen(self):
         events    = {'noblow': 0, 'timeout': 0, 'analyzing': False, 'result': None, 'mgl': 0.0, 'curve': []}
         startTime = time()
         deadline  = startTime + self.START_TIMEOUT
 
-        while time() < deadline and not (stop and stop(events)):
+        while time() < deadline:
             text   = device.get(timeout=1.0) or ''
             result = RESULT_RE.search(text)
             curve  = CURVE_RE.search(text)
@@ -354,8 +395,8 @@ class Quality:
         device.clear()
         device.expect(target='OFF', command='endTravel', timeout=5)
 
-    def alcohol(self, expected, times, step=None, force=None):
-        step = step or ('com-alcool' if expected else 'sem-alcool')
+    def alcohol(self, expected, times):
+        step = 'com-alcool' if expected else 'sem-alcool'
         runs = []
 
         if self.debug():
@@ -388,56 +429,71 @@ class Quality:
         mgls  = ', '.join(br(run['mgl'], 3) for run in good)
         return self.add(step, len(good) == times, f'{len(good)}/{times} como esperado — {text}',
                         f'{len(good)}/{times} como esperado' + (f' · {mgls} mg/L' if mgls else ''),
-                        esperado=want, forca=force, testes=tests)
+                        esperado=want, testes=tests)
 
-    # SEM SOPRAR: CADA TESTE TEM QUE TERMINAR EM $ETEV11! (SEM SOPRO EM 25 S) SEM NUNCA ACEITAR SOPRO
-    def noBlow(self, times):
-        outcomes = []
+    # O PROTOCOLO COMEÇA PELA TOLERÂNCIA (CF:blowProb$X!, QUE A v6.5.4 APLICA SEM REINICIAR); FORA DA FAIXA ELE NÃO RODA
+    def setBlowProb(self, value=None):
+        text   = str(value) if value is not None else core.readSetting('blowProb')
+        number = float(text) if text and text.replace('.', '', 1).isdigit() else None
 
-        for n in range(1, times + 1):
-            ignition = self.start(f'{n}/{times}, NÃO sopre; quando a tela perguntar "Tentar novamente?", toque em "Não"')
+        if number is None or not self.BLOW_PROB[0] <= number <= self.BLOW_PROB[1]:
+            log('err', f'blowProb {text} fora da faixa do protocolo ({br(self.BLOW_PROB[0], 1)} a {br(self.BLOW_PROB[1], 1)} s): '
+                       'rode qualidade sopro --blowprob X')
+            return None
 
-            if ignition is None:
-                return self.add('sopro-nenhum', False, 'o teste não disparou', 'não disparou', testes=outcomes)
+        if value is not None and not core.writeSetting('blowProb', number):
+            return None
 
-            run = self.listen(stop=lambda e: e['timeout'] or e['analyzing'])
-            outcomes.append('ACEITO' if run['analyzing'] else 'sem sopro' if run['timeout'] else 'sem resposta')
-            self.end(ignition, 'toque em "Não" no "Tentar novamente?"')
+        return number
 
-        passed      = outcomes.count('sem sopro')
-        value, text = self.blowProb()
-        return self.add('sopro-nenhum', passed == times, f'{passed}/{times} testes sem sopro terminaram em "sem sopro" ($ETEV11!), {text}',
-                        f'{passed}/{times} terminaram em "sem sopro"', esperados=times, aprovados=passed, testes=outcomes, blowProb=value)
+    # PROTOCOLO DE SOPRO DO FIRMWARE (TST_BLOW): A TELA GUIA O OPERADOR, CADA SOPRO VOLTA NUMA LINHA E CADA ETAPA VIRA UM ENSAIO
+    def blows(self, blowProb=None):
+        series, end = {}, None
+        tolerance   = self.setBlowProb(blowProb)
 
-    # SOPRO INCOMPLETO: NUM TESTE SÓ, CADA SOPRO CURTO TEM QUE VIRAR $NOBLOW! E NENHUM PODE SER ACEITO COMO SOPRO
-    def shortBlows(self, times, force):
-        step     = f'sopro-incompleto-{force}'
-        ignition = self.start(f'sopre {times} vezes CURTO e {force.upper()} (menos de 1 s); depois pare e toque em "Não" no "Tentar novamente?"')
+        if tolerance is None or not core.writeSetting('press', 0):    # press$1 FINGE QUE SEMPRE HÁ SOPRO
+            return False
 
-        if ignition is None:
-            return self.add(step, False, 'o teste não disparou', 'não disparou', forca=force, esperados=times, cortados=0, aceito=False)
+        device.clear()
+        device.send('TST_BLOW')
+        log('info', f'protocolo de sopro na tela (blowProb {br(tolerance, 2)} s): 3 sem soprar, 3 incompletos e 3 completos em cada força')
 
-        run         = self.listen(stop=lambda e: e['noblow'] >= times or e['analyzing'] or e['timeout'])
-        self.end(ignition, 'pare de soprar e toque em "Não" no "Tentar novamente?"')
-        ok          = run['noblow'] >= times and not run['analyzing']
-        value, text = self.blowProb()
-        return self.add(step, ok, f"{run['noblow']}/{times} sopros cortados detectados" + (' — um sopro curto foi ACEITO' if run['analyzing'] else '') + f', {text}',
-                        f"{min(run['noblow'], times)}/{times} recusados" + (' · 1 aceito' if run['analyzing'] else ''),
-                        forca=force, esperados=times, cortados=run['noblow'], aceito=run['analyzing'], blowProb=value)
+        for line in self.lines('blow', self.BLOW_FIRST, self.BLOW_IDLE):
+            step, force = blowTest(line) if line.get('blow') in RESULTS else (None, None)
 
-    def blowProb(self):
-        value  = core.readSetting('blowProb')
-        inside = value is not None and value.replace('.', '', 1).isdigit() and self.BLOW_PROB[0] <= float(value) <= self.BLOW_PROB[1]
+            if step and line.get('attempt') == 1:    # A ETAPA REFEITA NA TELA RECOMEÇA DO 1
+                series[step] = {'tipo': line['blow'], 'forca': force, 'repeticoes': series.get(step, {}).get('repeticoes', 0) + 1, 'sopros': []}
 
-        if not inside:
-            log('warn', f'blowProb {value} s fora da faixa do protocolo ({self.BLOW_PROB[0]} a {self.BLOW_PROB[1]} s): '
-                        'ajuste com settings --set blowProb=X --restart se o usuário pedir')
+            if step in series:
+                series[step]['sopros'].append(self.attempt(line))
+                series[step]['of'] = line.get('of')
 
-        return value, f'blowProb {value} s' + ('' if inside else ' (fora da faixa 0,3–1,5)')
+            if line.get('diagnostic') == 'blow':
+                end = line
 
-    def fullBlows(self, times, force):
-        log('info', f'sopro COMPLETO e {force.upper()}: contínuo até o bipe parar, sem álcool ({self.blowProb()[1]})')
-        return self.alcohol(False, times, f'sopro-completo-{force}', force)
+        steps = [step for step in STEPS if step.startswith('sopro-')]
+
+        if end is not None and end.get('pressure') is False:
+            for step in steps:
+                self.add(step, False, 'sensor de pressão sem resposta (HX711): o protocolo não rodou', 'sem sensor de pressão')
+
+            return False
+
+        if end is None:
+            log('err', f'o protocolo não terminou ({self.BLOW_IDLE} s sem linha do aparelho): só entram as etapas que fecharam')
+
+        results = [self.blowStep(step, series[step], tolerance) for step in steps if step in series and len(series[step]['sopros']) == series[step]['of']]
+        return end is not None and len(results) == len(steps) and all(results)
+
+    def blowStep(self, step, run, tolerance):
+        kind, force = run['tipo'], run['forca']
+        attempts    = run['sopros']
+        passed      = sum(attempt['ok'] for attempt in attempts)
+        repeated    = f", refeita {run['repeticoes'] - 1} vez(es) na tela" if run['repeticoes'] > 1 else ''
+        detail      = f"{passed}/{len(attempts)} {OUTCOMES[kind]} — " + '; '.join(f'#{n} {blowText(a)}' for n, a in enumerate(attempts, 1))
+        return self.add(step, passed == len(attempts), detail + f', blowProb {br(tolerance, 2)} s' + repeated, f'{passed}/{len(attempts)} {OUTCOMES[kind]}',
+                        forca=force, esperado=RESULTS[kind], esperados=len(attempts), aprovados=passed, repeticoes=run['repeticoes'],
+                        blowProb=tolerance, sopros=attempts)
 
     # DEPOIS DO TESTE AINDA CHEGAM $ETEV16!/$ETEV01!: SÓ VALE A RESPOSTA NUMÉRICA
     def lastAnalog(self):
@@ -463,8 +519,6 @@ class Quality:
         log('ok' if not bad else 'err', f"{self.espId}: " + ('APROVADO nas etapas feitas' if not bad else f"REPROVADO em {', '.join(bad)}"))
 
 
-FORCES = {'fraco': 'fraco', 'medio': 'médio', 'forte': 'forte'}
-
 # ENSAIOS EXIGIDOS PARA LIBERAR O APARELHO, NA ORDEM DO PROCEDIMENTO: NOME E CRITÉRIO DE ACEITAÇÃO
 STEPS = {
     'serial': ('Comunicação serial', 'responde ao $ETKA!, ao $firmware! e ao /get-data'),
@@ -474,10 +528,12 @@ STEPS = {
     'calibracao': ('Calibração do sensor', f'coeficientes gravados; calibração com até {Quality.CALIBRATION_DAYS} dias; '
                                            f'ar limpo < {br(Quality.CLEAN_AIR_MGL, 3)} mg/L pela curva'),
     'pressao': ('Sensor de pressão (HX711)', f'TST_PRESS aprovado; variação em repouso < {br(Quality.REST_NOISE, 1)}'),
-    'autodiagnostico': ('Autodiagnóstico completo na tela', 'pressão, sopro, temperatura e álcool aprovados pelo aparelho'),
-    'sopro-nenhum': ('Teste sem soprar', '3 testes terminam em "sem sopro"; nenhum sopro aceito'),
-    **{f'sopro-incompleto-{key}': (f'Sopro incompleto {label}', '3 sopros curtos recusados ($NOBLOW!); nenhum aceito') for key, label in FORCES.items()},
-    **{f'sopro-completo-{key}': (f'Sopro completo {label}', '3 sopros aceitos e analisados; resultado sem álcool') for key, label in FORCES.items()},
+    'autodiagnostico': ('Autodiagnóstico completo na tela', 'serial, temperatura, álcool, memória do sensor e pressão aprovados pelo aparelho, '
+                                                       'um sopro de cada tipo (sem sopro, incompleto, completo) classificado certo e o relé '
+                                                       'comutando (ignorado no MIX ou sem módulo)'),
+    'sopro-nenhum': ('Teste sem soprar', '3 testes sem soprar terminam em "sem sopro" na janela de 25 s do teste real'),
+    **{f'sopro-incompleto-{key}': (f'Sopro incompleto {label}', '3 sopros curtos classificados como incompletos (recusados)') for key, label in FORCES.values()},
+    **{f'sopro-completo-{key}': (f'Sopro completo {label}', '3 sopros contínuos classificados como completos (aceitos)') for key, label in FORCES.values()},
     'sem-alcool': ('Teste real sem álcool', 'resultado sem álcool ($ETEV29!)'),
     'com-alcool': ('Teste real com álcool', 'álcool detectado ($ETEV30<mg/L>!)')
 }

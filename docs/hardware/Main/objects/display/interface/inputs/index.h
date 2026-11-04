@@ -102,7 +102,72 @@ template <typename Parent> class Inputs{
 
         return 2;
     }
-    
+
+    // A PRIMEIRA OPÇÃO EM DESTAQUE NA LARGURA TODA E AS OUTRAS EM DUAS COLUNAS COMO NO MENU, A ÚLTIMA (SAIR) ESCURA; SEM TOQUE VALE standard
+    template <int N> int choices(const char* tag, const char* title, const char* (&labels)[N], const int standard, const uint32_t timeout=120000){
+        auto& display = device->display;
+        auto& lcd     = display.lcd;
+
+        const int margin = display.width*0.05;
+        const int gap    = display.width*0.04;
+        const int startY = display.height*0.20;
+        const int step   = (display.height*0.985 - startY)/(N/2 + 1);   // O DESTAQUE E AS LINHAS DE DUAS
+        const int height = step - gap;
+        const int column = (display.width - 2*margin - gap)/2;
+        const char* tiles[N-1];
+
+        auto box = [&](const int i, int& x, int& y, int& width){
+            x     = (i == 0) ? margin : margin + (i - 1)%2*(column + gap);
+            y     = startY + (i + 1)/2*step;
+            width = (i == 0) ? display.width - 2*margin : column;
+        };
+
+        for(int i=1; i<N; i++)
+            tiles[i-1] = labels[i];
+
+        display.brightness.update();
+        lcd.fillScreen(BG_COLOR);
+        display.interface.pill(tag, display.height*0.03, BLUE);
+        display.interface.font.setStyle(&Roboto_Bold12pt8b, TFT_WHITE);
+        display.interface.centeredText(title, TFT_WHITE, display.height*0.115, 1, false);
+
+        for(int i=0; i<N; i++){
+            const int fill = (i == 0) ? YELLOW : (i == N-1) ? DARK_GREY : LIGHT_GREY;
+            const int text = (i == 0) ? TFT_WHITE : (i == N-1) ? LIGHT_GREY : DARK_GREY;
+            int x, y, width;
+
+            box(i, x, y, width);
+
+            if(i == 1)
+                display.interface.font.setLargest(tiles, column - 16, height);
+
+            lcd.fillRoundRect(x, y, width, height, 12, fill);
+            lcd.setTextColor(text);
+            lcd.setCursor(x + (width - lcd.textWidth(labels[i]))/2, y + (height - lcd.fontHeight())/2);
+            lcd.print(labels[i]);
+        }
+
+        const unsigned long startTime = Time::get();
+        display.touch.reset();
+
+        while(Time::get() - startTime < timeout){
+            device->sensors.warm();   // LINHA DE BASE DO SOPRO VIVA ENQUANTO A LISTA ESPERA
+
+            if(!display.touch.click())
+                continue;
+
+            for(int i=0; i<N; i++){
+                int x, y, width;
+                box(i, x, y, width);
+
+                if(display.touch.areaClick(x, y, width, height))
+                    return i;
+            }
+        }
+
+        return standard;
+    }
+
     bool boolean(const char* label, const char* subtitle=nullptr, int timeout = 5*60*1000){
         auto& display = device->display;
         auto& lcd = device->display.lcd;

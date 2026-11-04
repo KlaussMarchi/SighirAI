@@ -14,10 +14,15 @@ template <typename Parent> class Updater{
     bool connecting = false;   // RECONECTAR CHAMA O HANDLECHECK: O AVISO DE VERSÃO NOVA NÃO ABRE POR CIMA
 
   public:
-    static const int CHUNK_SIZE  = 1.4*2048;   // BASE64 (4/3) DE 2048 BYTES MAIS OFFSET E CRC
+    static const int FRAME_SIZE  = 5600;       // BASE64 (4/3) DE 4096 BYTES MAIS OFFSET E CRC; O TESTER ANTIGO MANDA 2048
     static const int FIRST_DATA  = 35000;      // ms ATÉ O PRIMEIRO BLOCO
-    static const int SILENCE     = 10000;      // ms SEM DADOS ENCERRA A ATUALIZAÇÃO
+    static const int SILENCE     = 10000;      // ms SEM BLOCO VÁLIDO ENCERRA A ATUALIZAÇÃO
     static const int MAX_INVALID = 5;          // AS TENTATIVAS DO SIGHIRTESTER POR BLOCO
+    static const int PROBE_TIME  = 3000;       // ms NA VELOCIDADE DA SESSÃO SEM BLOCO VÁLIDO: VOLTA PARA 115200 E SEGUE
+    static const int BAUD        = 115200;     // A SERIAL FORA DA SESSÃO, SEMPRE
+    static const int FAST_BAUD   = 921600;     // TETO DA VELOCIDADE QUE O TESTER PODE PEDIR, SÓ DURANTE A SESSÃO
+    static const int HTTP_TRIES  = 3;          // POST DO /update SEM RESPOSTA (CÓDIGO < 0) NÃO GASTOU O need_update
+    static const int BODY_WAIT   = 10000;      // ms ATÉ O PRIMEIRO BYTE DO FIRMWARE NO WI-FI
     static const int ASK_TIMEOUT = 20000;      // ms SEM TOQUE NA ESCOLHA DE REDE VALE SAIR
     bool needed;
 
@@ -180,6 +185,7 @@ template <typename Parent> class Updater{
         return true;
     }
 
+    // O /update ENTREGA O FIRMWARE UMA VEZ SÓ (ZERA O need_update): SÓ O POST QUE FICOU SEM RESPOSTA É REPETIDO
     void download(){
         auto& display = device->display;
         display.interface.msg(MSG_BLACK, lang.firmwareUpdate.get());
@@ -188,61 +194,65 @@ template <typename Parent> class Updater{
 
         if(!device->server.connected())
             return;
-        
+
         device->await(500);
         String data = "{\"esp_id\":\"" + device->id.toString() + "\"}";
         Serial.println(data);
-        
+
         HTTPClient http;
-        http.begin(device->server.URL.toString() + "update/");
-        http.addHeader("Content-Type", "application/json");
-        device->await(700);
+        int httpCode = -1;
 
-        int httpCode = http.POST(data);
-        bool success = false;
+        for(int attempt=0; attempt<HTTP_TRIES && httpCode < 0 && device->server.connected(); attempt++){
+            http.end();
+            http.begin(device->server.URL.toString() + "update/");
+            http.addHeader("Content-Type", "application/json");
+            device->await(700);
+            httpCode = http.POST(data);
+        }
 
-        if(httpCode != 200){
+        WiFiClient* client = http.getStreamPtr();
+        const int size     = http.getSize();
+
+        if(httpCode != 200 || !client || size <= 0 || !ready(*client)){
             http.end();
             display.interface.msg(MSG_RED, lang.invalidServerRes.get());
             return display.sound.badBeep();
-        }   
-        
-        WiFiClient *client   = http.getStreamPtr();
-        size_t contentLength = http.getSize();
-        bool canBegin = Update.begin(contentLength);
+        }
 
-        if(canBegin){
+        if(Update.begin(size)){
             display.interface.loading.start(lang.updatingDevice.get(), lang.keepPowered.get());
 
             Update.onProgress([this](size_t progress, size_t total){
                 device->display.interface.loading.step(progress * 100 / total, false);
             });
-
-            if(Update.writeStream(*client) != contentLength)
-                success = false;
-
-            if(Update.end()){
-                if(Update.isFinished())
-                    success = true;
-                else
-                    success = false;
-            }
-            else{
-                success = false;
-            }
-        }
-        else {
-            success = false;
         }
 
+        const bool success = Update.isRunning() && Update.writeStream(*client) == (size_t) size && Update.end();
         http.end();
         finish(success);
     }
 
-    // ATUALIZAÇÃO PELO SERIAL (SIGHIRTESTER): "__updt__<TAMANHO>" E DEPOIS OS BLOCOS EM BASE64
+    // O writeStream CONFERE O PRIMEIRO BYTE COM peek() SEM ESPERAR: CORPO QUE CHEGAVA DEPOIS DOS CABEÇALHOS REPROVAVA A IMAGEM
+    bool ready(WiFiClient& client){
+        const unsigned long startTime = Time::get();
+
+        while(!client.available() && client.connected() && Time::get() - startTime < BODY_WAIT)
+            device->await(10);
+
+        return client.available() > 0;
+    }
+
+    // ATUALIZAÇÃO PELO SERIAL (SIGHIRTESTER): "__updt__<TAMANHO>" OU, NO TESTER NOVO, "__updt__<TAMANHO>,<MD5>,<VELOCIDADE>"; DEPOIS OS BLOCOS EM BASE64
     void local(){
-        const char* command = device->telemetry.serial.command.get();
-        const size_t size   = strtoul(command + strcspn(command, "0123456789"), nullptr, 10);
+        auto& serial         = device->telemetry.serial;
+        HardwareSerial& uart = (serial.port == 1) ? Serial : Serial2;   // NA BANCADA O TESTER VEM PELO DB9, A SERIAL DA TELEMETRIA
+        const char* fields   = strstr(serial.command.get(), "updt");
+        unsigned long size   = 0;
+        unsigned long baud   = BAUD;
+        char md5[33]         = "";
+
+        const bool extended = sscanf(fields + strcspn(fields, "0123456789"), "%lu,%32[0-9a-f],%lu", &size, md5, &baud) == 3 && strlen(md5) == 32;
+        const int speed     = (extended && baud > BAUD && baud <= FAST_BAUD) ? baud : BAUD;
         const size_t total  = (size > 0) ? size : ESP.getSketchSize();   // TESTER ANTIGO NÃO MANDA O TAMANHO: A BARRA ESTIMA PELO FIRMWARE ATUAL
 
         device->display.interface.loading.start(lang.updatingDevice.get(), lang.keepPowered.get());
@@ -250,79 +260,115 @@ template <typename Parent> class Updater{
             device->display.interface.loading.step(std::min<size_t>(99, progress * 100 / total), false);
         });
 
-        const bool success = Update.begin(size > 0 ? size : UPDATE_SIZE_UNKNOWN) && receive(size) && Update.end(size == 0);   // SEM TAMANHO, O FIM É O SILÊNCIO
-        device->telemetry.serial.send(success ? "_UPDATE_OK_" : "_UPDATE_FAIL_");
+        const bool started = Update.begin(size > 0 ? size : UPDATE_SIZE_UNKNOWN) && (!extended || Update.setMD5(md5));
+        const bool success = started && receive(uart, size, extended, speed) && Update.end(size == 0);   // SEM TAMANHO, O FIM É O SILÊNCIO
+        serial.send(success ? "_UPDATE_OK_" : "_UPDATE_FAIL_");
+
+        if(speed != BAUD)
+            setBaud(uart, BAUD);
+
         finish(success);
     }
 
-    // BLOCOS "$BASE64=#OFFSET:CRC32!" (CRC DO TEXTO ATÉ O ':') RESPONDIDOS COM "written" OU "resend"; O TESTER ANTIGO MANDA SÓ "$BASE64!"
-    bool receive(const size_t size){
-        static char chunk[CHUNK_SIZE];        // FORA DA PILHA: O LOOP TEM 8 KB
-        static uint8_t decoded[CHUNK_SIZE];
+    // BLOCOS "$BASE64=#OFFSET:CRC32!" (CRC DO TEXTO ATÉ O ':') RESPONDIDOS COM "written#<GRAVADO>" OU "resend"; O TESTER ANTIGO MANDA SÓ "$BASE64!"
+    bool receive(HardwareSerial& uart, const size_t size, const bool extended, const int speed){
+        static char chunk[FRAME_SIZE];        // FORA DA PILHA: O LOOP TEM 8 KB
+        static uint8_t decoded[FRAME_SIZE];
         auto& serial = device->telemetry.serial;
+        String reply = "_STARTING_UPDATE_";
+        uint8_t bytes[256];
 
         unsigned long lastData = Time::get();
+        bool probing    = (speed != BAUD);   // A VELOCIDADE DA SESSÃO SÓ VALE DEPOIS DO PRIMEIRO BLOCO VÁLIDO NELA
         size_t received = 0;
         int invalid     = 0;
         int index       = -1;
-        serial.send("_STARTING_UPDATE_");
 
-        while(Time::get() - lastData < (received > 0 ? SILENCE : FIRST_DATA)){
-            if(!serial.uart->available())
-                continue;
+        if(extended)
+            reply += String(speed) + "_";
 
-            const char c = serial.uart->read();
-            lastData = Time::get();
+        serial.send(reply);
 
-            if(c == '$'){   // RECOMEÇA O BLOCO: É O REENVIO QUANDO O '!' SE PERDEU
-                index = 0;
-                continue;
-            }
+        if(probing)
+            setBaud(uart, speed);
 
-            if(index < 0)
-                continue;
+        while(true){
+            const unsigned long quiet = Time::get() - lastData;
 
-            if(c != '!' && index < CHUNK_SIZE-1){
-                chunk[index++] = c;
+            if(probing && quiet >= PROBE_TIME){   // O TESTER NÃO FALOU NA VELOCIDADE NOVA: A SESSÃO SEGUE EM 115200
+                setBaud(uart, BAUD);
+                probing  = false;
+                index    = -1;
+                lastData = Time::get();
                 continue;
             }
 
-            chunk[index] = '\0';
-            index = -1;
+            if(!probing && quiet >= (unsigned long) (received > 0 ? SILENCE : FIRST_DATA))
+                return (size == 0 && received > 0);
 
-            char* hash          = strchr(chunk, '#');
-            char* colon         = strchr(chunk, ':');
-            const bool framed   = (hash && colon && colon > hash);
-            const size_t offset = framed ? strtoul(hash + 1, nullptr, 10) : received;
-            const uint32_t crc  = framed ? strtoul(colon + 1, nullptr, 16) : 0;
-            const size_t length = base64Decode(chunk, decoded, hash ? hash - chunk : strlen(chunk));
+            const size_t count = uart.read(bytes, sizeof(bytes));
 
-            const bool valid = (c == '!') && (length > 0) && (size == 0 || (framed && crc == crc32((uint8_t*) chunk, colon - chunk)));   // COM TAMANHO, SÓ COM CRC: O "$ETKA!" DE UM TESTER REABERTO NÃO É GRAVADO
+            for(size_t i=0; i<count; i++){
+                const char c = bytes[i];
 
-            if(!valid && ++invalid >= MAX_INVALID)   // O TESTER DESISTIU OU NÃO É ATUALIZAÇÃO
-                return false;
+                if(c == '$'){   // RECOMEÇA O BLOCO: É O REENVIO QUANDO O '!' SE PERDEU
+                    index = 0;
+                    continue;
+                }
 
-            if(!valid){
-                serial.send("resend");
-                continue;
+                if(index < 0)
+                    continue;
+
+                if(c != '!' && index < FRAME_SIZE-1){
+                    chunk[index++] = c;
+                    continue;
+                }
+
+                chunk[index] = '\0';
+                index = -1;
+
+                char* hash          = strchr(chunk, '#');
+                char* colon         = strchr(chunk, ':');
+                const bool framed   = (hash && colon && colon > hash);
+                const size_t offset = framed ? strtoul(hash + 1, nullptr, 10) : received;
+                const uint32_t crc  = framed ? strtoul(colon + 1, nullptr, 16) : 0;
+                const size_t length = base64Decode(chunk, decoded, hash ? hash - chunk : strlen(chunk));
+
+                const bool valid = (c == '!') && (length > 0) && (size == 0 || (framed && crc == crc32((uint8_t*) chunk, colon - chunk)));   // COM TAMANHO, SÓ COM CRC: O "$ETKA!" DE UM TESTER REABERTO NÃO É GRAVADO
+
+                if(!valid && probing)   // NA VELOCIDADE ERRADA SÓ CHEGA LIXO: QUEM DECIDE É O PROBE_TIME
+                    continue;
+
+                if(!valid && ++invalid >= MAX_INVALID)   // O TESTER DESISTIU OU NÃO É ATUALIZAÇÃO
+                    return false;
+
+                if(!valid){
+                    serial.send("resend");
+                    continue;
+                }
+
+                if(offset != received && offset + length > received)   // FALTOU UM BLOCO OU ELE CRUZA O QUE JÁ FOI GRAVADO
+                    return false;
+
+                if(offset == received && Update.write(decoded, length) != length)
+                    return false;
+
+                received = std::max(received, offset + length);   // OFFSET JÁ GRAVADO: O "written" ANTERIOR SE PERDEU
+                invalid  = 0;
+                probing  = false;
+                lastData = Time::get();
+                serial.send("written#" + String(received));
+
+                if(size > 0 && received >= size)
+                    return true;
             }
-
-            invalid = 0;
-
-            if(offset > received)   // FALTOU UM BLOCO
-                return false;
-
-            if(offset == received && Update.write(decoded, length) != length)
-                return false;
-
-            received = std::max(received, offset + length);   // OFFSET JÁ GRAVADO: O "written" ANTERIOR SE PERDEU
-            serial.send("written");
-
-            if(size > 0 && received >= size)
-                return true;
         }
+    }
 
-        return (size == 0 && received > 0);
+    // A ÚLTIMA RESPOSTA SAI INTEIRA ANTES DE A SERIAL TROCAR DE VELOCIDADE
+    void setBaud(HardwareSerial& uart, const int speed){
+        uart.flush();
+        uart.updateBaudRate(speed);
     }
 
     // FIM DA ATUALIZAÇÃO PELA INTERNET OU PELO SERIAL: VERDE E REINICIA, OU VERMELHO E SEGUE NA VERSÃO ATUAL

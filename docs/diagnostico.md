@@ -72,7 +72,7 @@ caso desbloqueio remoto pelo portal da MiX.
 | # | Hipótese | Como descartar | Solução |
 |---|---|---|---|
 | 1 | Ordem não chega/não é executada pelo rastreador (script MiX errado — MIX antigo × 2.0; Suntech sem comunicação) | servidor: `$ETEV16!`/`$ETEV01!` chegam mas o relé não muda; portal da telemetria não mostra o comando; Suntech `is_relay_on` | MiX: configurar telemetria certa e pedir o script à MiX (caso **LUA5E58**); Suntech: checar `CMD;…;04;02` no app/Tester |
-| 2 | Relé/fiação | CONFIG 2 → Autodiagnóstico → **Teste de Relé**: o relé atraca e o veículo alterna? (Suntech) | revisar 85/86 e o corte 30/87a; **GND → VCC → 30 → 87a**; trocar embutida → módulo → kit |
+| 2 | Relé/fiação | CONFIG 2 → Autodiagnóstico → **Relé** (v6.5.4; antes "Teste de Relé"): bloqueia → desbloqueia → bloqueia e pergunta "O Relé Comutou?" — o relé atraca e o veículo alterna? (Suntech/Entrack; no MIX fica "Ignorado") | revisar 85/86 e o corte 30/87a; **GND → VCC → 30 → 87a**; trocar embutida → módulo → kit |
 | 3 | **Outro acessório** bloqueando (outro rastreador/imobilizador) | teste com o etilômetro desbloqueando e medir se o relé comuta; bloqueio persiste → é outro sistema | pedir desbloqueio à empresa do outro sistema |
 | 4 | Bloqueio nunca funcionou (instalação) | testar bloquear/desbloquear só pelo módulo de telemetria, sem o etilômetro | reinstalar o sistema de bloqueio |
 
@@ -95,7 +95,7 @@ Pede teste mas não bloqueia depois do tempo de manobra = mesma investigação (
   3. Testar se o desbloqueio pelo portal funciona sem o etilômetro.
   4. Por último, trocar o módulo.
 - **Suntech**:
-  1. CONFIG 2 → Autodiagnóstico → **Teste de Relé**: o relé deve atracar repetidamente.
+  1. CONFIG 2 → Autodiagnóstico → **Relé** (antes "Teste de Relé"): o relé deve atracar repetidamente; responda "O Relé Comutou?".
   2. Conferir se o relé é da **tensão do veículo** (12 V carro, 24 V caminhão — vale também ao trocar o relé).
   3. Conferir a fiação GND → VCC → pino 30 → 87a e **mal contato no chicote**.
   4. Trocar, nesta ordem: relé → placa embutida → módulo Suntech → chicote Sighir → kit completo.
@@ -152,7 +152,8 @@ O firmware ≥ 6.0.0 mitiga o problema.
 fica nessa tela até voltar.
 
 1. Reencaixar o sensor (tampa traseira) e o conector; "Verifique o encaixe".
-2. Autodiagnóstico → Teste de Componentes (`$ETEV20!` ok / `$ETEV24!` falha); Tester `test sensor`.
+2. Autodiagnóstico → **Álcool** e **Memória** (v6.5.4; na v6.4 "Teste de Componentes"): `$ETEV20!`/`eepromworking` ok,
+   `$ETEV24!` falha; o cartão da Memória mostra o ID e a data de calibração lidos da EEPROM. Tester `test sensor`.
 3. Trocar o sensor (depois: Validar Sensor no app, `$ETEV36!`); persistindo → exposta.
 4. Na base: `$ETEV24!` aos milhares em Suntech/Entrack = firmware ≤ 6.4.7 repetindo a cada 1,5 s com o
    sensor mudo (a 6.4.8 limita a 1 por 10 min) → trocar sensor e atualizar firmware.
@@ -172,7 +173,7 @@ fica nessa tela até voltar.
 - Precisa começar em até 25 s e manter **≥ 1,8 s contínuos** (bipe intermitente durante o sopro).
   Orientar: bocal encaixado, soprar forte e constante até o bipe parar/tela "Analisando".
 - Bocal obstruído/solto, vazamento, sensor de pressão (HX711) com defeito: Autodiagnóstico → **Teste de
-  Sopro** / Teste de Componentes (pressão). `blowProb` (INFO 3 "Suavização do Sopro") muito baixo deixa o
+  Sopro** (v6.4; na v6.5.4+ o bloco **Sopro**, que mostra o pico de cada sopro) / **Pressão** (v6.5.4; v6.4 Teste de Componentes). `blowProb` (INFO 3 "Suavização do Sopro") muito baixo deixa o
   detector intolerante a oscilações.
 - **Facilidade do sopro** (`troubleshooting.md` "Problemas de Sopro"):
   - Ajuste: `CF:blowProb$X!` pelo app ou por configuração remota.

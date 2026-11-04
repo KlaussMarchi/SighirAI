@@ -47,7 +47,7 @@ EVENTS = {
     '$ETEV03': ('Veículo em Movimento', 'comando do rastreador (MIX 2.0): viagem começou (caminhão)'),
     '$ETEV04': ('Veículo Desligado', 'comando do rastreador: ignição desligada'),
     '$ETEV05': ('Sopro Realizado', 'sopro válido; começou a análise (~23 s) — não é resultado'),
-    '$ETEV06': ('Falha de Comunicação', 'teste de telemetria do menu: rastreador não respondeu em 15 s'),
+    '$ETEV06': ('Falha de Comunicação', 'teste Serial/Telemetria do menu: nenhum comando na serial ao fim da barra de 10 s'),
     '$ETEV07': ('Parâmetros Atualizados', 'configuração remota aplicada (Wi-Fi)'),
     '$ETEV08': ('Dispositivo Inicializado', 'boot do aparelho (1 a cada ~3 dias é normal; vários por dia = alimentação)'),
     '$ETEV09': ('Sensor Inicializado', 'sensor encontrado no boot; payload = ID do sensor'),

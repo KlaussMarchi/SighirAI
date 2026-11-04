@@ -16,7 +16,7 @@
 `Protocol::check()` usa `contains()` e para no primeiro que casar:
 
 `D:` → `F:` → `updt` → `ETRS` → `firmware` → `/get-data` (v6.5+) → `ETBL02` → `ETBL01` → `erase_sensor` → `erase` → `ETACK` →
-`ETKA` → `TST_TEMP` → `TST_SENS` → `TST_PRESS` → `endTravel` → `last_analog` → `analog` → `sensor_id` →
+`ETKA` → `TST_TEMP` → `TST_SENS` → `TST_PRESS` → `TST_BLOW` (v6.5.4) → `endTravel` → `last_analog` → `analog` → `sensor_id` →
 `cf_coefs` → `coefs` → `calibrate`
 
 Consequências:
@@ -57,8 +57,9 @@ Consequências:
 | `erase_sensor` | **apaga a EEPROM do sensor** (irreversível) | `success`/`error` |
 | `erase` (`$erase!`) | **reset de fábrica** das configurações + reinício (novo `esp_id`!) | — |
 | `TST_PRESS` / `TST_TEMP` / `TST_SENS` | diagnóstico (até ~13 s; v6.5 observa o sensor 10 s na tela) | `pressworking` / `tempworking` / `$ETEV20!` (ou `$ERROR!`/`ERROR`/`$ETEV24!`) |
+| `TST_BLOW` | (v6.5.4) protocolo de sopro na tela, ~5 min com o operador: 3 sem soprar, 3 incompletos e 3 completos em cada força | uma linha por sopro `{"blow":"none\|cut\|full","force":"\|weak\|medium\|strong","attempt":1,"of":3,"result":"none\|cut\|full","peak":…,"ms":…,"blow_prob":…}` e a final `{"diagnostic":"blow","pressure":…,"blow":…}` (`pressure` false = sem o HX711, não rodou). O Diagnóstico Completo do menu (04/11/2026) fecha com `{"diagnostic":"full","serial","temperature","alcohol","eeprom","pressure","blow","relay"}` (`relay` null = ignorado: MIX ou pulado; as builds v6.5.4 de antes mandavam só pressure/temperature/alcohol/blow) |
 | `calibrate` | teste em modo coleta (não bloqueia, sem eventos) | dados |
-| `updt` (`__updt__<tamanho>`) | OTA pela serial: blocos `$base64=#offset:crc32!` (v6.5; o `$base64!` antigo ainda vale) | `_STARTING_UPDATE_` … `written`/`resend` … `_UPDATE_OK_`/`_UPDATE_FAIL_` |
+| `updt` (`__updt__<tamanho>[,<md5>,<velocidade>]`) | OTA pela serial: blocos `$base64=#offset:crc32!` (v6.5; o `$base64!` antigo ainda vale). Com md5 e velocidade (firmware de 04/11/2026), a sessão roda a até 921600 na porta do pedido, com blocos de até 4096, e volta a 115200 em toda saída | `_STARTING_UPDATE_` (ou `_STARTING_UPDATE_<velocidade>_`) … `written` (ou `written#<gravado>`)/`resend` … `_UPDATE_OK_`/`_UPDATE_FAIL_` |
 
 Flags de bancada (via `F:`): `press$1` simula sopro, `testalc$1` força álcool, `presstream$1` transmite a
 pressão a 10 Hz (só lido no boot; suja todas as respostas da serial). **Desligue antes de devolver o aparelho.**
@@ -84,7 +85,7 @@ Padrões de `Settings::reset()` (reset de fábrica) e, entre parênteses, os de 
 | `rand_min_time` | 2 (5) min | mínimo antes do 1º randômico |
 | `camera` | 5 s | espera da câmera |
 | `bypass` | false | contrassenha aceita "5" (só bancada) |
-| `blowProb` | 0.1 | tolerância do detector de sopro (s) |
+| `blowProb` | 0.1 | tolerância do detector de sopro (s); na v6.5.4 o `CF:blowProb$X!` vale na hora, antes só no boot |
 | `valet` | (ausente) | habilita o botão de modo manobrista |
 | `suitcase` | false | maleta de demonstração (v6.5) |
 | `blockinv` | false | inverte bloqueio/desbloqueio para rastreador com relé normalmente aberto (v6.5) |
@@ -130,7 +131,7 @@ aparelho remotamente**; só na tela INFO ou pela USB.
 
 `$ETBL010000!`/`$ETBL020000!` (ordem ao rastreador), `$NOBLOW!` (sopro interrompido), `$ETACK!`
 (keep-alive), `$ETKAACK!`/`$ETATACK!`/`$ETEVACK!` (ACKs), `ON`/`OFF` (viagem forçada), `CMD;<id>;04;0x`
-(Suntech), `AT+…` (Entrack), `pressworking`, `tempworking`, `success`, `error`, `written`,
+(Suntech), `AT+…` (Entrack), `pressworking`, `tempworking`, `serialworking`, `eepromworking` (autodiagnóstico), `success`, `error`, `written`,
 `_STARTING_UPDATE_`. O servidor não grava essas mensagens desde 07/04/2026.
 
 Tabela completa de eventos `$ETEVnn!` (significado, linha do firmware, o que chega por telemetria):

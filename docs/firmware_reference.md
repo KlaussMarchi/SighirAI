@@ -52,7 +52,7 @@ Coluna **Emissão** = arquivo:linha no firmware v6.5.3 (conferido em 03/11/2026)
 | `$ETEV03!` | Veículo ligado | **rastreador → aparelho** (`telemetry/modes/mix2/index.h:58`) | comando do rastreador; em caminhão marca `driving = true` | não é logado |
 | `$ETEV04!` | Veículo desligado | **rastreador → aparelho** (`mix2/index.h:52`) | ignição estágio zero; encerra viagem, inicia tempo de manobra | sim, 1.746 na janela |
 | `$ETEV05!` | Sopro Realizado | `objects/test/index.h:263` | sopro contínuo de 3 s com pressão; início da análise (~25 s), **não é resultado** | sim |
-| `$ETEV06!` | Falha de Comunicação | `objects/diagnostic/index.h:73` | menu de diagnóstico: rastreador não respondeu `$ETKA!` em 15 s | — (0 na base) |
+| `$ETEV06!` | Falha de Comunicação | `objects/diagnostic/index.h:242` | teste Serial do autodiagnóstico / Teste de Telemetria: nenhum comando na serial nos últimos 15 s ao fim da barra de 10 s (até 04/11/2026: sem resposta ao `$ETKA!` em 15 s) | — (0 na base) |
 | `$ETEV07!` | Parâmetros Atualizados | `objects/server/updater/index.h:165` | configuração baixada do servidor por Wi-Fi | — |
 | `$ETEV08!` | Dispositivo Inicializado | `objects/telemetry/index.h:59` | boot: serial aberta e modo de telemetria carregado | sim |
 | `$ETEV09<id>!` | Sensor Inicializado | `objects/sensors/alcohol/index.h:59` | sensor achado no I2C; payload = 19 chars do nº de série. **Firmware antigo emite sem payload** (`$ETEV09!`: só em aparelhos `1.0.0`/`v4.27.7`) | sim |
@@ -65,7 +65,7 @@ Coluna **Emissão** = arquivo:linha no firmware v6.5.3 (conferido em 03/11/2026)
 | `$ETEV16!` | Teste Realizado | `test/index.h:84` | teste de ignição concluído (com ou sem álcool), após o resultado | sim |
 | `$ETEV17!` | Início do Tempo de Manobra | `vehicle/maneuver/index.h:60` **e** `telemetry/protocol/index.h:72` | ignição desligou com veículo desbloqueado — **e também é a resposta a todo `$ETKA!` do rastreador**, por isso é o evento mais comum na MiX | sim |
 | `$ETEV18!` | Fim do Tempo de Manobra | `maneuver/index.h:141` | `maneuver_time` esgotou sem religar; segue `$ETEV02!` | depende do script |
-| `$ETEV20!` | Sensor Próximo do Vencimento | `diagnostic/index.h:120` | só como resultado positivo do autodiagnóstico do sensor (menu) | — |
+| `$ETEV20!` | Sensor Próximo do Vencimento | `diagnostic/index.h:276` | só como resultado positivo do autodiagnóstico do sensor (menu e `TST_SENS`); o `$ETEV24!` também sai na falha do sensor e da Memória do autodiagnóstico | — |
 | `$ETEV22!` | Modo Manobrista Ativado | `vehicle/valet/index.h:39` | ativado no menu. **Em v4.27.7 sai logo após cada `$ETEV04!`** (RKG9C70: 309 na janela) — significava outra coisa no firmware antigo, não use pra contar manobrista | sim |
 | `!ETEV23$` | Modo Manobrista Desativado | `valet/index.h:39` | delimitadores **invertidos de propósito no firmware** até a v6.4; o servidor descarta (não começa com `$ETEV`). **v6.5+: `$ETEV23!` normal** (`valet/index.h:39`) | não |
 | `$ETEV24!` | Sensor Defeituoso | `sensors/alcohol/index.h:134,143` | EEPROM/sensor não responde no I2C. v6.4.8 limita a 1 evento a cada 10 min (`EVENT_MIN_INTERVAL`, commit `5ffff50` de 16/09/2026, posterior à v6.4.7 do catálogo); **até a 6.4.7 emite a cada iteração (~1,5 s)** — daí TUI6C37 com 20 mil na janela | **não** |

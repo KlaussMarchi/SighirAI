@@ -11,7 +11,7 @@ import types
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from tools import sighir, report, session  # noqa: E402
-import json, tempfile  # noqa: E402
+import json, tempfile, re, zlib, base64, hashlib  # noqa: E402
 from datetime import datetime, timedelta  # noqa: E402
 
 session.SESSIONS = tempfile.mkdtemp()    # O register/flash ANOTAM A SESSÃO: FORA DA PASTA REAL
@@ -435,8 +435,19 @@ def testRegisterPayloadModeloNovo():
     assert payload == {'company': '29863420000930', 'series_num': '00007', 'id': 'MICNOVO', 'sensor_id': 'ETL123',
                        'need_update': True, 'telemetry': '1700088888'}, payload
     assert settings['settings'] == {**CONFIG, 'company': 'sighir'} and settings['settings']['passwd'] == '12345678'
-    assert settings['report']['versao'] == 1 and settings['report']['tecnico'] == 'Paulo' and settings['report']['observacoes'] == 'lote 12'
+    assert settings['report']['versao'] == report.VERSION and settings['report']['tecnico'] == 'Paulo' and settings['report']['observacoes'] == 'lote 12'
     assert len(settings['report']['ensaios']) == 15 and settings['report']['aparelho']['esp_id'] == 'MICNOVO'
+
+
+def testCadastroLembraQueATelemetriaEComAInstalacao():
+    s = FakeServer()
+    rc, out = output(lambda: register(s, 'MICNOVO', 'ETL123'))
+    assert rc == 0 and 'pedir um teste pela telemetria' in out and 'relé comuta' in out, out
+    fake = FakeBenchCore('MICINST', CONFIG)
+    rc, out = runCli(fake, s, 'relatorio', '--tecnico', 'Ana')
+    assert rc == 3 and 'pedir um teste pela telemetria' not in out, out
+    rc, out = runCli(fake, s, 'relatorio', '--tecnico', 'Ana', '--yes')
+    assert rc == 0 and 'pedir um teste pela telemetria' in out, out
 
 
 def testRegisterSemTecnicoNaoGrava():
@@ -467,25 +478,19 @@ def testVersaoDaBuild():
     assert sighir.buildVersion(b'sem versao') is None and sighir.buildVersion(None) is None
 
 
-def testVereditosDoAutodiagnostico():
-    from tools.quality import parseDiagnostic
-    ok = ['pressworking', 'pressworking', 'tempworking', '$ETEV20!']
-    assert parseDiagnostic(ok) == {'pressao': True, 'sopro': True, 'temperatura': True, 'sensor': True}
-    assert parseDiagnostic(['pressworking', '$NOBLOW!', '$ERROR!', 'tempworking', '$ETEV24!']) == \
-        {'pressao': True, 'sopro': False, 'temperatura': True, 'sensor': False}
-    assert parseDiagnostic(['$ERROR!', 'ERROR', '$ETEV20!']) == \
-        {'pressao': False, 'sopro': False, 'temperatura': False, 'sensor': True}          # SEM PRESSÃO A TELA PULA O SOPRO
-    assert parseDiagnostic(['pressworking']) == {'pressao': True} and parseDiagnostic([]) == {}
+def testLinhasJsonPelaMetade():
+    from tools.quality import readLines
+    lines, rest = readLines('$ETEV08! {"blow":"none","attempt":1} SttReq {"diagnostic":"bl')
+    assert lines == [{'blow': 'none', 'attempt': 1}] and rest == '{"diagnostic":"bl'
+    lines, rest = readLines(rest + 'ow","pressure":false} lixo')
+    assert lines == [{'diagnostic': 'blow', 'pressure': False}] and rest == ''
+    assert readLines('{quebrado} {"ok":1}') == ([{'ok': 1}], '')
 
 
-def testVereditosLidosDaSerial():
-    from tools.quality import VERDICT_RE
-    line = '$ETEV08! pressworking SttReq $ERROR! ERROR tempworking $ETEV24! $ETKAACK!'
-    assert VERDICT_RE.findall(line) == ['pressworking', '$ERROR!', 'ERROR', 'tempworking', '$ETEV24!']
 
-
-def flashCore(fwVersion, company, esp='MICINST'):
+def flashCore(fwVersion, company, esp='MICINST', lands=True):
     calls    = []
+    state    = {'version': fwVersion}
     firmware = types.SimpleNamespace(file=None)
 
     def download(target):
@@ -493,13 +498,18 @@ def flashCore(fwVersion, company, esp='MICINST'):
         firmware.file = {'bytes': b'x\x00v5.5.5\x00v6.5.3\x00'}
         return True
 
+    def flash():
+        calls.append(('flash',))
+        state['version'] = sighir.buildVersion(firmware.file['bytes']) if lands else state['version']
+        return True
+
     firmware.download = download
     fake = types.SimpleNamespace(
-        robustSync=lambda: True, readEspId=lambda: esp, readSetting=lambda key: company,
-        readFirmware=lambda: {'status': 'ok', 'version': fwVersion}, versionStr=str, MIN_FIRMWARE=(6, 5, 3),
-        rearmUpdate=lambda e: calls.append(('rearm', e)) or True, recover=lambda: True,
+        robustSync=lambda **k: True, readEspId=lambda: esp, readSetting=lambda key: company,
+        readFirmware=lambda: {'status': 'ok', 'version': state['version']}, versionStr=str, MIN_FIRMWARE=(6, 5, 3),
+        rearmUpdate=lambda e: calls.append(('rearm', e)) or True, recover=lambda: calls.append(('recover',)) or True,
         server=types.SimpleNamespace(firmware=firmware),
-        updater=types.SimpleNamespace(percentage=-1, setup=lambda: None, start=lambda: calls.append(('flash',)) or True),
+        updater=types.SimpleNamespace(percentage=-1, setup=lambda: None, start=flash),
         device=types.SimpleNamespace(disconnect=lambda: None))
     return fake, calls
 
@@ -532,6 +542,25 @@ def testFlashCadastradoReArmaEPulaQuandoAtualizado():
     fake, calls = flashCore((6, 5, 3), 'fat')
     rc, out = runFlash(fake, s)
     assert ('flash',) in calls and rc == 0, (calls, out)
+
+
+def testFlashArquivoLocalNaoTocaNoServidor():
+    path = os.path.join(tempfile.mkdtemp(), 'Main.ino.bin')
+    with open(path, 'wb') as f:
+        f.write(b'\xe9\x00v5.5.1\x00v6.5.4\x00')
+    s = FakeServer()
+    fake, calls = flashCore((6, 5, 4), 'sighir')
+    rc, out = runFlash(fake, s, '--arquivo', path)
+    assert rc == 0 and calls == [('flash',)] and not s.calls, (rc, calls, s.calls, out)
+    assert fake.server.firmware.file['bytes'].startswith(b'\xe9') and 'arquivo Main.ino.bin' in out, out
+    rc, out = runFlash(fake, s, '--arquivo', path + '.nada')
+    assert rc == 1 and 'não foi possível ler' in out, out
+
+
+def testFlashAvisaQuandoOAparelhoNaoFicaNaBuild():
+    fake, calls = flashCore((6, 5, 2), 'fat', esp='MICNOVO', lands=False)
+    rc, out = runFlash(fake, FakeServer())
+    assert rc == 2 and 'não ficou nela' in out and ('recover',) not in calls, (rc, out)
 
 
 def testFlashRecusaBuildAbaixoDoMinimo():
@@ -632,8 +661,9 @@ class FakeDevice:
         self.runs, self.lines, self.sent = list(runs), [], []
 
     def send(self, command, breakLine=True):
+        repeat = bool(self.sent) and self.sent[-1] == command    # A RAJADA DE PACOTES DA IGNIÇÃO É UMA TRANSIÇÃO SÓ
         self.sent.append(command)
-        if command in ('$ETAT01!', 'STT') or command.startswith('STT;') and '_______1___' in command:
+        if not repeat and (command in ('$ETAT01!', 'STT') or command.startswith('STT;') and '_______1___' in command):
             self.lines = list(self.runs.pop(0)) if self.runs else []
 
     def get(self, timeout=1.0):
@@ -664,34 +694,92 @@ def fakeQuality(*runs, fake=None):
     return q, fake, restore
 
 
-def testSoprosNenhumComTimeoutDaTela():
-    q, fake, restore = fakeQuality(['$ETEV11!'], ['$ETEV11!'], ['$ETEV05!'])
+def blowLines(wrong=(), retry=(), end=True, until=None, prob=0.5):
+    """o que o TST_BLOW manda: uma linha por sopro (wrong = (etapa, n) que sai errada), a linha final, picotadas pela serial."""
+    steps = [('none', ''), ('cut', 'weak'), ('cut', 'medium'), ('cut', 'strong'), ('full', 'weak'), ('full', 'medium'), ('full', 'strong')]
+    other = {'none': 'cut', 'cut': 'full', 'full': 'cut'}
+    lines = []
+    for kind, force in steps[:until]:
+        blowId = '_'.join(filter(None, (kind, force)))
+        for series in ([wrong, ()] if blowId in retry else [wrong]):
+            for n in (1, 2, 3):
+                result = other[kind] if (blowId, n) in series else kind
+                lines.append(json.dumps({'blow': kind, 'force': force, 'attempt': n, 'of': 3, 'result': result, 'peak': 12.345,
+                                         'ms': {'none': 0, 'cut': 900, 'full': 3000}[result], 'blow_prob': prob}))
+    if end:
+        lines.append(json.dumps({'diagnostic': 'blow', 'pressure': True, 'blow': not wrong or bool(retry)}))
+    text = '\r\n'.join(['$ETEV08!', 'SttReq'] + lines)
+    return [text[i:i + 23] for i in range(0, len(text), 23)]          # A SERIAL ENTREGA PEDAÇOS, NÃO LINHAS
+
+
+def testProtocoloDeSoproGravaOsSeteEnsaios():
+    q, fake, restore = fakeQuality()
+    fake.lines = blowLines(wrong={('cut_medium', 2)}, retry={'cut_medium'})
     try:
-        rc, out = output(lambda: q.noBlow(3))
+        rc, out = output(q.blows)
     finally:
         restore()
-    assert rc is False and '2/3 testes sem sopro' in out and 'blowProb 0.5 s' in out
-    assert sum(1 for c in fake.sent if '_______1___' in c) == 3                 # 3 TESTES DISPARADOS PELA CHAVE SUNTECH
+    tests = {r['etapa']: r for r in q.results}
+    assert rc is True and 'TST_BLOW' in fake.sent and len(tests) == 7 and all(r['ok'] for r in q.results), out
+    assert 'refeita 1 vez(es)' in tests['sopro-incompleto-medio']['detalhe'] and 'esperado incompleto' in out
+    assert '3/3 recusados como incompletos' in tests['sopro-incompleto-forte']['detalhe']
+    assert '#1 completo (pico 12,3, 3,0 s)' in tests['sopro-completo-fraco']['detalhe']
 
 
-def testSoprosIncompletosRecusadosEAceitoReprova():
-    q, fake, restore = fakeQuality(['$NOBLOW!', '', '$NOBLOW!', '$NOBLOW!'])
+def testProtocoloReprovaSoproCurtoAceito():
+    q, fake, restore = fakeQuality()
+    fake.lines = blowLines(wrong={('cut_strong', 2), ('none', 3)})
     try:
-        rc, out = output(lambda: q.shortBlows(3, 'fraco'))
-        assert rc is True and '3/3 sopros cortados' in out
-        q2, fake2, restore2 = fakeQuality(['$NOBLOW!', '$ETEV05!'])
-        rc2, out2 = output(lambda: q2.shortBlows(3, 'forte'))
-        restore2()
+        rc, out = output(q.blows)
     finally:
         restore()
-    assert rc2 is False and 'um sopro curto foi ACEITO' in out2
-    assert q.results[-1]['etapa'] == 'sopro-incompleto-fraco'
+    assert rc is False and sorted(q.failed()) == ['sopro-incompleto-forte', 'sopro-nenhum'], q.failed()
+    assert 'sopro-incompleto-forte 2/3: completo' in out and 'esperado incompleto' in out
 
 
-def testSoprosCompletosEAlcool():
+def testProtocoloSemSensorDePressaoReprovaTudo():
+    q, fake, restore = fakeQuality()
+    fake.lines = ['{"diagnostic":"blow","pressure":false,"blow":false}']
+    try:
+        rc, out = output(q.blows)
+    finally:
+        restore()
+    assert rc is False and len(q.failed()) == 7 and 'HX711' in out
+
+
+def testProtocoloInterrompidoGuardaSoAsEtapasFechadas():
+    q, fake, restore = fakeQuality()
+    q.BLOW_FIRST = q.BLOW_IDLE = 0.05
+    fake.lines = blowLines(end=False, until=2)
+    try:
+        rc, out = output(q.blows)
+    finally:
+        restore()
+    assert rc is False and [r['etapa'] for r in q.results] == ['sopro-nenhum', 'sopro-incompleto-fraco'] and 'não terminou' in out
+
+
+def testBlowProbForaDaFaixaNaoRodaEDentroGrava():
+    from tools import quality
+    q, fake, restore = fakeQuality()
+    written = []
+    quality.core.readSetting  = lambda key, **k: {'blowProb': '0.1'}.get(key)
+    quality.core.writeSetting = lambda key, value, **k: written.append((key, value)) or True
+    try:
+        rc, out = output(q.blows)
+        assert rc is False and 'TST_BLOW' not in fake.sent and '--blowprob' in out and not written
+        rc, out = output(lambda: q.blows(2.0))
+        assert rc is False and not written
+        fake.lines = blowLines(prob=0.8)
+        rc, out = output(lambda: q.blows(0.8))
+    finally:
+        restore()
+    assert rc is True and written[:2] == [('blowProb', 0.8), ('press', 0)] and q.results[0]['etapa'] == 'sopro-nenhum'
+
+
+def testTesteRealSemEComAlcool():
     q, fake, restore = fakeQuality(['$NOBLOW!', '$ETEV05!', '[23000,23000]', '$ETEV29!'], ['$ETEV05!', '$ETEV29!'])
     try:
-        rc, out = output(lambda: q.fullBlows(2, 'medio'))
+        rc, out = output(lambda: q.alcohol(False, 2))
         q2, _, restore2 = fakeQuality(['$ETEV05!', '$ETEV300123!'])
         rc2, out2 = output(lambda: q2.alcohol(True, 1))
         restore2()
@@ -701,14 +789,36 @@ def testSoprosCompletosEAlcool():
     assert rc2 is True and 'ÁLCOOL 0.123 mg/L' in out2 and 'Desligar Display' in out2
 
 
+DIAGNOSTIC_LINES = ['$ETKA!', '$ETKAACK! $ETEV17! serialworking', 'SttReq tempworking', '$ETEV20!', 'eepromworking', 'pressworking',
+                    '{"blow":"none","attempt":1,"of":1,"result":"none","peak":0.4,"ms":0,"blow_prob":0.5}',
+                    '{"blow":"cut","attempt":1,"of":1,"result":"cut","peak":35.2,"ms":',
+                    '1100,"blow_prob":0.5} {"blow":"full","attempt":1,"of":1,"result":"full","peak":88.0,"ms":3000,"blow_prob":0.5}',
+                    '$ETBL020000! $ETEV02!', '$ETBL010000! $ETEV01!',
+                    '{"diagnostic":"full","serial":true,"temperature":true,"alcohol":true,"eeprom":true,"pressure":true,"blow":true,"relay":null}']
+
+
 def testAutodiagnosticoPelaSerial():
     q, fake, restore = fakeQuality()
-    fake.lines = ['pressworking', 'SttReq', '$NOBLOW! pressworking', 'tempworking', '$ETEV20!']
+    fake.lines = list(DIAGNOSTIC_LINES)
     try:
         rc, out = output(q.selfDiagnostic)
+        q2, fake2, restore2 = fakeQuality()
+        fake2.lines = [line.replace('"result":"cut"', '"result":"full"').replace('"blow":true', '"blow":false') for line in DIAGNOSTIC_LINES]
+        rc2, out2 = output(q2.selfDiagnostic)
+        q3, fake3, restore3 = fakeQuality()
+        fake3.lines = [line.replace('"relay":null', '"relay":false') for line in DIAGNOSTIC_LINES]
+        rc3, out3 = output(q3.selfDiagnostic)
+        q4, fake4, restore4 = fakeQuality()
+        fake4.lines = DIAGNOSTIC_LINES[:-1] + ['{"diagnostic":"full","pressure":true,"temperature":true,"alcohol":true,"blow":true}']
+        rc4, out4 = output(q4.selfDiagnostic)
+        restore2(); restore3(); restore4()
     finally:
         restore()
-    assert rc is True and 'pressao OK, sopro OK, temperatura OK, sensor OK' in out
+    assert rc is True and 'serial OK, temperatura OK, sensor OK, memoria OK, pressao OK, sopro OK, rele IGNORADO' in out, out
+    assert fake.sent == ['$ETKA!'] and 'incompleto → incompleto (pico 35,2, 1,1 s)' in out
+    assert rc2 is False and 'sopro FALHOU' in out2 and 'esperado incompleto' in out2
+    assert rc3 is False and 'rele FALHOU' in out3
+    assert rc4 is True and 'temperatura OK, sensor OK, pressao OK, sopro OK' in out4 and 'serial OK' not in out4
 
 
 class FakeBench(FakeDevice):
@@ -732,8 +842,7 @@ CALIBRATED    = {'c1': 2.0, 'c2': 0.9995, 'c3': 1.0, 'c4': 0.5, 'zero': 20450,
 
 
 def benchSession(esp, coefs=CALIBRATED, debug=False):
-    full = ['$NOBLOW!', '$ETEV05!', CURVE_CLEAN, '$ETEV29!']
-    runs = [['$ETEV11!']]*3 + [['$NOBLOW!']*3]*3 + [full]*9 + [['$ETEV05!', CURVE_CLEAN, '$ETEV29!'], ['$ETEV05!', CURVE_ALCOHOL, '$ETEV300123!']]
+    runs = [['$ETEV05!', CURVE_CLEAN, '$ETEV29!'], ['$ETEV05!', CURVE_ALCOHOL, '$ETEV300123!']]
     q, fake, restore = fakeQuality(fake=FakeBench(coefs, *runs))
     q.espId, q.sensorId = esp, 'ETL3550904305917103' if debug else 'ETL9988440764401997'
     q.TEMP_WINDOW = q.SENSOR_WINDOW = 0.05
@@ -743,12 +852,10 @@ def benchSession(esp, coefs=CALIBRATED, debug=False):
     try:
         def battery():
             q.serial(); q.temperature(); q.sensor(); q.calibration(); q.pressure()
-            fake.lines = ['pressworking', '$NOBLOW! pressworking', 'tempworking', '$ETEV20!']
-            q.selfDiagnostic(); q.noBlow(3)
-            for force in ('fraco', 'medio', 'forte'):
-                q.shortBlows(3, force)
-            for force in ('fraco', 'medio', 'forte'):
-                q.fullBlows(3, force)
+            fake.lines = list(DIAGNOSTIC_LINES)
+            q.selfDiagnostic()
+            fake.lines = blowLines()
+            q.blows()
             q.alcohol(False, 1); q.alcohol(True, 1)
         output(battery)
     finally:
@@ -765,7 +872,8 @@ def testBancadaCompletaSaiAptaComOsNumeros():
     assert data['ambiente'] == {'temperatura': 24.6, 'umidade': 58.2} and data['blow_prob'] == 0.5
     assert tests['sensor']['dados']['analog']['media'] == 21340 and tests['pressao']['dados']['repouso']['media'] == 37.04
     assert tests['calibracao']['dados']['idade_dias'] == 120 and tests['calibracao']['dados']['mgl_ar_limpo'] == 0.0
-    assert len(tests['sopro-completo-medio']['dados']['testes']) == 3 and tests['com-alcool']['dados']['testes'][0]['mgl'] == 0.123
+    assert len(tests['sopro-completo-medio']['dados']['sopros']) == 3 and tests['com-alcool']['dados']['testes'][0]['mgl'] == 0.123
+    assert tests['sopro-nenhum']['dados']['esperado'] == 'nenhum' and tests['autodiagnostico']['dados']['etapas']['sopro'] is True
     assert tests['com-alcool']['dados']['testes'][0]['curva'][3] == 14200 and data['aparelho']['sensor_producao'] is True
     assert all(t['situacao'] == 'aprovado' for t in data['ensaios'])
 
@@ -857,6 +965,14 @@ def testQualidadeRecusaEspIdNaoNativo():
     assert rc == 2 and 'erase' in out and not session.load('admin_sighir'), out
 
 
+def testSoproEAutodiagnosticoExigemAV654():
+    fake = FakeBenchCore('MICV653', CONFIG)
+    fake.MIN_FIRMWARE, fake.DIAG_FIRMWARE, fake.versionStr = sighir.core.MIN_FIRMWARE, sighir.core.DIAG_FIRMWARE, sighir.core.versionStr
+    fake.readFirmware = lambda: {'status': 'ok', 'version': (6, 5, 3)}
+    rc, out = runCli(fake, FakeServer(), 'qualidade', 'sopro', '--blowprob', '0.8')
+    assert rc == 2 and 'v6.5.4' in out and not session.load('MICV653'), out
+
+
 def testUpdaterDesisteSemSincronia():
     from objects.Updater import index as up
     tries     = []
@@ -870,6 +986,218 @@ def testUpdaterDesisteSemSincronia():
     finally:
         up.device = real
     assert rc is False and len(tries) == 3 and 'nada foi gravado' in out, (rc, tries)
+
+
+# O UPDATER DO FIRMWARE (objects/server/updater) EM PYTHON: new=False É O ANTIGO (SÓ O TAMANHO, BLOCOS DE 2048, "written" SEM
+# OFFSET); fast=False É O CABO QUE NÃO AGUENTA A VELOCIDADE NOVA; corrupt, stale, failAt, dropAt E badMd5 INJETAM AS FALHAS
+class FakeFirmware:
+    def __init__(self, new=True, fast=True, corrupt=(), stale=(), garble=(), failAt=None, dropAt=None, unplugAt=None, badMd5=False):
+        self.new, self.fast, self.failAt, self.dropAt, self.unplugAt, self.badMd5 = new, fast, failAt, dropAt, unplugAt, badMd5
+        self.corrupt, self.stale, self.garble = set(corrupt), set(stale), set(garble)
+        self.now, self.baud, self.baudrate, self.garbage = 0.0, 115200, 115200, 0
+        self.device, self.output, self.commands, self.frames = self, [], [], []
+        self.session, self.image = None, bytearray()
+
+    def link(self):
+        return self.baudrate == self.baud and (self.fast or self.baud == 115200)
+
+    def emit(self, text):
+        if self.link():
+            self.output.append(text + '\r\n')
+
+    def tick(self):
+        s     = self.session
+        quiet = self.now - s['last'] if s else 0
+
+        if s and s['probing'] and quiet >= 3.0:
+            self.baud, s['probing'], s['last'] = 115200, False, self.now
+
+        if s and not s['probing'] and quiet >= (10.0 if s['received'] else 35.0):
+            self.end(False)
+
+    def end(self, ok):
+        self.emit('_UPDATE_OK_' if ok else '_UPDATE_FAIL_')
+        self.baud, self.session = 115200, None
+
+    def command(self, msg):
+        self.commands.append(msg)
+        fields = re.search(r'updt__(\d+),([0-9a-f]{32}),(\d+)', msg) if self.new else None
+        asked  = int(fields.group(3)) if fields else 115200
+        speed  = asked if 115200 < asked <= 921600 else 115200
+
+        if 'ETKA' in msg:
+            return self.emit('$ETKAACK!')
+
+        if 'updt' in msg:
+            self.image   = bytearray()
+            self.session = {'size': int(re.search(r'updt__(\d+)', msg).group(1)), 'md5': fields and fields.group(2),
+                            'received': 0, 'invalid': 0, 'probing': speed != 115200, 'last': self.now}
+            self.emit(f'_STARTING_UPDATE_{speed}_' if fields else '_STARTING_UPDATE_')
+            self.baud = speed
+
+    def frame(self, msg):
+        s      = self.session
+        framed = re.match(r'\$([A-Za-z0-9+/=]*)=#(\d+):([0-9a-f]{8})!$', msg)
+        offset = int(framed.group(2)) if framed else None
+        intact = bool(framed) and zlib.crc32(msg[1:msg.rindex(':')].encode()) == int(framed.group(3), 16)
+        valid  = intact and len(msg) < (5600 if self.new else 2867) and offset not in self.corrupt
+        self.corrupt.discard(offset)
+
+        if not valid and s['probing']:
+            return
+
+        if not valid:
+            s['invalid'] += 1
+            return self.end(False) if s['invalid'] >= 5 else self.emit('resend')
+
+        if self.failAt is not None and offset >= self.failAt:
+            self.failAt = None
+            return self.end(False)
+
+        if self.dropAt is not None and offset >= self.dropAt:    # SAI DA SESSÃO E O "_UPDATE_FAIL_" SE PERDE
+            self.dropAt, self.session, self.baud = None, None, 115200
+            return
+
+        if self.unplugAt is not None and offset >= self.unplugAt:    # O CABO SAI: A PORTA SOME E NADA MAIS CHEGA
+            self.device = None
+            return
+
+        if offset in self.stale:    # ESTE BLOCO SE PERDE E CHEGA SÓ A RESPOSTA ATRASADA DO ANTERIOR
+            self.stale.discard(offset)
+            return self.emit(f'written#{offset}')
+
+        data = base64.b64decode(framed.group(1))
+
+        if offset != s['received'] and offset + len(data) > s['received']:
+            return self.end(False)
+
+        if offset == s['received']:
+            self.image += data
+
+        s['received'] = max(s['received'], offset + len(data))
+        s['invalid'], s['probing'], s['last'] = 0, False, self.now
+        self.frames.append((offset, len(data), self.baud))
+        self.emit(f"{'writte' if offset in self.garble else 'written'}#{s['received']}" if self.new else 'written')
+
+        if s['received'] >= s['size']:
+            self.end(not self.new or (hashlib.md5(bytes(self.image)).hexdigest() == s['md5'] and not self.badMd5))
+
+    def send(self, msg, breakLine=True):
+        self.tick()
+
+        if self.device is None:
+            return False
+
+        if not self.link():
+            self.garbage += self.session is None    # NA VELOCIDADE ERRADA E FORA DA SESSÃO, O LIXO CAI NO INTERPRETADOR DE COMANDOS
+            return True
+
+        if self.session is None:
+            self.command(msg.strip())
+
+        else:
+            self.frame(msg.strip())
+
+        return True
+
+    def get(self, timeout=7.0, keep=None):
+        self.tick()
+
+        if not self.output:
+            self.now += timeout
+            self.tick()
+
+        text, self.output = ''.join(self.output), []
+        return re.sub(r'\s+', ' ', text).strip()
+
+    def expect(self, target='OK', command=None, fail=None, timeout=10):
+        if command:
+            self.send(command)
+
+        return True if target in self.get(timeout) else None
+
+    def clear(self):
+        self.output = []
+
+    def reset_input_buffer(self):
+        self.output = []
+
+    def reconnect(self):
+        pass
+
+
+def flashWith(fake, data=None):
+    from objects.Updater import index as up
+    data = data or bytes([0xE9]) + bytes(range(256)) * 80
+    real = up.device, up.server, up.time
+    up.device, up.server = fake, types.SimpleNamespace(firmware=types.SimpleNamespace(file={'bytes': data}))
+    up.time              = lambda: fake.now
+    try:
+        rc, out = output(up.SerialUpdater().start)
+    finally:
+        up.device, up.server, up.time = real
+    return rc, out, data
+
+
+def testUpdaterFirmwareNovoGravaA921600EmSetores():
+    fake = FakeFirmware()
+    rc, out, data = flashWith(fake)
+    assert rc is True and bytes(fake.image) == data and fake.baudrate == 115200 and fake.baud == 115200, out
+    assert {size for _, size, _ in fake.frames} <= {4096, len(data) % 4096} and {b for *_, b in fake.frames} == {921600}, fake.frames
+
+
+def testUpdaterFirmwareAntigoSegueEm115200EmBlocosDe2048():
+    fake = FakeFirmware(new=False)
+    rc, out, data = flashWith(fake)
+    assert rc is True and bytes(fake.image) == data and 'firmware antigo' in out, out
+    assert max(size for _, size, _ in fake.frames) == 2048 and {b for *_, b in fake.frames} == {115200}, fake.frames
+
+
+def testUpdaterVoltaPara115200QuandoAUsbNaoAguenta921600():
+    fake = FakeFirmware(fast=False)
+    rc, out, data = flashWith(fake)
+    assert rc is True and bytes(fake.image) == data and 'sem resposta a 921600' in out, out
+    assert len(fake.commands) == 2 and {b for *_, b in fake.frames} == {115200}, (fake.commands, fake.frames[:3])
+
+
+def testUpdaterReenviaBlocoCorrompidoEIgnoraRespostaAtrasada():
+    fake = FakeFirmware(fast=False, corrupt=[8192], stale=[12288])    # EM 115200, ONDE O SILÊNCIO AINDA PEDE REENVIO
+    rc, out, data = flashWith(fake)
+    assert rc is True and bytes(fake.image) == data and 'resend' in out, out
+    assert len([c for c in fake.commands if 'updt' in c]) == 1 and [o for o, *_ in fake.frames].count(12288) == 1, fake.commands
+
+
+def testUpdaterSessaoQueCaiRecomecaEm115200():
+    fake = FakeFirmware(failAt=8192)
+    rc, out, data = flashWith(fake)
+    starts = [c for c in fake.commands if 'updt' in c]
+    assert rc is True and bytes(fake.image) == data and 'recomeçando' in out, out
+    assert starts[0].endswith(',921600') and starts[1].endswith(',115200') and len(starts) == 2, starts
+
+
+def testUpdaterNaoReenviaNaVelocidadeNovaSemResposta():
+    fake = FakeFirmware(dropAt=8192)
+    rc, out, data = flashWith(fake)
+    starts = [c for c in fake.commands if 'updt' in c]
+    assert rc is True and bytes(fake.image) == data and fake.garbage == 0 and len(starts) == 2, (fake.garbage, starts, out[-300:])
+
+
+def testUpdaterAceitaRespostaComLetraPerdida():
+    fake = FakeFirmware(garble=[0, 8192])
+    rc, out, data = flashWith(fake)
+    assert rc is True and bytes(fake.image) == data and len([c for c in fake.commands if 'updt' in c]) == 1, out[-300:]
+
+
+def testUpdaterCaboSoltoNoMeioFalhaSemTraceback():
+    fake = FakeFirmware(unplugAt=8192)
+    rc, out, data = flashWith(fake)
+    assert rc is False and "'NoneType'" in out and 'a sessão caiu no meio' in out and 'Traceback' not in out, out[-400:]
+
+
+def testUpdaterMd5RecusadoNaoRepeteASessao():
+    fake = FakeFirmware(badMd5=True)
+    rc, out, data = flashWith(fake)
+    assert rc is False and 'recusou' in out and len([c for c in fake.commands if 'updt' in c]) == 1, out
 
 
 def testRelatorioReenviaDefaultSettings():

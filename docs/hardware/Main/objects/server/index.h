@@ -14,6 +14,7 @@
 #include "sleeper/index.h"
 
 #define WIFI_CONNECT_TIMEOUT 15000   // associar + pegar IP em 2,4 GHz cheio passa de 5 s
+#define WIFI_CHANNEL_RETRIES 1       // NÃO CONECTOU: TROCA O CANAL DO PRÓPRIO AP E TENTA DE NOVO (AP E ROTEADOR DIVIDEM UM RÁDIO)
 
 template <typename Parent> class EspServer{
   private:
@@ -118,7 +119,7 @@ template <typename Parent> class EspServer{
         device->await(50);
     }
     
-    void connect(bool show=false){
+    void connect(bool show=false, int retries=WIFI_CHANNEL_RETRIES){
         if(!show)
             return enable();
 
@@ -139,11 +140,15 @@ template <typename Parent> class EspServer{
 
         if(ok)
             return updater.handleCheck();
-        else
-            device->sensors.warm(1500);
+
+        if(retries > 0)
+            return changeChannel(retries - 1);
+
+        device->sensors.warm(1500);
     }
 
-    void changeChannel(){
+    // retries=0 NA TROCA PEDIDA PELO USUÁRIO: UM TOQUE, UM CANAL
+    void changeChannel(int retries=0){
         auto& display = device->display;
 
         channel = (channel == 1)  ? 6  :
@@ -154,7 +159,7 @@ template <typename Parent> class EspServer{
         display.interface.msg(MSG_BLACK, lang.reconnecting.get());
         display.interface.centeredText(String(lang.configuringChannel.get()) + " " + channel, TFT_RED, display.height*0.65);
         device->await(2000);
-        connect(true);
+        connect(true, retries);
     }
 
     void changeNetwork(){

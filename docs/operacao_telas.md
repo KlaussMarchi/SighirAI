@@ -35,7 +35,8 @@
 3. Checagem do sensor de álcool: se o I²C não responde, fica em tela vermelha **"SENSOR COM MAU CONTATO"**
    (ADS1115 0x48) ou **"SENSOR SEM EEPROM"** (0x50) até normalizar — trava o boot nesse ponto.
 4. **"Etilômetro Veicular" / "Versão: v6.4.x"** (3 s), logo do cliente.
-5. Com Wi-Fi habilitado: "Conectando à Rede" → "Conectado"/"Não Conectado"; pode perguntar
+5. Com Wi-Fi habilitado: "Conectando à Rede" → "Conectado"/"Não Conectado" (desde 04/11/2026, no "Não Conectado"
+   troca o canal uma vez sozinho, "Reestabelecendo Conexão / Configurando Canal N", e tenta de novo); pode perguntar
    **"Nova Versão Disponível — Deseja Atualizar?"**.
 6. Display apaga, 2 bipes. **O aparelho começa sempre BLOQUEADO.**
 
@@ -131,8 +132,33 @@ Setas no rodapé trocam de página.
 | **INFO 3** | Tempo de Viagem (médio) · Número de Sopros · Suavização do Sopro (`blowProb`) · Telemetria Ativa/Desativada + "Time Check" · Testes por Viagem |
 | **INFO 4** | Pino de Aquecimento (ligado por X) · Calibração do Sensor (zero N %) · Estabilidade do Sensor (média, erro relativo – estável/estabilizando) |
 | **CONFIG 1** | Volume do Beep (−/+) · Brilho do Display (−/+) · WiFi (liga/desliga) · Reestabelecer Conexão (troca o canal) · Atualização de Firmware |
-| **CONFIG 2** | Autodiagnóstico (v6.5: Diagnóstico Completo / Teste de Relé; v6.4: Teste de Sopro / Teste de Componentes / Teste de Relé) · Teste Alcoólico · Teste de Telemetria · Configuração Remota · Reinicio de Emergência |
+| **CONFIG 2** | Autodiagnóstico (v6.5.4: Diagnóstico Completo em destaque e a grade Serial / Temperatura / Álcool / Memória / Pressão / Sopro / Relé / Sair; v6.5: Diagnóstico Completo / Teste de Relé; v6.4: Teste de Sopro / Teste de Componentes / Teste de Relé) · Teste Alcoólico · Teste de Telemetria · Configuração Remota · Reinicio de Emergência |
 | **CONFIG 3** | Mudar Idioma (PT/EN/ES — reinicia) |
+
+Autodiagnóstico na **v6.5.4** (telas refeitas em 04/11/2026): a etiqueta azul "Teste de Componentes", o título e o
+**Diagnóstico Completo** em verde na largura toda; embaixo, em duas colunas como o menu, os testes na ordem do
+procedimento de qualidade do Tester (Serial, Temperatura, Álcool, Memória, Pressão, Sopro, Relé) e Sair. A lista volta
+depois de cada teste; Sair ou 2 min sem toque apagam a tela. Toda tela de teste tem o mesmo cabeçalho — etiqueta azul
+("Teste de Componentes", ou "Diagnóstico Completo N/7" dentro dele), o componente e o que é medido (chip, telemetria) —,
+a barra de progresso até 100 % e um cartão cinza com a leitura ao vivo. O fim é um **cartão** (não mais a tela
+inteira verde): verde com ✓ e "Estado Funcional", vermelho com ✗ e "Falha no Teste" ou cinza com "Ignorado", e embaixo o
+valor medido; fica ~1,5 s (bipe curto) ou ~2,5 s na falha.
+
+| Teste | O que faz | Passa quando | Serial |
+|---|---|---|---|
+| **Serial** | manda `$ETKA!` e a barra anda os 10 s inteiros, mesmo que o comando chegue antes; o cartão mostra ao vivo o último comando recebido (até 2 linhas) e a porta | chegou qualquer comando (módulo, Tester, telemetria) nos últimos 15 s; o cartão final mostra esse comando | `serialworking` / `$ETEV06!` + `ERROR` |
+| **Temperatura** (DHT22) · **Álcool** (ADS1115) · **Pressão** (HX711) | lê 10 s com a barra (DHT a cada 2,1 s; ADS e HX711 a cada 0,5 s) | nenhuma leitura ruim duas vezes; o cartão final mostra a última leitura | `tempworking`/`ERROR` · `$ETEV20!`/`$ETEV24!` · `pressworking`/`$ERROR!` |
+| **Memória** (EEPROM do cartucho, 0x50) | confere que a EEPROM responde no I2C e lê ID + calibração (~2 s) | ID `ETL` com 18+ caracteres e os 4 coeficientes > 0; o cartão mostra o ID e "Calibrado em DD/MM/AAAA" | `eepromworking` / `$ETEV24!` |
+| **Sopro** | o protocolo da Sighir (3 sem soprar, 3 incompletos e 3 completos em fraco, médio e forte); cada etapa abre com a instrução e uma barra de 8 s (um toque começa antes), cada sopro termina num cartão verde/vermelho com o pico e a duração; etapa errada pergunta "Tentar Novamente?" (10 s) | a tabela final `n/3` por etapa | uma linha JSON por sopro + `{"diagnostic":"blow",…}` |
+| **Relé** | aviso de bloqueio em viagem (2,5 s) → "Deseja Mesmo Continuar?" → bloqueia, desbloqueia e bloqueia pelo rastreador → "O Relé Comutou?" | o operador responde Sim. "Não" na primeira pergunta (ou 20 s sem toque) = **Ignorado**; no **MIX/MIX 2.0** o ciclo roda mas fica Ignorado ("Relé Comutado pelo Módulo MIX") | — |
+
+**Diagnóstico Completo** (v6.5.4): as 7 etapas acima na ordem, sem parar numa falha — Serial, Temperatura, Álcool,
+Memória, Pressão, um sopro de cada tipo (**não sopre** 25 s, sopro **incompleto** — pare quando o bipe começar —,
+sopro **completo** até o bipe parar; pulado se a pressão falhou) e Relé —, e a **tabela por 6 s**: "Aprovado N/N" ou
+"Reprovado N/M" (ignorados fora da conta) e uma linha por etapa com o selo OK (verde), Falha (vermelho) ou Ignorado
+(cinza). Na serial sai `{"diagnostic":"full","serial":…,"temperature":…,"alcohol":…,"eeprom":…,"pressure":…,"blow":…,
+"relay":true|false|null}` — `null` = ignorado. Leva ~2 a 3 min. Os testes de sensor sozinhos rodam o mesmo que o
+`TST_*` da serial.
 
 Autodiagnóstico na **v6.5** (`objects/diagnostic/`): **Diagnóstico Completo** roda em sequência, mesmo quando um
 falha, pressão (`pressworking`/`$ERROR!`), sopro (só com o sensor de pressão ok; sopro cortado = `$NOBLOW!` e
@@ -141,8 +167,11 @@ fecha com a tabela azul (OK)/vermelha (Falha) por 5 s — é o que o Tester escu
 Na **v6.4**: **Teste de Sopro** (sopre 3 s → "Estado Funcional"/"Falha no Teste") e **Teste de Componentes**
 (pressão, temperatura, sensor de álcool: `$ETEV20!` ok / `$ETEV24!` falha). Nas duas, **Teste de Relé**
 ("Testando Comutação do Relé": bloqueia→desbloqueia→bloqueia — **vai bloquear o veículo**).
-**Teste de Telemetria**: manda `$ETKA!` e espera 15 s por resposta do rastreador → "Estado Funcional" (com
-os primeiros caracteres recebidos) ou falha + `$ETEV06!` (rastreador não responde).
+**Teste de Telemetria** (CONFIG 2) é o mesmo teste **Serial** do Autodiagnóstico: `$ETKA!`, a barra dos 10 s até
+100 %, o último comando recebido com a porta e o cartão final (o comando inteiro em até 2 linhas, ou "Nenhum Comando
+Recebido" + `$ETEV06!`). Na MiX com o pós-chave desligado o cartão começa em laranja "Ligue o Pós Chave". Até
+04/11/2026 a barra parava no primeiro comando, a tela cheia mostrava só os 15 primeiros caracteres e a espera era de
+15 s.
 
 ## 8. Orientações de uso (manual do motorista)
 

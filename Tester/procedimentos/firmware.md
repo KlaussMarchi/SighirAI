@@ -21,6 +21,7 @@
 | Cadastro (`register`) | critério do Tester: aparelho entregue sempre na versão atual |
 | Testes de qualidade (`qualidade`) | usam o `/get-data` e os diagnósticos da v6.5.x |
 | Configuração de telemetria | Parâmetros podem não ser reconhecidos em versões antigas |
+| `qualidade autodiagnostico` e `qualidade sopro` (**v6.5.4**, `core.DIAG_FIRMWARE`) | o protocolo de sopro na tela (`TST_BLOW`) e as linhas JSON do autodiagnóstico só existem a partir dela; sem eles o relatório fica incompleto. Se o `flash` disser "já atualizado" na v6.5.3, a v6.5.4 ainda não foi publicada |
 
 Diagnóstico básico (status, teste serial, leitura bruta) é permitido em qualquer
 versão — mas sempre informe a versão detectada.
@@ -47,14 +48,30 @@ O `flash` faz: **escolher a build** → **baixar** → **conferir a versão da b
   (`settings company` do aparelho) → **não grava** (`já atualizado`).
 - Na primeira partida com a build de outra empresa, o firmware grava os parâmetros dela (telemetria, câmera,
   adiamentos…) e reinicia sozinho (`device/company/index.h`): confira a telemetria depois.
-- Protocolo da v6.5.x (`objects/Updater/index.py`, igual ao `Etilometro/auxiliary/SighirTester`): `__updt__<tamanho>`
-  → `_STARTING_UPDATE_`; blocos `$<base64>=#<offset>:<crc32>!` respondidos com `written` ou `resend` (reenvia até 5×);
-  no fim `_UPDATE_OK_` (reinicia na versão nova) ou `_UPDATE_FAIL_` (segue na versão anterior, o `flash` sai com 1).
-  Firmware antigo aceita o mesmo formato (para de decodificar no `=`) e só confirma reiniciando.
+- Protocolo (`objects/Updater/index.py`): `__updt__<tamanho>,<md5>,921600` → firmware novo (a partir de 04/11/2026)
+  responde `_STARTING_UPDATE_921600_` e a sessão vai a **921600 com blocos de 4096** (~1 min de gravação; medido na
+  bancada pelo cabo DB9–USB: 549 blocos, 0 reenvio, 57 s); firmware antigo responde só `_STARTING_UPDATE_` e a sessão
+  segue como antes, **115200 com blocos de 2048** (~5 min). Blocos `$<base64>=#<offset>:<crc32>!`, respondidos com
+  `written#<gravado>` (o antigo: `written`) ou `resend`; no fim `_UPDATE_OK_` (reinicia na versão nova) ou
+  `_UPDATE_FAIL_` (segue na versão anterior; o `flash` sai com 1). Firmware de antes da v6.5 para de decodificar no `=` e
+  só confirma reiniciando. O Tester antigo (`__updt__<tamanho>` só) continua gravando o firmware novo em 115200.
+- **Robustez da sessão rápida:** o primeiro bloco confirma a velocidade; sem o `written` em 2,5 s, os dois lados voltam
+  sozinhos para **115200 na mesma sessão** (o aparelho espera 3 s). Fora da sessão a serial é **sempre 115200**: em toda
+  saída (sucesso, falha, 10 s sem bloco válido, Tester fechado no meio) o aparelho volta a ela. Na velocidade nova o
+  Tester **nunca reenvia por silêncio** (o aparelho pode já estar em 115200 e o bloco viraria lixo nos comandos): só
+  reenvia o que o aparelho pediu (`resend`); silêncio encerra a sessão e a segunda recomeça em 115200. MD5 da imagem
+  inteira conferido pelo aparelho antes de ativar (`Update.setMD5`); sessão que cai no meio não ativa nada.
+- Verificação pós-flash: espera o aparelho reiniciar sozinho (~50 s: 20 s são o boot procurando o módulo Suntech) e
+  confere que ficou **na versão da build gravada**; só se ele não voltar usa `$ETRS!` e o reset pelo RTS.
+- `flash --arquivo <.bin>`: grava uma build local (ex.: a do `Etilometro/hardware/Config/index.py compile`) sem
+  re-armar nem baixar do servidor. **Confira a empresa da build** (`device/company/index.h`): a build de outra empresa
+  troca logo e parâmetros do aparelho na primeira partida.
+- Cabo CH340 no Linux: com a porta aberta e **sem leitura**, ele repete o último pacote recebido e embaralha a resposta
+  seguinte (medido: 1,1 MB em 10 s). O updater nunca dorme com a porta parada: lê e descarta.
 
 > **A versão pode não mudar, e isso não é falha.** O `/update` serve o binário que o servidor tem; se o
 > device já está nele com a mesma empresa, o `flash` nem grava (`já atualizado`); com `--forcar` (ou só a empresa
-> diferente) grava inteiro (~5 min, ~1090 blocos na v6.5.3) e pode terminar na mesma versão. **Confirme pelo
+> diferente) grava inteiro (~2 min no firmware novo, ~6 no antigo) e pode terminar na mesma versão. **Confirme pelo
 > device** (`sighir.py firmware`), nunca pelo campo `software_version` do servidor — ele só é atualizado
 > pelo `check-update` via WiFi e **fica defasado** (visto: device `v6.4.4`, servidor `6.4.3`). Para acertar:
 > `PATCH /devices/<esp_id>` `{"software_version": "<versão real>"}`.
@@ -64,7 +81,8 @@ O `flash` faz: **escolher a build** → **baixar** → **conferir a versão da b
 > (`PATCH /devices/{id}` `{need_update:true}`) antes de baixar. **Nunca** faça um
 > "download de teste" separado antes de flashar — isso consome o disparo.
 
-> **⏱️ O flash é LONGO (~5 min, ~1090 blocos de 2 KB na v6.5.3).** Rode em **background com log**
+> **⏱️ O flash leva ~2 min no firmware novo (549 blocos de 4 KB a 921600 + ~50 s de boot) e ~6 min no antigo
+> (~1090 blocos de 2 KB a 115200).** Rode em **background com log**
 > e monitore — não rode em foreground (estoura timeouts de ferramenta de IA).
 > Acompanhe o progresso lendo `flash.log` (linhas de `%` e `completed in ... seg`).
 >

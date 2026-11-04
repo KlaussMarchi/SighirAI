@@ -17,27 +17,31 @@ template <typename Parent> class Pressure{
     HX711 scale;
 
   public:
+    static constexpr float BLOW_PROB = 0.10;   // s DE TOLERÂNCIA SEM A SETTING blowProb
+    static const int BREATH_TIMEOUT  = 25000;  // ms QUE O TESTE ESPERA PELO PRIMEIRO SOPRO
     float blowProb = 0.00;
     bool debug     = false;
     bool streaming = false;
     Blower<Pressure> blower;
-       
+
     Pressure(Parent* dev):
         device(dev),
         blower(this){}
 
     void setup(){
-        blowProb  = device->settings.template get<float>("blowProb");
-        streaming = device->settings.isEnabled("presstream"); 
-        
+        streaming = device->settings.isEnabled("presstream");
+
         if(!debug)
             scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN, true);  // FASTPROCESSOR: 1US POR PULSO DE CLOCK
 
-        if(blowProb == 0.0)
-            blowProb = 0.10;
-        
-        blower.setTolerance(blowProb);
+        setBlowProb(device->settings.template get<float>("blowProb"));
         tare();
+    }
+
+    // TOLERÂNCIA DO SOPRO (s SEM SOPRO ANTES DE CORTAR): NO BOOT E NA HORA PELO CF:blowProb$X!
+    void setBlowProb(const float value){
+        blowProb = (value > 0) ? value : BLOW_PROB;
+        blower.setTolerance(blowProb);
     }
 
     void stream(){
@@ -135,7 +139,7 @@ template <typename Parent> class Pressure{
     bool getFirstBreath(){
         const unsigned long startTime = Time::get();
     
-        while(!blower.state && Time::get() - startTime < 25000)
+        while(!blower.state && Time::get() - startTime < BREATH_TIMEOUT)
             blower.handle();
         
         if(blower.state)

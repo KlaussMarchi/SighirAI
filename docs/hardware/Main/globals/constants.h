@@ -46,6 +46,7 @@
 #define BG_COLOR 0x18e3
 #define DARK_GREY  0x2104
 #define LIGHT_GREY 0xc5d5
+#define SOFT_RED   0xd186
 
 #define EEPROM_FAIL 1
 #define SENSOR_FAIL 2

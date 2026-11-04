@@ -16,6 +16,8 @@ template <typename Parent> class Test{
     Parent* device;
 
   public:
+    static const int BLOW_TIME     = 3000;   // ms DE SOPRO DEPOIS DO PRIMEIRO, COM O BIPE
+    static const int BLOW_MIN_TIME = 1800;   // ms: O SOPRO QUE CAI ANTES DISSO É INCOMPLETO
     TestScreens<Parent> screens;
     Randomic<Parent> randomic;
     Postpone<Parent> postpone;
@@ -26,6 +28,7 @@ template <typename Parent> class Test{
     bool active = false;
     bool had_alcohol;
     int  last_analog;
+    int  blowTime = 0;   // ms DO ÚLTIMO SOPRO (ATÉ CAIR OU ATÉ BLOW_TIME)
     float last_alcohol;
     bool alcohol_debug;
     bool done;
@@ -197,19 +200,24 @@ template <typename Parent> class Test{
         display.sound.badBeep();
     }
 
-    // SOPRO DE 3 S DO TESTE (BRILHO, BEEP E LEITURAS), USADO TAMBÉM PELO AUTODIAGNÓSTICO
+    // SOPRO DE 3 S DO TESTE (BRILHO, BEEP E LEITURAS)
     byte blow(){
         device->display.brightness.update(50);
         device->sensors.pressure.tare(true);
         screens.blow();
+        return breathe();
+    }
+
+    // DETECÇÃO DO SOPRO DO TESTE, A MESMA NO AUTODIAGNÓSTICO: PAROU ANTES DE BLOW_MIN_TIME É INCOMPLETO
+    byte breathe(){
+        blowTime = 0;
 
         if(!device->sensors.pressure.getFirstBreath())
             return BLOW_NONE;
 
         const unsigned long startTime = Time::get();
-        int blowTime = 0;
 
-        while(blowTime < 3000){
+        while(blowTime < BLOW_TIME){
             const int analog = device->sensors.alcohol.smooth();
 
             if(active)   // NO AUTODIAGNÓSTICO A CURVA DO ÚLTIMO TESTE (ROTA DO ÁLCOOL) FICA INTACTA
@@ -219,7 +227,7 @@ template <typename Parent> class Test{
             const bool blowing = device->sensors.pressure.blower.get();
             blowTime = (Time::get() - startTime);
 
-            if(!blowing && blowTime <= 1800)
+            if(!blowing && blowTime <= BLOW_MIN_TIME)
                 return BLOW_CUT;
         }
 
